@@ -1,0 +1,30 @@
+<RCC>
+    <qresource prefix="/icons">
+        <!-- Node creation icons -->
+        <file alias="node-add">assets/icons/raw/plus-square.svg</file>
+        <file alias="node-input">assets/icons/raw/arrow-down-circle.svg</file>
+        <file alias="node-output">assets/icons/raw/arrow-up-circle.svg</file>
+        <file alias="node-processor">assets/icons/raw/cpu.svg</file>
+        
+        <!-- Edge/Connection icons -->
+        <file alias="edge-add">assets/icons/raw/git-branch.svg</file>
+        <file alias="connection">assets/icons/raw/arrow-left-right.svg</file>
+        
+        <!-- Edit operations -->
+        <file alias="delete">assets/icons/raw/trash-2.svg</file>
+        <file alias="select">assets/icons/raw/mouse-pointer.svg</file>
+        <file alias="move">assets/icons/raw/move.svg</file>
+        
+        <!-- View operations -->
+        <file alias="zoom-in">assets/icons/raw/zoom-in.svg</file>
+        <file alias="zoom-out">assets/icons/raw/zoom-out.svg</file>
+        <file alias="zoom-fit">assets/icons/raw/maximize-2.svg</file>
+        <file alias="zoom-reset">assets/icons/raw/minimize-2.svg</file>
+        
+        <!-- Utility icons -->
+        <file alias="settings">assets/icons/raw/settings.svg</file>
+        <file alias="help">assets/icons/raw/help-circle.svg</file>
+        <file alias="save">assets/icons/raw/save.svg</file>
+        <file alias="load">assets/icons/raw/folder-open.svg</file>
+    </qresource>
+</RCC>
