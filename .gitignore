@@ -1,0 +1,75 @@
+# Build directories
+build*/
+build_*/
+_build*/
+
+# Qt Creator
+CMakeLists.txt.user
+*.pro.user*
+*.vcxproj.user
+
+# Visual Studio
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.dir/
+Debug/
+Release/
+x64/
+
+# Generated files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.manifest
+
+# Qt MOC/RCC/UIC generated files
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# Runtime files
+*.xml
+*.log
+autosave*.xml
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+
+# Dependencies downloaded by CMake
+_deps/
+*/_deps/
+
+# External archives
+graphviz*/
+
+# Archive files
+*.tar.gz
+*.zip
+*.7z
+
+# Test files
+test_*.xml
+stress_*.xml
+
+# Documentation temp files
+*.md.bak
+compendium.txt
+current_status_*.md
+
+# Cleanup scripts
+cleanup_repo.sh
+remove_claude_coauthor.sh
