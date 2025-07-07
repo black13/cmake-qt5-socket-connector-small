@@ -10,13 +10,16 @@ Scene::Scene(QObject* parent)
     setSceneRect(-1000, -1000, 2000, 2000);
 }
 
-// QElectroTech-style QHash implementation
+// QElectroTech-style QHash implementation with SIMPLE_FIX logging
 void Scene::addNode(Node* node)
 {
     if (!node) return;
     
-    m_nodes.insert(node->getId(), node);
+    QUuid nodeId = node->getId();
+    m_nodes.insert(nodeId, node);
     addItem(node);
+    
+    qDebug() << "SIMPLE_FIX: Added node" << nodeId.toString().left(8) << "to hash and Qt scene";
     
     // Notify observers of node addition
     notifyNodeAdded(*node);
@@ -29,8 +32,11 @@ void Scene::addEdge(Edge* edge)
 {
     if (!edge) return;
     
-    m_edges.insert(edge->getId(), edge);
+    QUuid edgeId = edge->getId();
+    m_edges.insert(edgeId, edge);
     addItem(edge);
+    
+    qDebug() << "SIMPLE_FIX: Added edge" << edgeId.toString().left(8) << "to hash and Qt scene";
     
     // Notify observers of edge addition
     notifyEdgeAdded(*edge);
@@ -209,21 +215,24 @@ void Scene::deleteSelected()
 
 void Scene::clearGraph()
 {
-    qDebug() << "Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
+    qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
     
-    // 1. Clear QGraphicsItems (calls destructor, removes from scene)
-    QGraphicsScene::clear();
-    
-    // 2. Clear registries to prevent dangling pointers
+    // SIMPLE FIX: Clear registries FIRST to prevent dangling pointers
+    // This prevents hash lookups during Qt's destruction sequence
+    qDebug() << "SIMPLE_FIX: Clearing hash registries first";
     m_nodes.clear();
     m_edges.clear();
     m_sockets.clear();  // Clear deprecated socket registry too
     
-    // 3. Notify observers of graph clearing
+    // Then clear Qt graphics scene (safe now - no hash references)
+    qDebug() << "SIMPLE_FIX: Clearing Qt scene items";
+    QGraphicsScene::clear();
+    
+    // Notify observers of graph clearing
     notifyGraphCleared();
     
     // Emit signal for UI updates
     emit sceneChanged();
     
-    qDebug() << "✓ Graph cleared - registries reset";
+    qDebug() << "SIMPLE_FIX: ✓ Graph cleared safely - hash cleared before Qt cleanup";
 }
