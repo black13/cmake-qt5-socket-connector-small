@@ -105,11 +105,11 @@ def main():
     
     # Generate files of increasing sizes
     test_sizes = [
-        (10, "test_tiny.xml"),      # Very small for quick testing
-        (100, "test_small.xml"),    # Small test
-        (500, "test_medium.xml"),   # Medium test  
-        (1000, "test_large.xml"),   # Large test
-        (5000, "test_stress.xml")   # Stress test
+        (10, "tests_tiny.xml"),     # Very small for quick testing
+        (100, "tests_small.xml"),   # Small test
+        (500, "tests_medium.xml"),  # Medium test  
+        (1000, "tests_large.xml"),  # Large test
+        (5000, "tests_stress.xml")  # Stress test
     ]
     
     for num_nodes, filename in test_sizes:
@@ -118,11 +118,11 @@ def main():
     print(f"\n✅ Generated {len(test_sizes)} test files")
     print("\n📖 Usage:")
     print("   ./NodeGraph                    # Default nodes + autosave")
-    print("   ./NodeGraph test_tiny.xml      # Load tiny test file") 
-    print("   ./NodeGraph test_small.xml     # Load small test file")
-    print("   ./NodeGraph test_medium.xml    # Load medium test file")
-    print("   ./NodeGraph test_large.xml     # Load large test file")
-    print("   ./NodeGraph test_stress.xml    # Load stress test file")
+    print("   ./NodeGraph tests_tiny.xml     # Load tiny test file") 
+    print("   ./NodeGraph tests_small.xml    # Load small test file")
+    print("   ./NodeGraph tests_medium.xml   # Load medium test file")
+    print("   ./NodeGraph tests_large.xml    # Load large test file")
+    print("   ./NodeGraph tests_stress.xml   # Load stress test file")
 
 if __name__ == "__main__":
     main()
