@@ -277,15 +277,21 @@ bool Window::loadGraph(const QString& filename)
         setWindowTitle(QString("Node Editor - %1").arg(QFileInfo(filename).fileName()));
         
         qDebug() << "✓ Graph loaded successfully in" << elapsed << "ms";
-        qDebug() << "  Nodes:" << m_scene->getNodes().size();
-        qDebug() << "  Edges:" << m_scene->getEdges().size();
+        
+        // DEBUGGING: Detailed count verification
+        int nodeCount = m_scene->getNodes().size();
+        int edgeCount = m_scene->getEdges().size();
+        qDebug() << "DEBUG: Hash container sizes:";
+        qDebug() << "  m_scene->getNodes().size() =" << nodeCount;
+        qDebug() << "  m_scene->getEdges().size() =" << edgeCount;
+        qDebug() << "  Qt scene items count:" << m_scene->items().size();
         qDebug() << "  Current file set to:" << m_currentFile;
         
         QMessageBox::information(this, "Load Complete", 
             QString("Graph loaded successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\n\nCtrl+S will now save to this file.")
             .arg(QFileInfo(filename).fileName())
-            .arg(m_scene->getNodes().size())
-            .arg(m_scene->getEdges().size())
+            .arg(nodeCount)
+            .arg(edgeCount)
             .arg(elapsed));
         return true;
     } else {

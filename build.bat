@@ -214,5 +214,90 @@ if /i "%BUILD_TYPE%"=="both" (
     echo Solution file: build_Debug\NodeGraph.sln
 )
 echo ===============================================
+
+:: -------- 6: Update Visual Studio .user file with test XML arguments
+echo === Updating Visual Studio user settings ===
+call :UPDATE_USER_FILE
+
 echo.
 pause
+goto :EOF
+
+:: ================================================================
+:: Function to update .vcxproj.user file with XML test arguments
+:: ================================================================
+:UPDATE_USER_FILE
+set "USER_FILE_DEBUG=build_Debug\NodeGraph.vcxproj.user"
+set "USER_FILE_RELEASE=build_Release\NodeGraph.vcxproj.user"
+
+:: Find the best test file to use as default
+if exist "tests_medium.xml" (
+    set "DEFAULT_XML=tests_medium.xml"
+    set "DEFAULT_DESC=500 nodes - good for testing Simple Fix"
+) else if exist "tests_small.xml" (
+    set "DEFAULT_XML=tests_small.xml"
+    set "DEFAULT_DESC=100 nodes - basic stress test"
+) else if exist "test_option_c_chain.xml" (
+    set "DEFAULT_XML=test_option_c_chain.xml"
+    set "DEFAULT_DESC=4 nodes - chain test"
+) else (
+    echo No suitable XML test files found - skipping user file update
+    goto :EOF
+)
+
+echo Setting up Visual Studio debugging with: %DEFAULT_XML%
+echo Description: %DEFAULT_DESC%
+echo.
+
+:: Update Debug configuration user file
+if exist "build_Debug" (
+    echo Creating/updating %USER_FILE_DEBUG%
+    > "%USER_FILE_DEBUG%" (
+        echo ^<?xml version="1.0" encoding="utf-8"?^>
+        echo ^<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"^>
+        echo   ^<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"^>
+        echo     ^<LocalDebuggerCommand^>$(ProjectDir)$(OutDir)NodeGraph.exe^</LocalDebuggerCommand^>
+        echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
+        echo     ^<LocalDebuggerWorkingDirectory^>$(ProjectDir)^</LocalDebuggerWorkingDirectory^>
+        echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
+        echo   ^</PropertyGroup^>
+        echo ^</Project^>
+    )
+    echo ✓ Debug configuration ready for F5 debugging with %DEFAULT_XML%
+)
+
+:: Update Release configuration user file
+if exist "build_Release" (
+    echo Creating/updating %USER_FILE_RELEASE%
+    > "%USER_FILE_RELEASE%" (
+        echo ^<?xml version="1.0" encoding="utf-8"?^>
+        echo ^<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"^>
+        echo   ^<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'"^>
+        echo     ^<LocalDebuggerCommand^>$(ProjectDir)$(OutDir)NodeGraph.exe^</LocalDebuggerCommand^>
+        echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
+        echo     ^<LocalDebuggerWorkingDirectory^>$(ProjectDir)^</LocalDebuggerWorkingDirectory^>
+        echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
+        echo   ^</PropertyGroup^>
+        echo ^</Project^>
+        echo.
+    )
+    echo ✓ Release configuration ready for F5 debugging with %DEFAULT_XML%
+)
+
+echo.
+echo === Available test files for manual testing ===
+for %%f in (tests_*.xml test_*.xml) do (
+    for %%s in ("%%f") do echo   %%f - %%~zs bytes
+)
+echo.
+echo 💡 To test different files:
+echo    1. Change LocalDebuggerCommandArguments in the .vcxproj.user file
+echo    2. Or run manually: NodeGraph.exe test_stress.xml
+echo    3. Or drag and drop XML files onto NodeGraph.exe
+echo.
+echo 🎯 Testing Strategy for Simple Fix:
+echo    • tests_tiny.xml (10 nodes) - Quick functionality test
+echo    • tests_medium.xml (500 nodes) - Moderate stress test  
+echo    • tests_stress.xml (5000 nodes) - Full ownership fix validation
+echo.
+goto :EOF
