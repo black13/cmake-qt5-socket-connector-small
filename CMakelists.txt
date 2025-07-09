@@ -38,7 +38,7 @@ endif()
 # ─────────────────────────────────────
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test)
 
 # ─────────────────────────────────────
 # Find or build libxml2 for cross-platform XML handling
@@ -134,8 +134,6 @@ set(SOURCES
     # Resources
     icons.qrc
     
-    # Testing system
-    selftest.h     selftest.cpp
     
     # Observer pattern implementation
     graph_observer.h    graph_observer.cpp
@@ -143,27 +141,69 @@ set(SOURCES
 )
 
 # ─────────────────────────────────────
-# 8.  Executable target
+# 8.  Main executable target
 # ─────────────────────────────────────
 add_executable(NodeGraph WIN32 ${SOURCES})
 
+# ─────────────────────────────────────
+# 9.  Test executable target
+# ─────────────────────────────────────
+set(TEST_SOURCES
+    tst_main.h
+    tst_main.cpp
+    
+    # Shared source files needed by tests
+    node.h         node.cpp
+    socket.h       socket.cpp
+    edge.h         edge.cpp
+    node_registry.h node_registry.cpp
+    graph_factory.h graph_factory.cpp
+    scene.h        scene.cpp
+    graph_observer.h    graph_observer.cpp
+    xml_autosave_observer.h xml_autosave_observer.cpp
+)
+
+add_executable(NodeGraphTests ${TEST_SOURCES})
+
 # Link libraries based on how libxml2 was found
 if(LIBXML2_FOUND)
-    # System libxml2
+    # System libxml2 - Main application
     target_link_libraries(NodeGraph
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
+        Qt5::Test
         ${LIBXML2_LIBRARIES}
     )
     target_include_directories(NodeGraph PRIVATE ${LIBXML2_INCLUDE_DIRS})
     target_compile_options(NodeGraph PRIVATE ${LIBXML2_CFLAGS_OTHER})
+    
+    # System libxml2 - Test application
+    target_link_libraries(NodeGraphTests
+        Qt5::Core
+        Qt5::Widgets
+        Qt5::Gui
+        Qt5::Test
+        ${LIBXML2_LIBRARIES}
+    )
+    target_include_directories(NodeGraphTests PRIVATE ${LIBXML2_INCLUDE_DIRS})
+    target_compile_options(NodeGraphTests PRIVATE ${LIBXML2_CFLAGS_OTHER})
 else()
-    # FetchContent libxml2
+    # FetchContent libxml2 - Main application
     target_link_libraries(NodeGraph
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
+        Qt5::Test
+        LibXml2::LibXml2
+    )
+    
+    # FetchContent libxml2 - Test application
+    target_link_libraries(NodeGraphTests
+        Qt5::Core
+        Qt5::Widgets
+        Qt5::Gui
+        Qt5::Test
         LibXml2::LibXml2
     )
 endif()
@@ -172,6 +212,7 @@ endif()
 # 9.  VS / Windows extras
 # ─────────────────────────────────────
 if(WIN32)
+    # Main application settings
     set_target_properties(NodeGraph PROPERTIES
         WIN32_EXECUTABLE TRUE
         VS_DPI_AWARE "PerMonitor"
@@ -183,6 +224,17 @@ if(WIN32)
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
+    
+    # Test application settings  
+    set_target_properties(NodeGraphTests PROPERTIES
+        WIN32_EXECUTABLE FALSE
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        VS_DEBUGGER_ENVIRONMENT
+            "PATH=E:/Qt/5.15.16/Debug_x64/bin;E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+        VS_DEBUGGER_WORKING_DIRECTORY
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                  PROPERTY VS_STARTUP_PROJECT NodeGraph)
 endif()
@@ -191,7 +243,7 @@ endif()
 # 10. Install rules (optional on Win)
 # ─────────────────────────────────────
 if(WIN32)
-    install(TARGETS NodeGraph RUNTIME DESTINATION .)
+    install(TARGETS NodeGraph NodeGraphTests RUNTIME DESTINATION .)
     install(FILES
         $<TARGET_FILE:Qt5::Core>
         $<TARGET_FILE:Qt5::Widgets>

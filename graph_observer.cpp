@@ -34,7 +34,7 @@ void GraphSubject::detach(GraphObserver* observer)
 void GraphSubject::notifyNodeAdded(const Node& node)
 {
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node added:" 
-             << node.getId().toString().left(8);
+             << node.getId().toString(QUuid::WithoutBraces).left(8);
     
     for (GraphObserver* observer : m_observers) {
         if (observer) {
@@ -46,7 +46,7 @@ void GraphSubject::notifyNodeAdded(const Node& node)
 void GraphSubject::notifyNodeRemoved(const QUuid& nodeId)
 {
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node removed:" 
-             << nodeId.toString().left(8);
+             << nodeId.toString(QUuid::WithoutBraces).left(8);
     
     for (GraphObserver* observer : m_observers) {
         if (observer) {
@@ -58,7 +58,7 @@ void GraphSubject::notifyNodeRemoved(const QUuid& nodeId)
 void GraphSubject::notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos)
 {
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node moved:" 
-             << nodeId.toString().left(8) << "from" << oldPos << "to" << newPos;
+             << nodeId.toString(QUuid::WithoutBraces).left(8) << "from" << oldPos << "to" << newPos;
     
     for (GraphObserver* observer : m_observers) {
         if (observer) {
@@ -70,7 +70,7 @@ void GraphSubject::notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF 
 void GraphSubject::notifyEdgeAdded(const Edge& edge)
 {
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of edge added:" 
-             << edge.getId().toString().left(8);
+             << edge.getId().toString(QUuid::WithoutBraces).left(8);
     
     for (GraphObserver* observer : m_observers) {
         if (observer) {
@@ -82,7 +82,7 @@ void GraphSubject::notifyEdgeAdded(const Edge& edge)
 void GraphSubject::notifyEdgeRemoved(const QUuid& edgeId)
 {
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of edge removed:" 
-             << edgeId.toString().left(8);
+             << edgeId.toString(QUuid::WithoutBraces).left(8);
     
     for (GraphObserver* observer : m_observers) {
         if (observer) {

@@ -18,7 +18,6 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "node_registry.h"
-#include "selftest.h"
 
 void setupLogging()
 {
@@ -84,15 +83,6 @@ int main(int argc, char *argv[])
                                       "file");
     parser.addOption(loadFileOption);
     
-    // Add self-test option
-    QCommandLineOption selfTestOption(QStringList() << "t" << "test",
-                                      "Run self-test suite and exit");
-    parser.addOption(selfTestOption);
-    
-    // Add headless test option (avoid -h conflict with help)
-    QCommandLineOption headlessTestOption("headless",
-                                          "Run tests in headless mode without GUI");
-    parser.addOption(headlessTestOption);
     
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
@@ -104,26 +94,11 @@ int main(int argc, char *argv[])
     qDebug() << "=== Command Line Parsing ===";
     qDebug() << "All arguments received:" << app.arguments();
     qDebug() << "Working directory:" << QDir::currentPath();
-    qDebug() << "Test option (--test/-t) set:" << parser.isSet(selfTestOption);
-    qDebug() << "Headless option (--headless) set:" << parser.isSet(headlessTestOption);
     qDebug() << "Load option (--load/-l) set:" << parser.isSet(loadFileOption);
     if (parser.isSet(loadFileOption)) {
         qDebug() << "Load option value:" << parser.value(loadFileOption);
     }
     qDebug() << "Positional arguments:" << parser.positionalArguments();
-    
-    // Handle self-test mode
-    if (parser.isSet(selfTestOption)) {
-        qDebug() << "=== Starting Self-Test Suite ===";
-        
-        if (parser.isSet(headlessTestOption)) {
-            qDebug() << "Running in headless mode";
-            return SelfTest::runAll(); // No GUI
-        } else {
-            qDebug() << "Running with GUI support";
-            return SelfTest::runAll(&app); // With GUI
-        }
-    }
     
     // Create main window
     Window window;
@@ -260,9 +235,9 @@ int main(int argc, char *argv[])
         
         if (sourceNode && processorNode && sinkNode) {
             qDebug() << "✓ Successfully created variable socket nodes via XML-first approach";
-            qDebug() << "  - Source node:" << sourceNode->getId().toString().left(8) << "sockets:" << sourceNode->getSocketCount();
-            qDebug() << "  - Processor node:" << processorNode->getId().toString().left(8) << "sockets:" << processorNode->getSocketCount();
-            qDebug() << "  - Sink node:" << sinkNode->getId().toString().left(8) << "sockets:" << sinkNode->getSocketCount();
+            qDebug() << "  - Source node:" << sourceNode->getId().toString(QUuid::WithoutBraces).left(8) << "sockets:" << sourceNode->getSocketCount();
+            qDebug() << "  - Processor node:" << processorNode->getId().toString(QUuid::WithoutBraces).left(8) << "sockets:" << processorNode->getSocketCount();
+            qDebug() << "  - Sink node:" << sinkNode->getId().toString(QUuid::WithoutBraces).left(8) << "sockets:" << sinkNode->getSocketCount();
             
             // Test XML-first edge creation with variable sockets
             qDebug() << "=== XML-First Variable Socket Edge Creation ===";
@@ -274,8 +249,8 @@ int main(int argc, char *argv[])
             
             if (edge1 && edge2) {
                 qDebug() << "✓ Created test edges via XML-first approach";
-                qDebug() << "  - Edge 1 ID:" << edge1->getId().toString().left(8);
-                qDebug() << "  - Edge 2 ID:" << edge2->getId().toString().left(8);
+                qDebug() << "  - Edge 1 ID:" << edge1->getId().toString(QUuid::WithoutBraces).left(8);
+                qDebug() << "  - Edge 2 ID:" << edge2->getId().toString(QUuid::WithoutBraces).left(8);
                 
                 // Resolve connections for test edges
                 QVector<Edge*> testEdges = {edge1, edge2};

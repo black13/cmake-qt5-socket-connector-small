@@ -19,7 +19,7 @@ void Scene::addNode(Node* node)
     m_nodes.insert(nodeId, node);
     addItem(node);
     
-    qDebug() << "SIMPLE_FIX: Added node" << nodeId.toString().left(8) << "to hash and Qt scene";
+    qDebug() << "+" << nodeId.toString(QUuid::WithoutBraces).left(8);
     
     // Notify observers of node addition
     notifyNodeAdded(*node);
@@ -36,7 +36,7 @@ void Scene::addEdge(Edge* edge)
     m_edges.insert(edgeId, edge);
     addItem(edge);
     
-    qDebug() << "SIMPLE_FIX: Added edge" << edgeId.toString().left(8) << "to hash and Qt scene";
+    qDebug() << "+" << edgeId.toString(QUuid::WithoutBraces).left(8);
     
     // Notify observers of edge addition
     notifyEdgeAdded(*edge);
@@ -115,11 +115,11 @@ void Scene::deleteNode(const QUuid& nodeId)
 {
     Node* node = getNode(nodeId);
     if (!node) {
-        qWarning() << "Scene::deleteNode - node not found:" << nodeId.toString().left(8);
+        qWarning() << "Scene::deleteNode - node not found:" << nodeId.toString(QUuid::WithoutBraces).left(8);
         return;
     }
     
-    qDebug() << "Deleting node:" << nodeId.toString().left(8);
+    qDebug() << "Deleting node:" << nodeId.toString(QUuid::WithoutBraces).left(8);
     
     // First, find and delete all edges connected to this node
     QList<QUuid> edgesToDelete;
@@ -154,11 +154,11 @@ void Scene::deleteEdge(const QUuid& edgeId)
 {
     Edge* edge = getEdge(edgeId);
     if (!edge) {
-        qWarning() << "Scene::deleteEdge - edge not found:" << edgeId.toString().left(8);
+        qWarning() << "Scene::deleteEdge - edge not found:" << edgeId.toString(QUuid::WithoutBraces).left(8);
         return;
     }
     
-    qDebug() << "Deleting edge:" << edgeId.toString().left(8);
+    qDebug() << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
     
     // Remove from collection and scene
     m_edges.remove(edgeId);
