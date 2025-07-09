@@ -73,7 +73,7 @@ void XmlAutosaveObserver::onNodeAdded(const Node& node)
 
 void XmlAutosaveObserver::onNodeRemoved(const QUuid& nodeId)
 {
-    qDebug() << "🔔 OBSERVER: Node removed" << nodeId.toString().left(8) << "- Triggering autosave";
+    qDebug() << "🔔 OBSERVER: Node removed" << nodeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
     scheduleAutosave();
 }
 
@@ -93,7 +93,7 @@ void XmlAutosaveObserver::onEdgeAdded(const Edge& edge)
 
 void XmlAutosaveObserver::onEdgeRemoved(const QUuid& edgeId)
 {
-    qDebug() << "🔔 OBSERVER: Edge removed" << edgeId.toString().left(8) << "- Triggering autosave";
+    qDebug() << "🔔 OBSERVER: Edge removed" << edgeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
     scheduleAutosave();
 }
 
