@@ -37,11 +37,13 @@ def generate_graph(num_nodes, filename):
         node_type = random.choice(["IN", "OUT"])
         
         if node_type == "IN":
-            inputs = random.randint(0, 3)
-            outputs = random.randint(1, 3)
-        else:  # OUT
+            # IN nodes should have more inputs than outputs (consume data)
             inputs = random.randint(1, 3)
-            outputs = random.randint(0, 3)
+            outputs = random.randint(0, 2)
+        else:  # OUT
+            # OUT nodes should have more outputs than inputs (produce data)
+            inputs = random.randint(0, 2)
+            outputs = random.randint(1, 3)
         
         # Store node info for edge generation
         nodes.append({
@@ -73,9 +75,10 @@ def generate_graph(num_nodes, filename):
         from_node = random.choice(from_nodes)
         to_node = random.choice(to_nodes)
         
-        # No self-loops
+        # No self-loops and ensure valid socket connection
         if from_node['id'] != to_node['id']:
             edge_id = "{" + str(uuid.uuid4()) + "}"
+            # Use valid socket indices (0-based indexing)
             from_socket_idx = random.randint(0, from_node['outputs'] - 1)
             to_socket_idx = random.randint(0, to_node['inputs'] - 1)
             
