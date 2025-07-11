@@ -7,13 +7,19 @@
 // GraphSubject Implementation
 // ============================================================================
 
+// Initialize static batch depth
+int GraphSubject::s_batchDepth = 0;
+
 GraphSubject::~GraphSubject()
 {
-    // Detach all observers to prevent dangling pointers
-    for (GraphObserver* observer : m_observers) {
-        observer = nullptr; // Don't delete - observers manage their own lifecycle
-    }
+    // CRITICAL FIX: Clear observer container properly to prevent dangling pointers
+    // The old code was setting local pointer to nullptr, not the container elements!
+    qDebug() << "GraphSubject: Destroying subject with" << m_observers.size() << "observers";
+    
+    // Simply clear the container - observers manage their own lifecycle
     m_observers.clear();
+    
+    qDebug() << "GraphSubject: ✓ Observer container cleared safely";
 }
 
 void GraphSubject::attach(GraphObserver* observer)
@@ -33,6 +39,9 @@ void GraphSubject::detach(GraphObserver* observer)
 
 void GraphSubject::notifyNodeAdded(const Node& node)
 {
+    // OPTIMIZATION: Skip notifications during batch operations
+    if (isInBatch()) return;
+    
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node added:" 
              << node.getId().toString(QUuid::WithoutBraces).left(8);
     
@@ -45,6 +54,9 @@ void GraphSubject::notifyNodeAdded(const Node& node)
 
 void GraphSubject::notifyNodeRemoved(const QUuid& nodeId)
 {
+    // OPTIMIZATION: Skip notifications during batch operations
+    if (isInBatch()) return;
+    
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node removed:" 
              << nodeId.toString(QUuid::WithoutBraces).left(8);
     
@@ -57,6 +69,9 @@ void GraphSubject::notifyNodeRemoved(const QUuid& nodeId)
 
 void GraphSubject::notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos)
 {
+    // OPTIMIZATION: Skip notifications during batch operations
+    if (isInBatch()) return;
+    
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node moved:" 
              << nodeId.toString(QUuid::WithoutBraces).left(8) << "from" << oldPos << "to" << newPos;
     
@@ -69,6 +84,9 @@ void GraphSubject::notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF 
 
 void GraphSubject::notifyEdgeAdded(const Edge& edge)
 {
+    // OPTIMIZATION: Skip notifications during batch operations
+    if (isInBatch()) return;
+    
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of edge added:" 
              << edge.getId().toString(QUuid::WithoutBraces).left(8);
     
@@ -81,6 +99,9 @@ void GraphSubject::notifyEdgeAdded(const Edge& edge)
 
 void GraphSubject::notifyEdgeRemoved(const QUuid& edgeId)
 {
+    // OPTIMIZATION: Skip notifications during batch operations
+    if (isInBatch()) return;
+    
     qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of edge removed:" 
              << edgeId.toString(QUuid::WithoutBraces).left(8);
     
@@ -120,6 +141,28 @@ void GraphSubject::notifyGraphSaved(const QString& filename)
     for (GraphObserver* observer : m_observers) {
         if (observer) {
             observer->onGraphSaved(filename);
+        }
+    }
+}
+
+// ============================================================================
+// Batch Mode Implementation
+// ============================================================================
+
+void GraphSubject::beginBatch()
+{
+    ++s_batchDepth;
+    qDebug() << "GraphSubject: Begin batch mode (depth:" << s_batchDepth << ")";
+}
+
+void GraphSubject::endBatch()
+{
+    if (s_batchDepth > 0) {
+        --s_batchDepth;
+        qDebug() << "GraphSubject: End batch mode (depth:" << s_batchDepth << ")";
+        
+        if (s_batchDepth == 0) {
+            qDebug() << "GraphSubject: Batch complete - observers can resume";
         }
     }
 }

@@ -49,6 +49,11 @@ public:
     void attach(GraphObserver* observer);
     void detach(GraphObserver* observer);
     
+    // Batch mode for bulk operations (prevents observer storm)
+    static void beginBatch();
+    static void endBatch();
+    static bool isInBatch() { return s_batchDepth > 0; }
+    
 protected:
     // Notification helpers for subclasses
     void notifyNodeAdded(const Node& node);
@@ -62,4 +67,7 @@ protected:
     
 private:
     QSet<GraphObserver*> m_observers;
+    
+    // Static batch control
+    static int s_batchDepth;
 };

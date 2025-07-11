@@ -2,6 +2,7 @@
 #include "scene.h"
 #include "node.h"
 #include "edge.h"
+#include "graph_observer.h"
 #include <QTimer>
 #include <QDebug>
 #include <QElapsedTimer>
@@ -106,6 +107,12 @@ void XmlAutosaveObserver::onGraphCleared()
 void XmlAutosaveObserver::scheduleAutosave()
 {
     if (!m_enabled) return;
+    
+    // OPTIMIZATION: Skip autosave scheduling during batch operations
+    if (GraphSubject::isInBatch()) {
+        qDebug().noquote() << "[AUTOSAVE] Skipping during batch mode";
+        return;
+    }
     
     m_pendingChanges = true;
     qDebug().noquote() << "[AUTOSAVE] markDirty() called. Timer started:" 

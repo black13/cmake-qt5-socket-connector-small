@@ -33,6 +33,15 @@ public:
         Output
     };
     
+    // Helper for debugging
+    static const char* roleToString(Role role) {
+        switch (role) {
+            case Input: return "INPUT";
+            case Output: return "OUTPUT";
+            default: return "UNKNOWN";
+        }
+    }
+    
     Socket(Role role, Node* parentNode, int index);
     
     // Core identity - NO UUID, just index within parent node
