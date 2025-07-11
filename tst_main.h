@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QtTest>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <libxml/tree.h>
 #include "scene.h"
 #include "graph_factory.h"
@@ -31,6 +32,13 @@ private slots:
     void testFactoryNodeCreation();
     void testXmlLoadSave();
     void testCompleteWorkflow();
+    
+    // XML Performance test - data-driven
+    void testXmlPerformance();
+    
+    // XML Dynamic updates
+    void testNodePositionToXml();
+    void testEdgeModificationToXml();
 
 private:
     // Helper methods
@@ -38,6 +46,11 @@ private:
     bool setupEnvironment();
     void cleanupEnvironment();
     bool validateSceneSetup();
+    
+    // Performance test helpers
+    void performXmlLoadTest(const QString& filename, const QString& testName);
+    qint64 measureXmlLoadTime(const QString& filename);
+    void validateLoadedGraph(int expectedNodes, int expectedEdges);
     
     // Test infrastructure
     QApplication* m_app;

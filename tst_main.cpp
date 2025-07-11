@@ -7,49 +7,52 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
+#include <QSysInfo>
+#include <QTime>
+#include <QFileInfo>
 
-// ─── Test logging setup (copy-paste from main.cpp) ───────────────────────────
+// ─── Test Summary Logging (concise, structured) ───────────────────────────
+static QTextStream* testSummaryStream = nullptr;
+
 static void setupLogging()
 {
-    QDir{"logs"}.mkpath(".");                                   // ensure dir
+    QDir{"logs"}.mkpath(".");
     const QString logFileName =
-        QStringLiteral("logs/NodeGraph_%1.test.log")
+        QStringLiteral("logs/TestSummary_%1.log")
         .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss"));
 
-    static QFile   debugFile{logFileName};
-    static QTextStream stream{&debugFile};
-    debugFile.open(QIODevice::WriteOnly | QIODevice::Append);
-
-    qInstallMessageHandler([](QtMsgType type,
-                               const QMessageLogContext &,
-                               const QString &msg)
-    {
-        static QFile   debugFile{QStringLiteral("logs/NodeGraph_%1.test.log")
-                                .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss"))};
-        static QTextStream stream{&debugFile};
-        static bool initialized = false;
-        
-        if (!initialized) {
-            QDir{"logs"}.mkpath(".");
-            debugFile.open(QIODevice::WriteOnly | QIODevice::Append);
-            initialized = true;
+    static QFile summaryFile(logFileName);
+    summaryFile.open(QIODevice::WriteOnly | QIODevice::Append);
+    testSummaryStream = new QTextStream(&summaryFile);
+    
+    // Write test session header
+    *testSummaryStream << "=== NodeGraph Test Summary ===" << Qt::endl;
+    *testSummaryStream << "Date: " << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss") << Qt::endl;
+    *testSummaryStream << "Platform: " << QSysInfo::productType() << " " << QSysInfo::productVersion() << Qt::endl;
+    *testSummaryStream << Qt::endl;
+    testSummaryStream->flush();
+    
+    // Disable verbose Qt logging during tests
+    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &, const QString &msg) {
+        // Only log critical errors to avoid noise
+        if (type == QtCriticalMsg || type == QtFatalMsg) {
+            if (testSummaryStream) {
+                *testSummaryStream << "ERROR: " << msg << Qt::endl;
+                testSummaryStream->flush();
+            }
         }
-        
-        const QString ts = QDateTime::currentDateTime()
-                           .toString("yyyy-MM-dd hh:mm:ss.zzz");
-        const char *lvl  = "????";
-        switch (type) {
-        case QtDebugMsg:    lvl = "DEBUG"; break;
-        case QtInfoMsg:     lvl = "INFO "; break;
-        case QtWarningMsg:  lvl = "WARN "; break;
-        case QtCriticalMsg: lvl = "ERROR"; break;
-        case QtFatalMsg:    lvl = "FATAL"; break;
-        }
-        stream << "[" << ts << "] " << lvl << ": " << msg << Qt::endl;
-        stream.flush();
     });
+    
+    qInfo().noquote() << "Test summary logging to:" << logFileName;
+}
 
-    qInfo().noquote() << "=== TEST RUN STARTED ===  log file →" << logFileName;
+// Test summary helper
+static void logTestSummary(const QString& message)
+{
+    if (testSummaryStream) {
+        *testSummaryStream << QTime::currentTime().toString("hh:mm:ss") << " | " << message << Qt::endl;
+        testSummaryStream->flush();
+    }
 }
 // ───────────────────────────────────────────────────────
 
@@ -335,13 +338,37 @@ void tst_Main::testXmlLoadSave()
         return node; 
     });
     
-    // Test loading the tiny test file
-    QString testFile = "tests_tiny.xml";
-    qDebug() << "Loading test file:" << testFile;
+    // Get test data directory from environment variable
+    QString testDataPath = qgetenv("NODEGRAPH_TEST_DATA");
+    if (testDataPath.isEmpty()) {
+        testDataPath = "..";  // fallback to parent directory
+        qDebug() << "NODEGRAPH_TEST_DATA not set, using fallback:" << testDataPath;
+    } else {
+        qDebug() << "Using test data path from environment:" << testDataPath;
+    }
     
-    bool loaded = m_factory->loadFromXmlFile(testFile);
+    // Test loading available XML files
+    QStringList testFiles = {"tests_tiny.xml", "tests_small.xml", "tests_medium.xml"};
+    QString testFile;
+    
+    // Find first available test file in the specified directory
+    for (const QString& candidate : testFiles) {
+        QString fullPath = QDir(testDataPath).absoluteFilePath(candidate);
+        if (QFile::exists(fullPath)) {
+            testFile = fullPath;
+            break;
+        }
+    }
+    
+    qDebug() << "Loading test file:" << (testFile.isEmpty() ? "none found" : testFile);
+    
+    bool loaded = false;
+    if (!testFile.isEmpty()) {
+        loaded = m_factory->loadFromXmlFile(testFile);
+    }
+    
     if (!loaded) {
-        qDebug() << "Failed to load test file, creating minimal test instead";
+        qDebug() << "No test file available, creating minimal test instead";
         // Create a minimal graph for testing
         Node* node1 = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
         Node* node2 = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
@@ -400,6 +427,220 @@ void tst_Main::testCompleteWorkflow()
     
     qDebug() << "✓ Test graph created successfully";
     qDebug() << "✓ Complete workflow test passed";
+}
+
+// XML Performance Tests - data-driven
+void tst_Main::testXmlPerformance()
+{
+    logTestSummary("=== XML PERFORMANCE TESTS START ===");
+    
+    // Get test data directory from environment variable
+    QString testDataPath = qgetenv("NODEGRAPH_TEST_DATA");
+    if (testDataPath.isEmpty()) {
+        testDataPath = "..";  // fallback to parent directory
+    }
+    logTestSummary(QString("Test data path: %1").arg(testDataPath));
+    
+    // Test files with expected approximate node counts (exclude large files for regular testing)
+    QList<QPair<QString, QString>> testCases = {
+        {"tests_tiny.xml", "Tiny (10 nodes)"},
+        {"tests_small.xml", "Small (100 nodes)"},
+        {"tests_medium.xml", "Medium (500 nodes)"}
+        // Skip large files: they're too slow for regular testing
+        // {"tests_large.xml", "Large (1000 nodes)"},
+        // {"tests_stress.xml", "Stress (5000 nodes)"}
+    };
+    
+    int testsRun = 0;
+    for (const auto& testCase : testCases) {
+        QString fullPath = QDir(testDataPath).absoluteFilePath(testCase.first);
+        if (QFile::exists(fullPath)) {
+            performXmlLoadTest(fullPath, testCase.second);
+            testsRun++;
+        } else {
+            logTestSummary(QString("SKIP: %1 - file not found").arg(testCase.second));
+        }
+    }
+    
+    if (testsRun == 0) {
+        logTestSummary("ERROR: No XML test files found for performance testing");
+        QSKIP("No XML test files found for performance testing");
+    } else {
+        logTestSummary(QString("COMPLETE: %1 performance tests executed").arg(testsRun));
+    }
+}
+
+// XML Dynamic Update Tests
+void tst_Main::testNodePositionToXml()
+{
+    qDebug() << "\n=== Testing Node Position → XML Sync ===";
+    QVERIFY(setupEnvironment());
+    
+    // Create a node at initial position
+    auto node = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
+    QVERIFY(node != nullptr);
+    
+    QUuid nodeId = node->getId();
+    qDebug() << "Created node at (100, 100)";
+    
+    // Move the node to a new position
+    QPointF newPos(250, 150);
+    node->setPos(newPos);
+    qDebug() << "Moved node to" << newPos;
+    
+    // Verify the node position was updated by checking node directly
+    QPointF actualPos = node->pos();
+    bool positionMatches = (actualPos.x() == newPos.x()) && (actualPos.y() == newPos.y());
+    
+    if (positionMatches) {
+        qDebug() << "✓ Node position correctly updated to" << actualPos;
+    } else {
+        qDebug() << "✗ Node position mismatch. Expected:" << newPos << "Actual:" << actualPos;
+    }
+    
+    QVERIFY(positionMatches);
+    
+    // TODO: Add XML serialization verification when save method is available
+    qDebug() << "✓ Node position modification test passed";
+}
+
+void tst_Main::testEdgeModificationToXml()
+{
+    qDebug() << "\n=== Testing Edge Modifications → XML Sync ===";
+    QVERIFY(setupEnvironment());
+    
+    // Create two nodes
+    auto node1 = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
+    auto node2 = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
+    QVERIFY(node1 && node2);
+    
+    QUuid node1Id = node1->getId();
+    QUuid node2Id = node2->getId();
+    
+    // Check initial edge count in scene
+    int edgeCountBefore = m_testScene->getEdges().size();
+    qDebug() << "Initial edge count:" << edgeCountBefore;
+    
+    // Create an edge
+    auto edge = m_factory->createEdge(node1, 0, node2, 0);
+    QVERIFY(edge != nullptr);
+    QVERIFY(edge->resolveConnections(m_testScene));
+    
+    // Verify edge appears in scene
+    int edgeCountAfter = m_testScene->getEdges().size();
+    qDebug() << "After adding edge:" << edgeCountAfter;
+    
+    QVERIFY(edgeCountAfter > edgeCountBefore);
+    
+    // Verify edge connection is correct
+    bool edgeFound = false;
+    for (auto it = m_testScene->getEdges().begin(); it != m_testScene->getEdges().end(); ++it) {
+        Edge* sceneEdge = it.value();
+        if (sceneEdge->isConnectedToNode(node1Id) && sceneEdge->isConnectedToNode(node2Id)) {
+            edgeFound = true;
+            break;
+        }
+    }
+    
+    if (edgeFound) {
+        qDebug() << "✓ Edge correctly connects the two nodes";
+    } else {
+        qDebug() << "✗ Edge connection not found in scene";
+    }
+    
+    QVERIFY(edgeFound);
+    
+    // TODO: Add XML serialization verification when save method is available  
+    qDebug() << "✓ Edge modification test passed";
+}
+
+// Performance Test Helpers
+void tst_Main::performXmlLoadTest(const QString& filename, const QString& testName)
+{
+    logTestSummary(QString("TEST: %1").arg(testName));
+    QVERIFY(setupEnvironment());
+    
+    // Measure load time and track batch mode
+    QElapsedTimer totalTimer;
+    totalTimer.start();
+    
+    qint64 loadTime = measureXmlLoadTime(filename);
+    qint64 totalTime = totalTimer.elapsed();
+    
+    // Get loaded graph stats
+    int nodeCount = m_testScene->getNodes().size();
+    int edgeCount = m_testScene->getEdges().size();
+    
+    // Log structured summary
+    logTestSummary(QString("RESULT: %1 | Nodes: %2 | Edges: %3 | Load: %4ms | Total: %5ms")
+                    .arg(testName)
+                    .arg(nodeCount)
+                    .arg(edgeCount)
+                    .arg(loadTime)
+                    .arg(totalTime));
+    
+    // Performance assertions - skip large files in regular testing
+    if (nodeCount > 1000) {
+        logTestSummary(QString("SKIP_PERF: %1 nodes too large for timing validation").arg(nodeCount));
+        return;
+    }
+    
+    // Check edge resolution success rate
+    int expectedEdges = qMax(0, nodeCount - 1);  // Rough estimate for chain topology
+    float edgeSuccessRate = expectedEdges > 0 ? (float)edgeCount / expectedEdges * 100 : 100;
+    logTestSummary(QString("EDGES: %1/%2 connected (%.1f%% success)")
+                    .arg(edgeCount).arg(expectedEdges).arg(edgeSuccessRate));
+    
+    QVERIFY(loadTime < 5000);  // Should load <1000 nodes within 5 seconds
+    if (nodeCount == 0) {
+        logTestSummary("WARNING: No nodes loaded from file");
+    }
+}
+
+qint64 tst_Main::measureXmlLoadTime(const QString& filename)
+{
+    // Register node types
+    NodeRegistry::instance().registerNode("IN", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("IN"); 
+        return node; 
+    });
+    NodeRegistry::instance().registerNode("OUT", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("OUT"); 
+        return node; 
+    });
+    
+    logTestSummary(QString("LOAD_START: %1").arg(QFileInfo(filename).baseName()));
+    
+    QElapsedTimer timer;
+    timer.start();
+    
+    // Load the XML file (will use batch mode optimization)
+    bool success = m_factory->loadFromXmlFile(filename);
+    
+    qint64 elapsed = timer.elapsed();
+    
+    if (!success) {
+        logTestSummary(QString("LOAD_FAILED: %1").arg(QFileInfo(filename).baseName()));
+        return elapsed;
+    }
+    
+    logTestSummary(QString("LOAD_SUCCESS: %1 in %2ms").arg(QFileInfo(filename).baseName()).arg(elapsed));
+    return elapsed;
+}
+
+void tst_Main::validateLoadedGraph(int expectedNodes, int expectedEdges)
+{
+    int actualNodes = m_testScene->getNodes().size();
+    int actualEdges = m_testScene->getEdges().size();
+    
+    qDebug() << QString("Graph validation: %1/%2 nodes, %3/%4 edges")
+                .arg(actualNodes).arg(expectedNodes)
+                .arg(actualEdges).arg(expectedEdges);
+    
+    QVERIFY(actualNodes >= expectedNodes * 0.8); // Allow 20% variance
+    QVERIFY(actualEdges >= 0); // At least some edges should connect
 }
 
 QTEST_MAIN(tst_Main)

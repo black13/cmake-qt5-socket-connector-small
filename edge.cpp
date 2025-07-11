@@ -343,9 +343,9 @@ bool Edge::resolveConnections(Scene* scene)
     Socket* toSocket = toNode->getSocketByIndex(m_toSocketIndex);
     
     qDebug() << "Edge resolve: fromNode" << m_fromNodeId.left(8) << "type:" << fromNode->getNodeType()
-             << "socket" << m_fromSocketIndex << "role:" << (fromSocket ? (fromSocket->getRole() == Socket::Input ? "IN" : "OUT") : "NULL");
+             << "socket" << m_fromSocketIndex << "role:" << (fromSocket ? Socket::roleToString(fromSocket->getRole()) : "NULL");
     qDebug() << "Edge resolve: toNode" << m_toNodeId.left(8) << "type:" << toNode->getNodeType()
-             << "socket" << m_toSocketIndex << "role:" << (toSocket ? (toSocket->getRole() == Socket::Input ? "IN" : "OUT") : "NULL");
+             << "socket" << m_toSocketIndex << "role:" << (toSocket ? Socket::roleToString(toSocket->getRole()) : "NULL");
     
     if (!fromSocket) {
         qCritical() << "Edge::resolveConnections - fromSocket index" << m_fromSocketIndex 
@@ -364,13 +364,13 @@ bool Edge::resolveConnections(Scene* scene)
     if (fromSocket->getRole() != Socket::Output) {
         qCritical() << "ERROR: Edge::resolveConnections - fromSocket must be Output role"
                    << "- fromNode:" << m_fromNodeId.left(8) << "socket" << m_fromSocketIndex 
-                   << "has role:" << (fromSocket->getRole() == Socket::Input ? "Input" : "Output");
+                   << "has role:" << Socket::roleToString(fromSocket->getRole());
         return false;
     }
     if (toSocket->getRole() != Socket::Input) {
         qCritical() << "ERROR: Edge::resolveConnections - toSocket must be Input role"
                    << "- toNode:" << m_toNodeId.left(8) << "socket" << m_toSocketIndex 
-                   << "has role:" << (toSocket->getRole() == Socket::Input ? "Input" : "Output");
+                   << "has role:" << Socket::roleToString(toSocket->getRole());
         return false;
     }
     

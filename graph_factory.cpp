@@ -4,6 +4,7 @@
 #include "edge.h"
 #include "scene.h"
 #include "node_registry.h"
+#include "graph_observer.h"
 #include <QDateTime>
 #include <QDebug>
 
@@ -217,10 +218,14 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
 {
     qDebug() << "=== GraphFactory: Loading from XML File ===" << filePath;
     
+    // OPTIMIZATION: Enable batch mode to prevent observer storm during bulk loading
+    GraphSubject::beginBatch();
+    
     // Parse XML file
     xmlDocPtr doc = xmlParseFile(filePath.toUtf8().constData());
     if (!doc) {
         qCritical() << "GraphFactory::loadFromXmlFile - failed to parse XML file:" << filePath;
+        GraphSubject::endBatch();  // Clean up batch mode on error
         return false;
     }
     
@@ -228,12 +233,14 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     if (!root) {
         qCritical() << "GraphFactory::loadFromXmlFile - no root element";
         xmlFreeDoc(doc);
+        GraphSubject::endBatch();  // Clean up batch mode on error
         return false;
     }
     
     if (xmlStrcmp(root->name, (const xmlChar*)"graph") != 0) {
         qCritical() << "Invalid XML file: root element should be 'graph'";
         xmlFreeDoc(doc);
+        GraphSubject::endBatch();  // Clean up batch mode on error
         return false;
     }
     
@@ -314,6 +321,9 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     }
     
     qDebug() << "✓ Graph loaded:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
+    
+    // OPTIMIZATION: End batch mode to resume normal observer notifications
+    GraphSubject::endBatch();
     
     // Validate graph integrity in debug builds
     #ifdef QT_DEBUG

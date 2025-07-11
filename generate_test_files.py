@@ -78,8 +78,16 @@ def generate_graph(num_nodes, filename):
         # No self-loops and ensure valid socket connection
         if from_node['id'] != to_node['id']:
             edge_id = "{" + str(uuid.uuid4()) + "}"
-            # Use valid socket indices (0-based indexing)
-            from_socket_idx = random.randint(0, from_node['outputs'] - 1)
+            
+            # CRITICAL FIX: Socket indexing follows C++ Node::createSocketsFromXml()
+            # Input sockets: indices 0, 1, 2, ..., (inputCount-1) 
+            # Output sockets: indices inputCount, inputCount+1, ..., (inputCount+outputCount-1)
+            
+            # fromSocket must be an OUTPUT socket (from fromNode)
+            output_start_idx = from_node['inputs']  # outputs start after inputs
+            from_socket_idx = random.randint(output_start_idx, output_start_idx + from_node['outputs'] - 1)
+            
+            # toSocket must be an INPUT socket (from toNode) 
             to_socket_idx = random.randint(0, to_node['inputs'] - 1)
             
             # Create edge XML - exactly like test.xml format
