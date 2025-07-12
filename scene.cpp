@@ -348,8 +348,8 @@ void Scene::finishGhostEdge(Socket* toSocket)
             
             if (fromNode && toNode) {
                 newEdge->setConnectionData(
-                    fromNode->getId().toString(),
-                    toNode->getId().toString(),
+                    fromNode->getId().toString(QUuid::WithoutBraces),
+                    toNode->getId().toString(QUuid::WithoutBraces),
                     m_ghostFromSocket->getIndex(),
                     toSocket->getIndex()
                 );
