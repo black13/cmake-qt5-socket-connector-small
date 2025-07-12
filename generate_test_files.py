@@ -9,19 +9,18 @@ import random
 import math
 import sys
 
-def generate_graph(num_nodes, filename):
+def generate_graph(num_nodes, filename, layout_type="grid"):
     """Generate XML graph following the exact schema from test.xml"""
     
-    print(f"Generating {filename} with {num_nodes} nodes...")
+    print(f"Generating {filename} with {num_nodes} nodes using {layout_type} layout...")
     
     # XML header
     xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
     xml_lines.append('<graph version="1.0">')
     
-    # Generate nodes in a grid pattern
-    grid_size = max(1, int(math.sqrt(num_nodes)))
-    spacing = 100
+    # Generate nodes with specified layout
     nodes = []  # Store node info for edge generation
+    spacing = 100
     
     for i in range(num_nodes):
         # Grid position with some randomization

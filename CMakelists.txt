@@ -87,6 +87,11 @@ else()
     message(STATUS "Using system libxml2: ${LIBXML2_VERSION}")
 endif()
 
+# ─────────────────────────────────────
+# Note: Graaf integration disabled for now due to heavy dependencies
+# Will use lightweight custom layout implementation instead
+# ─────────────────────────────────────
+
 # Enable libxml2 for all platforms
 add_definitions(-DUSE_LIBXML2)
 
@@ -123,6 +128,9 @@ set(SOURCES
     # XML-first factory
     graph_factory.h graph_factory.cpp
     
+    # Layout engine using Graaf
+    layout_engine.h layout_engine.cpp
+    
     # UI classes
     window.h       window.cpp
     view.h         view.cpp
@@ -158,6 +166,7 @@ set(TEST_SOURCES
     edge.h         edge.cpp
     node_registry.h node_registry.cpp
     graph_factory.h graph_factory.cpp
+    layout_engine.h layout_engine.cpp
     scene.h        scene.cpp
     graph_observer.h    graph_observer.cpp
     xml_autosave_observer.h xml_autosave_observer.cpp
