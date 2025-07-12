@@ -75,6 +75,10 @@ public:
     
     // Manual weak pointer system for safe destruction
     void invalidateNode(const Node* node);
+    
+    // Public accessors for layout engine
+    Node* getFromNode() const { return m_fromNode; }
+    Node* getToNode() const { return m_toNode; }
 
 private:
     QUuid m_id;
