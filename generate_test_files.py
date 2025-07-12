@@ -10,7 +10,7 @@ import math
 import sys
 
 def generate_graph(num_nodes, filename, layout_type="grid"):
-    """Generate XML graph following the exact schema from test.xml"""
+    """Generate XML graph following the exact schema with one edge per socket"""
     
     print(f"Generating {filename} with {num_nodes} nodes using {layout_type} layout...")
     
@@ -18,79 +18,94 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
     xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
     xml_lines.append('<graph version="1.0">')
     
-    # Generate nodes with specified layout
+    # Generate nodes with clean layout
     nodes = []  # Store node info for edge generation
-    spacing = 100
+    spacing = 150  # Increased spacing for better visibility
+    grid_size = math.ceil(math.sqrt(num_nodes))  # Square grid layout
     
     for i in range(num_nodes):
-        # Grid position with some randomization
+        # Clean grid layout with proper spacing
         col = i % grid_size
         row = i // grid_size
-        x = col * spacing + random.randint(-20, 20)
-        y = row * spacing + random.randint(-20, 20)
+        x = col * spacing + 50  # Start offset
+        y = row * spacing + 50  # Start offset
         
         # Generate UUID in braces format like test.xml
         node_id = "{" + str(uuid.uuid4()) + "}"
         
-        # Random node type and socket counts
-        node_type = random.choice(["IN", "OUT"])
+        # Balanced node types and socket counts for clean connections
+        node_type = random.choice(["IN", "OUT", "PROCESSOR"])
         
         if node_type == "IN":
-            # IN nodes should have more inputs than outputs (consume data)
-            inputs = random.randint(1, 3)
-            outputs = random.randint(0, 2)
-        else:  # OUT
-            # OUT nodes should have more outputs than inputs (produce data)
-            inputs = random.randint(0, 2)
-            outputs = random.randint(1, 3)
+            # IN nodes: minimal inputs, focus on outputs (data sources)
+            inputs = 0
+            outputs = random.randint(1, 2)  # 1-2 outputs
+        elif node_type == "OUT":
+            # OUT nodes: focus on inputs, minimal outputs (data sinks)
+            inputs = random.randint(1, 2)   # 1-2 inputs
+            outputs = 0
+        else:  # PROCESSOR
+            # PROCESSOR nodes: balanced input/output (data transformers)
+            inputs = random.randint(1, 2)   # 1-2 inputs
+            outputs = random.randint(1, 2)  # 1-2 outputs
         
-        # Store node info for edge generation
+        # Store node info for edge generation with socket tracking
         nodes.append({
             'id': node_id,
             'type': node_type,
             'inputs': inputs,
-            'outputs': outputs
+            'outputs': outputs,
+            'x': x,
+            'y': y,
+            'used_input_sockets': [],   # Track which input sockets are used
+            'used_output_sockets': []   # Track which output sockets are used
         })
         
         # Create node XML - exactly like test.xml format
         node_line = f'  <node id="{node_id}" x="{x}" y="{y}" type="{node_type}" inputs="{inputs}" outputs="{outputs}"/>'
         xml_lines.append(node_line)
     
-    # Generate edges between nodes
-    num_edges = min(num_nodes * 2, num_nodes - 1)  # Reasonable number of edges
+    # Generate edges ensuring one edge per socket (clean connections)
     edges_created = 0
     
-    for _ in range(num_edges * 3):  # Try multiple times to create edges
-        if edges_created >= num_edges:
-            break
-            
-        # Find nodes with compatible sockets
-        from_nodes = [n for n in nodes if n['outputs'] > 0]  # has outputs
-        to_nodes = [n for n in nodes if n['inputs'] > 0]     # has inputs
+    # Create a pool of available output sockets (sources)
+    available_outputs = []
+    for node in nodes:
+        if node['outputs'] > 0:
+            output_start_idx = node['inputs']  # outputs start after inputs
+            for i in range(node['outputs']):
+                available_outputs.append({
+                    'node': node,
+                    'socket_idx': output_start_idx + i
+                })
+    
+    # Create a pool of available input sockets (targets)
+    available_inputs = []
+    for node in nodes:
+        if node['inputs'] > 0:
+            for i in range(node['inputs']):
+                available_inputs.append({
+                    'node': node,
+                    'socket_idx': i
+                })
+    
+    # Shuffle for random connections
+    random.shuffle(available_outputs)
+    random.shuffle(available_inputs)
+    
+    # Connect outputs to inputs (one edge per socket)
+    max_connections = min(len(available_outputs), len(available_inputs))
+    
+    for i in range(max_connections):
+        output_socket = available_outputs[i]
+        input_socket = available_inputs[i]
         
-        if not from_nodes or not to_nodes:
-            break
-            
-        from_node = random.choice(from_nodes)
-        to_node = random.choice(to_nodes)
-        
-        # No self-loops and ensure valid socket connection
-        if from_node['id'] != to_node['id']:
+        # Prevent self-loops
+        if output_socket['node']['id'] != input_socket['node']['id']:
             edge_id = "{" + str(uuid.uuid4()) + "}"
             
-            # CRITICAL FIX: Socket indexing follows C++ Node::createSocketsFromXml()
-            # Input sockets: indices 0, 1, 2, ..., (inputCount-1) 
-            # Output sockets: indices inputCount, inputCount+1, ..., (inputCount+outputCount-1)
-            
-            # fromSocket must be an OUTPUT socket (from fromNode)
-            output_start_idx = from_node['inputs']  # outputs start after inputs
-            from_socket_idx = random.randint(output_start_idx, output_start_idx + from_node['outputs'] - 1)
-            
-            # toSocket must be an INPUT socket (from toNode) 
-            to_socket_idx = random.randint(0, to_node['inputs'] - 1)
-            
-            # Create edge XML - exactly like test.xml format
-            edge_line = f'  <edge id="{edge_id}" fromNode="{from_node["id"]}" toNode="{to_node["id"]}" fromSocketIndex="{from_socket_idx}" toSocketIndex="{to_socket_idx}"/>'
+            # Create edge XML
+            edge_line = f'  <edge id="{edge_id}" fromNode="{output_socket["node"]["id"]}" toNode="{input_socket["node"]["id"]}" fromSocketIndex="{output_socket["socket_idx"]}" toSocketIndex="{input_socket["socket_idx"]}"/>'
             xml_lines.append(edge_line)
             edges_created += 1
     
@@ -113,13 +128,13 @@ def main():
     print("=== NodeGraph Test File Generator ===")
     print("Creating test files following test.xml schema...\n")
     
-    # Generate files of increasing sizes
+    # Generate clean test files focused on ghost edge testing
     test_sizes = [
-        (10, "tests_tiny.xml"),     # Very small for quick testing
-        (100, "tests_small.xml"),   # Small test
-        (500, "tests_medium.xml"),  # Medium test  
-        (1000, "tests_large.xml"),  # Large test
-        (5000, "tests_stress.xml")  # Stress test
+        (2, "test_simple.xml"),       # Simple: 2 nodes for basic connection testing
+        (4, "test_small.xml"),        # Small: 4 nodes for ghost edge testing
+        (9, "test_medium.xml"),       # Medium: 3x3 grid for layout testing
+        (16, "test_large.xml"),       # Large: 4x4 grid for performance testing
+        (25, "test_stress.xml")       # Stress: 5x5 grid for stress testing
     ]
     
     for num_nodes, filename in test_sizes:
@@ -128,11 +143,11 @@ def main():
     print(f"\n✅ Generated {len(test_sizes)} test files")
     print("\n📖 Usage:")
     print("   ./NodeGraph                    # Default nodes + autosave")
-    print("   ./NodeGraph tests_tiny.xml     # Load tiny test file") 
-    print("   ./NodeGraph tests_small.xml    # Load small test file")
-    print("   ./NodeGraph tests_medium.xml   # Load medium test file")
-    print("   ./NodeGraph tests_large.xml    # Load large test file")
-    print("   ./NodeGraph tests_stress.xml   # Load stress test file")
+    print("   ./NodeGraph test_simple.xml    # Load 2-node simple test") 
+    print("   ./NodeGraph test_small.xml     # Load 4-node small test")
+    print("   ./NodeGraph test_medium.xml    # Load 9-node medium test")
+    print("   ./NodeGraph test_large.xml     # Load 16-node large test")
+    print("   ./NodeGraph test_stress.xml    # Load 25-node stress test")
 
 if __name__ == "__main__":
     main()
