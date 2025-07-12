@@ -1,6 +1,7 @@
 #include "socket.h"
 #include "node.h"
 #include "edge.h"
+#include "scene.h"
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
@@ -85,6 +86,16 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 
 void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    if (event->button() == Qt::RightButton && m_role == Output) {
+        // Start ghost edge from Output socket only
+        Scene* scenePtr = qobject_cast<Scene*>(scene());
+        if (scenePtr) {
+            scenePtr->startGhostEdge(this, event->scenePos());
+        }
+        event->accept();
+        return;
+    }
+    
     if (event->button() == Qt::LeftButton) {
         qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // TODO: Start edge creation drag

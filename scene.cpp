@@ -3,9 +3,13 @@
 #include "edge.h"
 #include "socket.h"
 #include <QDebug>
+#include <QGraphicsPathItem>
 
 Scene::Scene(QObject* parent)
     : QGraphicsScene(parent)
+    , m_ghostEdge(nullptr)
+    , m_ghostFromSocket(nullptr)
+    , m_ghostEdgeActive(false)
 {
     setSceneRect(-1000, -1000, 2000, 2000);
 }
@@ -235,4 +239,133 @@ void Scene::clearGraph()
     emit sceneChanged();
     
     qDebug() << "SIMPLE_FIX: ✓ Graph cleared safely - hash cleared before Qt cleanup";
+}
+
+// ============================================================================
+// Ghost Edge Implementation for Right-Click Socket Connections
+// ============================================================================
+
+// IUnknown UUID for ghost edge identification
+static const QUuid GHOST_EDGE_UUID = QUuid("{00000000-0000-0000-C000-000000000046}");
+
+void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
+{
+    if (m_ghostEdge) {
+        removeItem(m_ghostEdge);
+        delete m_ghostEdge;
+    }
+    
+    m_ghostFromSocket = fromSocket;
+    m_ghostEdge = new QGraphicsPathItem();
+    m_ghostEdge->setZValue(-10); // Below all interactive items
+    m_ghostEdge->setFlag(QGraphicsItem::ItemIsSelectable, false);
+    m_ghostEdge->setAcceptedMouseButtons(Qt::NoButton);
+    m_ghostEdge->setData(0, GHOST_EDGE_UUID); // IUnknown UUID marker
+    m_ghostEdge->setPen(ghostPen());
+    addItem(m_ghostEdge);
+    m_ghostEdgeActive = true;
+    
+    updateGhostEdge(startPos);
+    
+    qDebug() << "RIGHT_CLICK_CONNECTION: Ghost edge started from socket" << fromSocket->getIndex() 
+             << "role:" << (fromSocket->getRole() == Socket::Input ? "Input" : "Output");
+}
+
+void Scene::updateGhostEdge(const QPointF& currentPos)
+{
+    if (!m_ghostEdge || !m_ghostFromSocket) return;
+    
+    QPointF start = m_ghostFromSocket->scenePos();
+    QPainterPath path;
+    path.moveTo(start);
+    
+    // Create curved ghost edge similar to real edges
+    qreal dx = currentPos.x() - start.x();
+    qreal controlOffset = qMin(qAbs(dx) * 0.5, 100.0);
+    
+    QPointF control1 = start + QPointF(controlOffset, 0);
+    QPointF control2 = currentPos - QPointF(controlOffset, 0);
+    path.cubicTo(control1, control2, currentPos);
+    
+    m_ghostEdge->setPath(path);
+}
+
+void Scene::finishGhostEdge(Socket* toSocket)
+{
+    if (m_ghostFromSocket && toSocket) {
+        // Validate connection roles
+        if (m_ghostFromSocket->getRole() == Socket::Output && 
+            toSocket->getRole() == Socket::Input) {
+            
+            // Create real edge using existing system
+            Edge* newEdge = new Edge(QUuid::createUuid(), QUuid(), QUuid());
+            
+            Node* fromNode = m_ghostFromSocket->getParentNode();
+            Node* toNode = toSocket->getParentNode();
+            
+            if (fromNode && toNode) {
+                newEdge->setConnectionData(
+                    fromNode->getId().toString(),
+                    toNode->getId().toString(),
+                    m_ghostFromSocket->getIndex(),
+                    toSocket->getIndex()
+                );
+                
+                addEdge(newEdge);
+                newEdge->resolveConnections(this);
+                
+                qDebug() << "RIGHT_CLICK_CONNECTION: ✓ Created edge from socket" 
+                         << m_ghostFromSocket->getIndex() << "to socket" << toSocket->getIndex();
+            }
+        } else {
+            qDebug() << "RIGHT_CLICK_CONNECTION: ✗ Invalid connection - wrong socket roles";
+        }
+    }
+    
+    cancelGhostEdge();
+}
+
+void Scene::cancelGhostEdge()
+{
+    if (m_ghostEdge) {
+        removeItem(m_ghostEdge);
+        delete m_ghostEdge;
+        m_ghostEdge = nullptr;
+    }
+    m_ghostFromSocket = nullptr;
+    m_ghostEdgeActive = false;
+    
+    qDebug() << "RIGHT_CLICK_CONNECTION: Ghost edge cancelled";
+}
+
+QPen Scene::ghostPen() const
+{
+    QPen pen(QColor(0, 255, 0, 150)); // Semi-transparent green
+    pen.setWidth(3);
+    pen.setStyle(Qt::DashLine);
+    pen.setDashPattern({8, 4});
+    return pen;
+}
+
+void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
+{
+    if (m_ghostEdgeActive) {
+        updateGhostEdge(event->scenePos());
+        event->accept();
+        return;
+    }
+    QGraphicsScene::mouseMoveEvent(event);
+}
+
+void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
+{
+    if (m_ghostEdgeActive && event->button() == Qt::RightButton) {
+        // Find socket under mouse
+        QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
+        Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
+        finishGhostEdge(targetSocket);
+        event->accept();
+        return;
+    }
+    QGraphicsScene::mouseReleaseEvent(event);
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 #include <QHash>
 #include <QUuid>
 #include "graph_observer.h"
@@ -8,6 +9,7 @@
 class Node;
 class Edge;
 class Socket;
+class QGraphicsPathItem;
 
 /**
  * Scene - QElectroTech-style typed scene management
@@ -53,10 +55,30 @@ public:
     
     // Public observer notifications (for Node movement)
     using GraphSubject::notifyNodeMoved;
+    
+    // Ghost edge for visual connection feedback (right-click and drag)
+    void startGhostEdge(Socket* fromSocket, const QPointF& startPos);
+    void updateGhostEdge(const QPointF& currentPos);
+    void finishGhostEdge(Socket* toSocket = nullptr);
+    void cancelGhostEdge();
+    bool ghostEdgeActive() const { return m_ghostEdgeActive; }
+
+protected:
+    // Mouse event handling for ghost edge interactions
+    void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
 
 private:
     // QElectroTech-style typed collections with UUID keys
     QHash<QUuid, Node*> m_nodes;
     QHash<QUuid, Edge*> m_edges;
     QHash<QUuid, Socket*> m_sockets;  // Deprecated - kept for compatibility
+    
+    // Ghost edge for visual feedback during right-click connection creation
+    QGraphicsPathItem* m_ghostEdge;
+    Socket* m_ghostFromSocket;
+    bool m_ghostEdgeActive;
+    
+    // Helper method for ghost edge styling
+    QPen ghostPen() const;
 };
