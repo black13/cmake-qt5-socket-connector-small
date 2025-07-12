@@ -53,6 +53,7 @@ public:
     // Node properties
     void setNodeSize(qreal width, qreal height);
     QSizeF getNodeSize() const { return QSizeF(m_width, m_height); }
+    void calculateAndSetNodeSize(int inputCount, int outputCount);
     
     // Visual state - using Qt's selection system
     // Use QGraphicsItem::isSelected() and setSelected()

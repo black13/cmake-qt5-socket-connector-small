@@ -141,6 +141,34 @@ void Node::setNodeSize(qreal width, qreal height)
     update();
 }
 
+void Node::calculateAndSetNodeSize(int inputCount, int outputCount)
+{
+    // Calculate required node dimensions based on socket count and spacing
+    const qreal socketSpacing = 30.0;  // Match socket spacing from Socket::updatePosition()
+    const qreal socketSize = 20.0;     // Match socket bounding rect size
+    const qreal minNodeWidth = 120.0;  // Minimum width for node text
+    const qreal minNodeHeight = 60.0;  // Minimum height for node content
+    const qreal socketPadding = 10.0;  // Extra padding around sockets
+    
+    // Calculate maximum sockets on each side
+    int maxSockets = qMax(inputCount, outputCount);
+    
+    // Calculate minimum height needed for sockets with proper spacing
+    qreal requiredHeight = minNodeHeight;
+    if (maxSockets > 0) {
+        // Height = padding + (socket_count * socket_size) + ((socket_count - 1) * spacing) + padding
+        qreal socketAreaHeight = maxSockets * socketSize + (maxSockets - 1) * (socketSpacing - socketSize) + 2 * socketPadding;
+        requiredHeight = qMax(minNodeHeight, socketAreaHeight);
+    }
+    
+    // Set calculated size
+    setNodeSize(minNodeWidth, requiredHeight);
+    
+    qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
+             << "resized to" << minNodeWidth << "x" << requiredHeight 
+             << "for" << maxSockets << "max sockets";
+}
+
 // Removed manual setSelected - using Qt's selection system
 
 void Node::setNodeType(const QString& type)
@@ -236,6 +264,16 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
             if (scene) {
                 scene->addSocket(outputSocket);
             }
+        }
+    }
+    
+    // Calculate and set node size based on socket count
+    calculateAndSetNodeSize(inputCount, outputCount);
+    
+    // Update socket positions after node resize
+    for (QGraphicsItem* child : childItems()) {
+        if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
+            socket->updatePosition();
         }
     }
     

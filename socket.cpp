@@ -11,7 +11,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
     , m_role(role)
     , m_index(index)
     , m_connectedEdge(nullptr)
-    , m_radius(8.0)
+    , m_radius(12.0)
     , m_hovered(false)
 {
     setAcceptHoverEvents(true);
@@ -33,8 +33,8 @@ Node* Socket::getParentNode() const
 
 QRectF Socket::boundingRect() const
 {
-    // Smaller, more compact sockets like upper level system
-    return QRectF(-6, -6, 12, 12);
+    // Larger sockets for better usability and ghost edge interaction
+    return QRectF(-10, -10, 20, 20);
 }
 
 void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
@@ -134,7 +134,7 @@ void Socket::updatePosition()
     if (!parent) return;
     
     QRectF nodeRect = parent->boundingRect();
-    const qreal socketSpacing = 18.0;  // Reduced spacing for smaller nodes
+    const qreal socketSpacing = 30.0;  // Increased spacing for better usability
     const qreal socketOffset = 3.0;    // Even closer to node edge
     
     // Count input and output sockets to calculate proper vertical positioning
@@ -191,7 +191,7 @@ QPointF Socket::calculatePosition() const
     if (!parent) return QPointF(0, 0);
     
     QRectF nodeRect = parent->boundingRect();
-    const qreal socketSpacing = 18.0;  // Reduced spacing for smaller nodes
+    const qreal socketSpacing = 30.0;  // Increased spacing for better usability
     const qreal socketOffset = 3.0;    // Even closer to node edge
     
     // Count input and output sockets for proper centering
