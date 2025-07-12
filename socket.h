@@ -33,6 +33,14 @@ public:
         Output
     };
     
+    enum VisualState {
+        Normal,         // Default state
+        Hovered,        // Mouse hovering over socket
+        ValidTarget,    // Valid target for ghost edge connection
+        InvalidTarget,  // Invalid target for ghost edge connection
+        Connected       // Socket has active connections
+    };
+    
     // Helper for debugging
     static const char* roleToString(Role role) {
         switch (role) {
@@ -69,6 +77,10 @@ public:
     void setConnectedEdge(Edge* edge) { m_connectedEdge = edge; }
     Edge* getConnectedEdge() const { return m_connectedEdge; }
     
+    // Visual feedback state for ghost edge interactions
+    void setVisualState(VisualState state);
+    VisualState getVisualState() const { return m_visualState; }
+    
     // Socket positioning (automatic based on index and role)
     void updatePosition();
 
@@ -78,6 +90,7 @@ private:
     Edge* m_connectedEdge;       // Connected edge (if any)  
     qreal m_radius;
     bool m_hovered;
+    VisualState m_visualState;   // Current visual feedback state
     
     // Performance optimization: cache index string (created once, not every frame)
     mutable QString m_cachedIndexString;

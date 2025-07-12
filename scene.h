@@ -81,4 +81,5 @@ private:
     
     // Helper method for ghost edge styling
     QPen ghostPen() const;
+    void resetAllSocketStates();
 };

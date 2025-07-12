@@ -4,6 +4,7 @@
 #include "socket.h"
 #include <QDebug>
 #include <QGraphicsPathItem>
+#include <QTimer>
 
 Scene::Scene(QObject* parent)
     : QGraphicsScene(parent)
@@ -287,7 +288,49 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
     QPointF control2 = currentPos - QPointF(controlOffset, 0);
     path.cubicTo(control1, control2, currentPos);
     
+    // Update ghost edge visual based on target validity
+    QPen ghostPenCurrent = ghostPen();
+    QGraphicsItem* itemUnderCursor = itemAt(currentPos, QTransform());
+    Socket* targetSocket = qgraphicsitem_cast<Socket*>(itemUnderCursor);
+    
+    // Reset all socket visual states to normal first
+    resetAllSocketStates();
+    
+    if (targetSocket) {
+        // Check if this is a valid connection target
+        bool isValidTarget = (targetSocket->getRole() == Socket::Input && 
+                            targetSocket != m_ghostFromSocket &&
+                            targetSocket->getParentNode() != m_ghostFromSocket->getParentNode());
+        
+        if (isValidTarget) {
+            targetSocket->setVisualState(Socket::ValidTarget);
+            ghostPenCurrent.setColor(QColor(0, 255, 0, 180)); // Green ghost edge
+        } else {
+            targetSocket->setVisualState(Socket::InvalidTarget);
+            ghostPenCurrent.setColor(QColor(255, 0, 0, 180)); // Red ghost edge
+        }
+    } else {
+        // No socket under cursor - default ghost edge color
+        ghostPenCurrent.setColor(QColor(0, 255, 0, 150)); // Default green
+    }
+    
+    m_ghostEdge->setPen(ghostPenCurrent);
     m_ghostEdge->setPath(path);
+}
+
+void Scene::resetAllSocketStates()
+{
+    // Reset all sockets to normal state when not being targeted
+    for (Node* node : m_nodes.values()) {
+        for (QGraphicsItem* child : node->childItems()) {
+            if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
+                if (socket->getVisualState() == Socket::ValidTarget || 
+                    socket->getVisualState() == Socket::InvalidTarget) {
+                    socket->setVisualState(Socket::Normal);
+                }
+            }
+        }
+    }
 }
 
 void Scene::finishGhostEdge(Socket* toSocket)
@@ -314,6 +357,15 @@ void Scene::finishGhostEdge(Socket* toSocket)
                 addEdge(newEdge);
                 newEdge->resolveConnections(this);
                 
+                // Brief success feedback - flash the connected sockets green
+                m_ghostFromSocket->setVisualState(Socket::ValidTarget);
+                toSocket->setVisualState(Socket::ValidTarget);
+                QTimer::singleShot(300, [this, toSocket]() {
+                    // Reset to normal appearance after brief success flash
+                    if (m_ghostFromSocket) m_ghostFromSocket->setVisualState(Socket::Normal);
+                    toSocket->setVisualState(Socket::Normal);
+                });
+                
                 qDebug() << "RIGHT_CLICK_CONNECTION: ✓ Created edge from socket" 
                          << m_ghostFromSocket->getIndex() << "to socket" << toSocket->getIndex();
             }
@@ -327,6 +379,9 @@ void Scene::finishGhostEdge(Socket* toSocket)
 
 void Scene::cancelGhostEdge()
 {
+    // Reset all socket visual states
+    resetAllSocketStates();
+    
     if (m_ghostEdge) {
         removeItem(m_ghostEdge);
         delete m_ghostEdge;

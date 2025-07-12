@@ -13,6 +13,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
     , m_connectedEdge(nullptr)
     , m_radius(12.0)
     , m_hovered(false)
+    , m_visualState(Normal)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
@@ -56,14 +57,49 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         borderColor = QColor(178, 34, 34);    // Fire brick
     }
     
-    // Add hover effect
-    if (m_hovered) {
-        socketColor = socketColor.lighter(150);
-        borderColor = borderColor.lighter(130);
+    // Apply visual state effects
+    switch (m_visualState) {
+        case Hovered:
+            socketColor = socketColor.lighter(150);
+            borderColor = borderColor.lighter(130);
+            break;
+        case ValidTarget:
+            // Green glow effect for valid ghost edge target
+            socketColor = QColor(100, 255, 100);  // Bright green
+            borderColor = QColor(0, 200, 0);      // Green border
+            break;
+        case InvalidTarget:
+            // Red glow effect for invalid ghost edge target
+            socketColor = QColor(255, 100, 100);  // Bright red
+            borderColor = QColor(200, 0, 0);      // Red border
+            break;
+        case Connected:
+            // Subtle highlight for connected sockets
+            borderColor = borderColor.lighter(120);
+            break;
+        case Normal:
+        default:
+            // Keep original colors
+            break;
     }
     
     // Draw socket as rounded rectangle with better styling
     QRectF rect = boundingRect();
+    
+    // Add glow effect for target states
+    if (m_visualState == ValidTarget || m_visualState == InvalidTarget) {
+        QColor glowColor = (m_visualState == ValidTarget) ? QColor(0, 255, 0, 100) : QColor(255, 0, 0, 100);
+        
+        // Draw outer glow
+        for (int i = 1; i <= 3; ++i) {
+            QColor fadeColor = glowColor;
+            fadeColor.setAlpha(glowColor.alpha() / (i * 2));
+            painter->setPen(QPen(fadeColor, 2 + i));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(rect.adjusted(-i, -i, i, i), 3.0 + i, 3.0 + i);
+        }
+    }
+    
     painter->setBrush(socketColor);
     painter->setPen(QPen(borderColor, 2));
     painter->drawRoundedRect(rect, 3.0, 3.0);
@@ -118,6 +154,9 @@ void Socket::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
     Q_UNUSED(event)
     m_hovered = true;
+    if (m_visualState == Normal) {
+        m_visualState = Hovered;
+    }
     update();
 }
 
@@ -125,7 +164,18 @@ void Socket::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 {
     Q_UNUSED(event)
     m_hovered = false;
+    if (m_visualState == Hovered) {
+        m_visualState = Normal;
+    }
     update();
+}
+
+void Socket::setVisualState(VisualState state)
+{
+    if (m_visualState != state) {
+        m_visualState = state;
+        update();  // Trigger repaint with new visual state
+    }
 }
 
 void Socket::updatePosition()
