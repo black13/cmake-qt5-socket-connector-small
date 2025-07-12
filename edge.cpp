@@ -48,6 +48,14 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
     
+    // PATCH: Clean up socket connections to prevent dangling pointers
+    if (m_fromSocket) {
+        m_fromSocket->removeConnectedEdge(this);
+    }
+    if (m_toSocket) {
+        m_toSocket->removeConnectedEdge(this);
+    }
+    
     qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
@@ -382,13 +390,26 @@ bool Edge::resolveConnections(Scene* scene)
     m_fromNode = fromNode;
     m_toNode = toNode;
     
+    // PATCH: Scene consistency check - prevent cross-scene connections
+    if (fromNode->scene() != toNode->scene()) {
+        qCritical() << "ERROR: Edge::resolveConnections - cross-scene edge detected"
+                   << "fromNode scene:" << fromNode->scene() << "toNode scene:" << toNode->scene();
+        return false;
+    }
+    
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
     fromNode->registerEdge(this);
     toNode->registerEdge(this);
     
+    // PATCH: Use new multi-edge socket system
+    fromSocket->addConnectedEdge(this);
+    toSocket->addConnectedEdge(this);
+    
     qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved" 
-             << m_fromSocketIndex << "->" << m_toSocketIndex;
+             << m_fromSocketIndex << "->" << m_toSocketIndex
+             << "from socket now has" << fromSocket->getConnectedEdges().size() << "connections"
+             << "to socket now has" << toSocket->getConnectedEdges().size() << "connections";
     
     updatePath();
     return true;

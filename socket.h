@@ -10,6 +10,7 @@
 #include <QString>
 #include <QColor>
 #include <QRectF>
+#include <QSet>
 #include <libxml/tree.h>
 
 class Node;
@@ -72,10 +73,15 @@ public:
     void hoverEnterEvent(QGraphicsSceneHoverEvent *event) override;
     void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
     
-    // Connection state
-    bool isConnected() const { return m_connectedEdge != nullptr; }
-    void setConnectedEdge(Edge* edge) { m_connectedEdge = edge; }
-    Edge* getConnectedEdge() const { return m_connectedEdge; }
+    // Connection state - supports multiple edges per socket
+    bool isConnected() const { return !m_connectedEdges.isEmpty(); }
+    void addConnectedEdge(Edge* edge);
+    void removeConnectedEdge(Edge* edge);
+    const QSet<Edge*>& getConnectedEdges() const { return m_connectedEdges; }
+    
+    // Legacy single-edge interface for compatibility
+    void setConnectedEdge(Edge* edge); // Deprecated - use addConnectedEdge
+    Edge* getConnectedEdge() const;    // Returns first connected edge or nullptr
     
     // Visual feedback state for ghost edge interactions
     void setVisualState(VisualState state);
@@ -87,7 +93,7 @@ public:
 private:
     Role m_role;
     int m_index;                 // Socket index within parent node (0, 1, 2...)
-    Edge* m_connectedEdge;       // Connected edge (if any)  
+    QSet<Edge*> m_connectedEdges; // All connected edges - supports multiple connections
     qreal m_radius;
     bool m_hovered;
     VisualState m_visualState;   // Current visual feedback state

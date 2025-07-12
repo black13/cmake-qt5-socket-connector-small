@@ -10,7 +10,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
     : QGraphicsItem(parentNode)
     , m_role(role)
     , m_index(index)
-    , m_connectedEdge(nullptr)
+    , m_connectedEdges()  // Initialize empty QSet
     , m_radius(12.0)
     , m_hovered(false)
     , m_visualState(Normal)
@@ -271,4 +271,44 @@ QPointF Socket::calculatePosition() const
         qreal startY = nodeRect.center().y() - totalOutputHeight / 2.0;
         return QPointF(nodeRect.width() + socketOffset, startY + (myOutputIndex * socketSpacing));
     }
+}
+
+// ============================================================================
+// Multi-Edge Connection Support (Patch Implementation)
+// ============================================================================
+
+void Socket::addConnectedEdge(Edge* edge)
+{
+    if (edge && !m_connectedEdges.contains(edge)) {
+        m_connectedEdges.insert(edge);
+        qDebug() << "Socket" << m_index << "added edge connection (" 
+                 << m_connectedEdges.size() << "total connections)";
+    }
+}
+
+void Socket::removeConnectedEdge(Edge* edge)
+{
+    if (edge && m_connectedEdges.contains(edge)) {
+        m_connectedEdges.remove(edge);
+        qDebug() << "Socket" << m_index << "removed edge connection (" 
+                 << m_connectedEdges.size() << "remaining connections)";
+    }
+}
+
+// Legacy compatibility methods - support existing code
+void Socket::setConnectedEdge(Edge* edge)
+{
+    qWarning() << "setConnectedEdge() is deprecated - use addConnectedEdge()";
+    if (edge) {
+        addConnectedEdge(edge);
+    }
+}
+
+Edge* Socket::getConnectedEdge() const
+{
+    if (m_connectedEdges.isEmpty()) {
+        return nullptr;
+    }
+    // Return first edge for legacy compatibility
+    return *m_connectedEdges.begin();
 }
