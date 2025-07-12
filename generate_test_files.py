@@ -123,6 +123,82 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
     file_size = os.path.getsize(filename) / 1024
     print(f"✓ Created {filename}: {num_nodes} nodes, {edges_created} edges ({file_size:.1f} KB)")
 
+def generate_crash_test():
+    """Generate a specific test designed to trigger XML serialization crashes"""
+    print("Generating test_crash_reproduction.xml to trigger XML serialization issues...")
+    
+    xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
+    xml_lines.append('<graph version="1.0">')
+    
+    # Create nodes with many sockets and complex connections
+    nodes = []
+    spacing = 100
+    
+    # Create a mix of nodes with varying socket counts
+    for i in range(50):
+        x = (i % 10) * spacing + 50
+        y = (i // 10) * spacing + 50
+        node_id = "{" + str(uuid.uuid4()) + "}"
+        
+        # Create nodes with higher socket counts to stress the system
+        if i % 3 == 0:  # Every 3rd node: Heavy input node
+            inputs = random.randint(3, 5)  # 3-5 inputs
+            outputs = random.randint(1, 2)  # 1-2 outputs
+            node_type = "PROCESSOR"
+        elif i % 3 == 1:  # Every 3rd node: Heavy output node  
+            inputs = random.randint(1, 2)   # 1-2 inputs
+            outputs = random.randint(3, 5)  # 3-5 outputs
+            node_type = "PROCESSOR"
+        else:  # Regular nodes
+            inputs = random.randint(0, 2)
+            outputs = random.randint(0, 2)
+            node_type = random.choice(["IN", "OUT", "PROCESSOR"])
+        
+        nodes.append({
+            'id': node_id,
+            'type': node_type,
+            'inputs': inputs,
+            'outputs': outputs
+        })
+        
+        node_line = f'  <node id="{node_id}" x="{x}" y="{y}" type="{node_type}" inputs="{inputs}" outputs="{outputs}"/>'
+        xml_lines.append(node_line)
+    
+    # Create many edges to trigger autosave and serialization stress
+    edges_created = 0
+    for _ in range(200):  # Try to create many edges
+        from_nodes = [n for n in nodes if n['outputs'] > 0]
+        to_nodes = [n for n in nodes if n['inputs'] > 0]
+        
+        if not from_nodes or not to_nodes:
+            break
+            
+        from_node = random.choice(from_nodes)
+        to_node = random.choice(to_nodes)
+        
+        if from_node['id'] != to_node['id']:
+            edge_id = "{" + str(uuid.uuid4()) + "}"
+            
+            output_start_idx = from_node['inputs']
+            from_socket_idx = random.randint(output_start_idx, output_start_idx + from_node['outputs'] - 1)
+            to_socket_idx = random.randint(0, to_node['inputs'] - 1)
+            
+            edge_line = f'  <edge id="{edge_id}" fromNode="{from_node["id"]}" toNode="{to_node["id"]}" fromSocketIndex="{from_socket_idx}" toSocketIndex="{to_socket_idx}"/>'
+            xml_lines.append(edge_line)
+            edges_created += 1
+    
+    xml_lines.append('</graph>')
+    
+    # Write crash test file
+    with open("test_crash_reproduction.xml", 'w', encoding='utf-8') as f:
+        f.write('\n'.join(xml_lines))
+        f.write('\n')
+    
+    import os
+    file_size = os.path.getsize("test_crash_reproduction.xml") / 1024
+    print(f"✓ Created test_crash_reproduction.xml: 50 nodes, {edges_created} edges ({file_size:.1f} KB)")
+    print("  This file is designed to trigger XML serialization and autosave stress!")
+
 def main():
     """Generate all test files"""
     print("=== NodeGraph Test File Generator ===")
@@ -134,20 +210,32 @@ def main():
         (4, "test_small.xml"),        # Small: 4 nodes for ghost edge testing
         (9, "test_medium.xml"),       # Medium: 3x3 grid for layout testing
         (16, "test_large.xml"),       # Large: 4x4 grid for performance testing
-        (25, "test_stress.xml")       # Stress: 5x5 grid for stress testing
+        (100, "test_stress.xml"),     # Stress: 10x10 grid for stress testing
+        (500, "test_extreme.xml"),    # Extreme: Heavy stress test for crash reproduction
+        (1000, "test_brutal.xml")     # Brutal: Maximum stress test
     ]
     
     for num_nodes, filename in test_sizes:
         generate_graph(num_nodes, filename)
     
-    print(f"\n✅ Generated {len(test_sizes)} test files")
+    # Generate the special crash reproduction test
+    print()
+    generate_crash_test()
+    
+    print(f"\n✅ Generated {len(test_sizes)} test files + 1 crash test")
     print("\n📖 Usage:")
     print("   ./NodeGraph                    # Default nodes + autosave")
     print("   ./NodeGraph test_simple.xml    # Load 2-node simple test") 
     print("   ./NodeGraph test_small.xml     # Load 4-node small test")
     print("   ./NodeGraph test_medium.xml    # Load 9-node medium test")
     print("   ./NodeGraph test_large.xml     # Load 16-node large test")
-    print("   ./NodeGraph test_stress.xml    # Load 25-node stress test")
+    print("   ./NodeGraph test_stress.xml    # Load 100-node stress test")
+    print("   ./NodeGraph test_extreme.xml   # Load 500-node extreme test")
+    print("   ./NodeGraph test_brutal.xml    # Load 1000-node brutal test")
+    print("   ./NodeGraph test_crash_reproduction.xml  # Load crash test")
+    print("\n⚠️  WARNING: Extreme and Brutal tests may cause crashes!")
+    print("   Use these to reproduce XML serialization and memory issues.")
+    print("   test_crash_reproduction.xml specifically targets autosave crashes!")
 
 if __name__ == "__main__":
     main()
