@@ -53,6 +53,10 @@ public:
     // Clear both graphics items AND registries - prevents dangling pointers
     void clearGraph();
     
+    // PHASE 1.2: Safe shutdown preparation
+    void prepareForShutdown();
+    bool isShutdownInProgress() const { return m_shutdownInProgress; }
+    
     // Public observer notifications (for Node movement)
     using GraphSubject::notifyNodeMoved;
     
@@ -62,6 +66,9 @@ public:
     void finishGhostEdge(Socket* toSocket = nullptr);
     void cancelGhostEdge();
     bool ghostEdgeActive() const { return m_ghostEdgeActive; }
+    
+    // Critical destruction safety flag
+    static bool isClearing() { return s_clearingGraph; }
 
 protected:
     // Mouse event handling for ghost edge interactions
@@ -82,4 +89,10 @@ private:
     // Helper method for ghost edge styling
     QPen ghostPen() const;
     void resetAllSocketStates();
+    
+    // Static flag to prevent socket cleanup during clearGraph
+    static bool s_clearingGraph;
+    
+    // Shutdown coordination flag
+    bool m_shutdownInProgress;
 };

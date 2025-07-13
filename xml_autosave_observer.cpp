@@ -74,15 +74,15 @@ void XmlAutosaveObserver::onNodeAdded(const Node& node)
 
 void XmlAutosaveObserver::onNodeRemoved(const QUuid& nodeId)
 {
-    qDebug() << "🔔 OBSERVER: Node removed" << nodeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
+    Q_UNUSED(nodeId)
     scheduleAutosave();
 }
 
 void XmlAutosaveObserver::onNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos)
 {
+    Q_UNUSED(nodeId)
     Q_UNUSED(oldPos)
     Q_UNUSED(newPos)
-    qDebug().noquote() << "[AUTOSAVE] Node moved:" << nodeId.toString(QUuid::WithoutBraces).left(8);
     scheduleAutosave();
 }
 
@@ -94,13 +94,12 @@ void XmlAutosaveObserver::onEdgeAdded(const Edge& edge)
 
 void XmlAutosaveObserver::onEdgeRemoved(const QUuid& edgeId)
 {
-    qDebug() << "🔔 OBSERVER: Edge removed" << edgeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
+    Q_UNUSED(edgeId)
     scheduleAutosave();
 }
 
 void XmlAutosaveObserver::onGraphCleared()
 {
-    qDebug() << "🔔 OBSERVER: Graph cleared - Triggering autosave";
     scheduleAutosave();
 }
 

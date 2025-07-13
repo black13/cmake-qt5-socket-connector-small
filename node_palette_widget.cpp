@@ -25,7 +25,7 @@ PaletteButton::PaletteButton(const QString& iconAlias,
     setToolTip(tooltip);
     
     // Apply consistent styling
-    applyDefaultStyle();
+    setupStyling();
 }
 
 void PaletteButton::setCheckable(bool checkable)
@@ -41,7 +41,7 @@ void PaletteButton::setCheckable(bool checkable)
     }
 }
 
-void PaletteButton::applyDefaultStyle()
+void PaletteButton::setupStyling()
 {
     setAutoRaise(true);
     setCursor(Qt::PointingHandCursor);
@@ -159,7 +159,7 @@ void NodePaletteWidget::populateNodeTemplates()
     addNodeTemplate(outputNode);
     
     NodeTemplate processorNode;
-    processorNode.type = "PROC";
+    processorNode.type = "PROCESSOR";
     processorNode.name = "Processor";
     processorNode.description = "Processing node with inputs and outputs";
     processorNode.iconPath = "";
@@ -264,7 +264,7 @@ QIcon NodePaletteWidget::NodeButton::createNodeIcon(const NodeTemplate& nodeTemp
     } else if (nodeTemplate.type == "OUT") {
         nodeColor = QColor(231, 76, 60); // Red for output
         symbol = "OUT";
-    } else if (nodeTemplate.type == "PROC") {
+    } else if (nodeTemplate.type == "PROCESSOR") {
         nodeColor = QColor(52, 152, 219); // Blue for processor
         symbol = "PROC";
     } else {

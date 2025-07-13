@@ -77,6 +77,7 @@ public:
     bool isConnected() const { return !m_connectedEdges.isEmpty(); }
     void addConnectedEdge(Edge* edge);
     void removeConnectedEdge(Edge* edge);
+    void clearAllConnections(); // Emergency clear for safe destruction
     const QSet<Edge*>& getConnectedEdges() const { return m_connectedEdges; }
     
     // Legacy single-edge interface for compatibility

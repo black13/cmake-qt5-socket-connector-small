@@ -24,7 +24,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
         parentNode->registerSocket(this, m_index);
     }
     
-    qDebug() << "+Socket" << m_index << (m_role == Input ? "IN" : "OUT");
+    // Socket creation - keep minimal logging
 }
 
 Node* Socket::getParentNode() const
@@ -133,7 +133,6 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
     
     if (event->button() == Qt::LeftButton) {
-        qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // TODO: Start edge creation drag
         event->accept();
     }
@@ -143,7 +142,6 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
 void Socket::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
-        qDebug() << "Socket released: index:" << m_index;
         // TODO: Complete edge connection
         event->accept();
     }
@@ -281,17 +279,25 @@ void Socket::addConnectedEdge(Edge* edge)
 {
     if (edge && !m_connectedEdges.contains(edge)) {
         m_connectedEdges.insert(edge);
-        qDebug() << "Socket" << m_index << "added edge connection (" 
-                 << m_connectedEdges.size() << "total connections)";
+        qDebug() << "SOCKET" << m_index << ": +Edge (" << m_connectedEdges.size() << "total)";
     }
 }
 
 void Socket::removeConnectedEdge(Edge* edge)
 {
-    if (edge && m_connectedEdges.contains(edge)) {
+    if (!edge) return;
+    
+    if (m_connectedEdges.contains(edge)) {
         m_connectedEdges.remove(edge);
-        qDebug() << "Socket" << m_index << "removed edge connection (" 
-                 << m_connectedEdges.size() << "remaining connections)";
+        qDebug() << "SOCKET" << m_index << ": -Edge (" << m_connectedEdges.size() << "remaining)";
+    }
+}
+
+void Socket::clearAllConnections()
+{
+    if (!m_connectedEdges.isEmpty()) {
+        qDebug() << "PHASE1: Socket emergency clear (" << m_connectedEdges.size() << "connections)";
+        m_connectedEdges.clear();
     }
 }
 

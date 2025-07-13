@@ -40,6 +40,10 @@ public:
     
     // Update status bar with current graph information
     void updateStatusBar();
+
+protected:
+    // PHASE 3: Safe shutdown coordination
+    void closeEvent(QCloseEvent* event) override;
     
 public slots:
     // Scene event handlers

@@ -6,11 +6,15 @@
 #include <QGraphicsPathItem>
 #include <QTimer>
 
+// Static flag definition for safe destruction
+bool Scene::s_clearingGraph = false;
+
 Scene::Scene(QObject* parent)
     : QGraphicsScene(parent)
     , m_ghostEdge(nullptr)
     , m_ghostFromSocket(nullptr)
     , m_ghostEdgeActive(false)
+    , m_shutdownInProgress(false)
 {
     setSceneRect(-1000, -1000, 2000, 2000);
 }
@@ -222,16 +226,25 @@ void Scene::clearGraph()
 {
     qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
     
-    // SIMPLE FIX: Clear registries FIRST to prevent dangling pointers
+    // PHASE 1.2: Use safe shutdown preparation
+    prepareForShutdown();
+    
+    // CRITICAL FIX: Set global flag to prevent socket cleanup during destruction
+    s_clearingGraph = true;
+    
+    // SIMPLE FIX: Clear registries SECOND to prevent dangling pointers
     // This prevents hash lookups during Qt's destruction sequence
-    qDebug() << "SIMPLE_FIX: Clearing hash registries first";
+    qDebug() << "SIMPLE_FIX: Clearing hash registries";
     m_nodes.clear();
     m_edges.clear();
     m_sockets.clear();  // Clear deprecated socket registry too
     
-    // Then clear Qt graphics scene (safe now - no hash references)
+    // Then clear Qt graphics scene (safe now - no socket or hash references)
     qDebug() << "SIMPLE_FIX: Clearing Qt scene items";
     QGraphicsScene::clear();
+    
+    // Reset the clearing flag
+    s_clearingGraph = false;
     
     // Notify observers of graph clearing
     notifyGraphCleared();
@@ -240,6 +253,42 @@ void Scene::clearGraph()
     emit sceneChanged();
     
     qDebug() << "SIMPLE_FIX: ✓ Graph cleared safely - hash cleared before Qt cleanup";
+}
+
+// ============================================================================
+// PHASE 1.2: Safe Shutdown Preparation
+// ============================================================================
+
+void Scene::prepareForShutdown()
+{
+    if (m_shutdownInProgress) {
+        qDebug() << "SHUTDOWN: Already in progress, skipping";
+        return;
+    }
+    
+    qDebug() << "SHUTDOWN: Preparing for safe shutdown - cleaning" << m_edges.size() << "edges and" << m_nodes.size() << "nodes";
+    m_shutdownInProgress = true;
+    
+    // Step 1: Clean edge-socket connections BEFORE any destruction
+    for (Edge* edge : m_edges.values()) {
+        if (edge->getFromSocket()) {
+            edge->getFromSocket()->removeConnectedEdge(edge);
+        }
+        if (edge->getToSocket()) {
+            edge->getToSocket()->removeConnectedEdge(edge);
+        }
+    }
+    
+    // Step 2: Clear all socket connection sets
+    for (Node* node : m_nodes.values()) {
+        for (QGraphicsItem* child : node->childItems()) {
+            if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
+                socket->clearAllConnections();
+            }
+        }
+    }
+    
+    qDebug() << "SHUTDOWN: ✓ All socket-edge connections safely cleared";
 }
 
 // ============================================================================

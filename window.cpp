@@ -8,6 +8,7 @@
 #include "node_palette_widget.h"
 #include <QKeyEvent>
 #include <QFileDialog>
+#include <QCloseEvent>
 #include <QMessageBox>
 #include <QDebug>
 #include <QElapsedTimer>
@@ -819,4 +820,23 @@ void Window::zoomReset()
 {
     m_view->resetTransform();
     // TODO: Update zoom label
+}
+
+// ============================================================================
+// PHASE 3: Safe Shutdown Coordination
+// ============================================================================
+
+void Window::closeEvent(QCloseEvent* event)
+{
+    qDebug() << "SHUTDOWN: Window closeEvent triggered";
+    
+    // PHASE 1.2: Prepare scene for safe shutdown
+    if (m_scene) {
+        m_scene->prepareForShutdown();
+    }
+    
+    // Accept the close event (no dirty state tracking yet)
+    QMainWindow::closeEvent(event);
+    
+    qDebug() << "SHUTDOWN: ✓ Window closed safely";
 }

@@ -34,12 +34,14 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     // Ensure edges are above nodes in z-order for easier selection
     setZValue(1);  // Nodes default to z=0, edges at z=1
     
-    qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
-    // Don't call updatePath() here - sockets not resolved yet
+    // Edge creation - minimal logging
 }
 
 Edge::~Edge()
 {
+    // PHASE 1.1: Remove socket cleanup entirely from destructor
+    // Socket connections will be cleaned up by prepareForShutdown() before destruction
+    
     // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
     if (m_fromNode) {
         m_fromNode->unregisterEdge(this);
@@ -48,15 +50,7 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
     
-    // PATCH: Clean up socket connections to prevent dangling pointers
-    if (m_fromSocket) {
-        m_fromSocket->removeConnectedEdge(this);
-    }
-    if (m_toSocket) {
-        m_toSocket->removeConnectedEdge(this);
-    }
-    
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    // PHASE 1: No socket cleanup in destructor - prevents use-after-free
 }
 
 void Edge::invalidateNode(const Node* node)
@@ -148,13 +142,11 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
 
 void Edge::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mousePressEvent at" << event->pos();
     QGraphicsItem::mousePressEvent(event);
 }
 
 void Edge::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mouseReleaseEvent at" << event->pos();
     QGraphicsItem::mouseReleaseEvent(event);
 }
 
@@ -162,7 +154,6 @@ void Edge::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
     Q_UNUSED(event)
     m_hovered = true;
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "HOVER ENTER";
     update();  // Redraw to show hover effect
     QGraphicsItem::hoverEnterEvent(event);
 }
@@ -171,7 +162,6 @@ void Edge::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 {
     Q_UNUSED(event)
     m_hovered = false;
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "HOVER LEAVE";
     update();  // Redraw to remove hover effect
     QGraphicsItem::hoverLeaveEvent(event);
 }
@@ -406,10 +396,10 @@ bool Edge::resolveConnections(Scene* scene)
     fromSocket->addConnectedEdge(this);
     toSocket->addConnectedEdge(this);
     
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved" 
-             << m_fromSocketIndex << "->" << m_toSocketIndex
-             << "from socket now has" << fromSocket->getConnectedEdges().size() << "connections"
-             << "to socket now has" << toSocket->getConnectedEdges().size() << "connections";
+    qDebug() << "EDGE" << m_id.toString(QUuid::WithoutBraces).left(8) << ": Resolved" 
+             << m_fromSocketIndex << "→" << m_toSocketIndex
+             << "(from:" << fromSocket->getConnectedEdges().size() 
+             << "to:" << toSocket->getConnectedEdges().size() << "connections)";
     
     updatePath();
     return true;

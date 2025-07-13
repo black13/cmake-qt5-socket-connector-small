@@ -228,8 +228,6 @@ if(WIN32)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
         VS_DEBUGGER_ENVIRONMENT
             "PATH=E:/Qt/5.15.16/Debug_x64/bin;E:/Qt/5.15.16/Release_x64/bin;%PATH%"
-        VS_DEBUGGER_COMMAND_ARGUMENTS
-            "test_working_graph.xml"
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
