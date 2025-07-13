@@ -21,6 +21,8 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     , m_toSocket(nullptr)
     , m_fromNode(nullptr)
     , m_toNode(nullptr)
+    , m_fromNodeValid(false)
+    , m_toNodeValid(false)
     , m_hovered(false)
     #ifdef QT_DEBUG
     , m_shapeCallCount(0)
@@ -42,25 +44,27 @@ Edge::~Edge()
     // PHASE 1.1: Remove socket cleanup entirely from destructor
     // Socket connections will be cleaned up by prepareForShutdown() before destruction
     
-    // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
-    if (m_fromNode) {
+    // SAFETY: Use validity flags to prevent use-after-free
+    if (m_fromNodeValid && m_fromNode) {
         m_fromNode->unregisterEdge(this);
     }
-    if (m_toNode) {
+    if (m_toNodeValid && m_toNode) {
         m_toNode->unregisterEdge(this);
     }
     
     // PHASE 1: No socket cleanup in destructor - prevents use-after-free
 }
 
-void Edge::invalidateNode(const Node* node)
+void Edge::onNodeDestroying(const Node* node)
 {
-    // Manual weak pointer nulling - called by Node::~Node()
+    // Built-in destruction safety - mark which node is being destroyed
     if (node == m_fromNode) {
-        m_fromNode = nullptr;
+        m_fromNodeValid = false;
+        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "- fromNode destroying";
     }
     if (node == m_toNode) {
-        m_toNode = nullptr;
+        m_toNodeValid = false;
+        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "- toNode destroying";
     }
 }
 
@@ -74,31 +78,22 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     Q_UNUSED(option)
     Q_UNUSED(widget)
     
+    // Clean edge painting - strokes only, no fills
     painter->setRenderHint(QPainter::Antialiasing);
+    painter->setBrush(Qt::NoBrush);  // Explicitly no fill
     
-    // Improved edge styling with hover and selection feedback
-    QPen connectionPen;
-    
+    // Simple edge styling
+    QPen edgePen;
     if (isSelected()) {
-        connectionPen = QPen(QColor(255, 69, 0), 6); // Thick bright orange for selection
-        connectionPen.setStyle(Qt::SolidLine); // Solid line for better visibility
+        edgePen = QPen(QColor(255, 100, 0), 3);  // Orange selection
     } else if (m_hovered) {
-        connectionPen = QPen(QColor(100, 150, 255), 4); // Blue and thicker when hovered
-        connectionPen.setStyle(Qt::SolidLine);
+        edgePen = QPen(QColor(100, 150, 255), 2);  // Blue hover
     } else {
-        connectionPen = QPen(QColor(70, 70, 70), 2); // Dark gray for normal state
+        edgePen = QPen(QColor(80, 80, 80), 1);  // Gray normal
     }
     
-    // Add subtle gradient effect by drawing shadow first
-    if (!isSelected()) {
-        QPen shadowPen(QColor(0, 0, 0, 50), 3);
-        painter->setPen(shadowPen);
-        QPainterPath shadowPath = m_path;
-        shadowPath.translate(1, 1);
-        painter->drawPath(shadowPath);
-    }
-    
-    painter->setPen(connectionPen);
+    // Draw edge path - stroke only
+    painter->setPen(edgePen);
     painter->drawPath(m_path);
 }
 
@@ -376,9 +371,12 @@ bool Edge::resolveConnections(Scene* scene)
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
     
-    // Cache node pointers for safe destruction
+    // Cache node pointers for safe destruction with validity flags
+    Q_ASSERT(fromNode && toNode); // Future-risk check: ensure nodes are valid
     m_fromNode = fromNode;
     m_toNode = toNode;
+    m_fromNodeValid = true;
+    m_toNodeValid = true;
     
     // PATCH: Scene consistency check - prevent cross-scene connections
     if (fromNode->scene() != toNode->scene()) {
@@ -442,11 +440,14 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
     
-    // Cache node pointers for safe destruction
+    // Cache node pointers for safe destruction with validity flags
     Node* fromNode = fromSocket->getParentNode();
     Node* toNode = toSocket->getParentNode();
+    Q_ASSERT(fromNode && toNode); // Future-risk check: ensure nodes are valid
     m_fromNode = fromNode;
     m_toNode = toNode;
+    m_fromNodeValid = true;
+    m_toNodeValid = true;
     
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
