@@ -12,7 +12,7 @@ GraphFactory::GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc)
     : m_scene(scene)
     , m_xmlDocument(xmlDoc)
 {
-    qDebug() << "GraphFactory initialized with scene and XML document";
+    // qDebug() << "GraphFactory initialized with scene and XML document";
 }
 
 Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
@@ -541,8 +541,8 @@ Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int inde
         typedScene->addSocket(socket);
     }
     
-    qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
-             << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
+    // qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
+    //          << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
     
     return socket;
 }

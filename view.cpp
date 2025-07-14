@@ -37,7 +37,7 @@ View::View(Scene* scene, QWidget* parent)
     setOptimizationFlag(QGraphicsView::DontSavePainterState);
     setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing);
     
-    qDebug() << "VIEW: Enhanced view initialized with grid and zoom controls";
+    // qDebug() << "VIEW: Enhanced view initialized with grid and zoom controls";
 }
 
 void View::mousePressEvent(QMouseEvent* event)
@@ -132,7 +132,7 @@ void View::keyPressEvent(QKeyEvent* event)
         case Qt::Key_G:
             m_showGrid = !m_showGrid;
             viewport()->update();
-            qDebug() << "VIEW: Grid" << (m_showGrid ? "enabled" : "disabled");
+            // qDebug() << "VIEW: Grid" << (m_showGrid ? "enabled" : "disabled");
             event->accept();
             return;
     }
@@ -157,7 +157,7 @@ void View::zoomOut()
 void View::zoomReset()
 {
     setZoomLevel(1.0);
-    qDebug() << "VIEW: Reset zoom to 100%";
+    // qDebug() << "VIEW: Reset zoom to 100%";
 }
 
 void View::zoomToFit()
@@ -168,7 +168,7 @@ void View::zoomToFit()
             fitInView(itemsRect, Qt::KeepAspectRatio);
             m_zoomLevel = transform().m11(); // Update zoom level
             emit zoomChanged(m_zoomLevel);
-            qDebug() << "VIEW: Zoomed to fit items";
+            // qDebug() << "VIEW: Zoomed to fit items";
         }
     }
 }
@@ -179,10 +179,10 @@ void View::centerView()
         QRectF itemsRect = m_scene->itemsBoundingRect();
         if (!itemsRect.isEmpty()) {
             centerOn(itemsRect.center());
-            qDebug() << "VIEW: Centered on items";
+            // qDebug() << "VIEW: Centered on items";
         } else {
             centerOn(0, 0);
-            qDebug() << "VIEW: Centered on origin";
+            // qDebug() << "VIEW: Centered on origin";
         }
     }
 }
@@ -336,7 +336,7 @@ void View::contextMenuEvent(QContextMenuEvent* event)
 
 void View::showNodeCreationMenu(const QPointF& scenePos)
 {
-    qDebug() << "🎯 CONTEXT MENU: Creating node menu at scene position:" << scenePos;
+    qDebug() << "Context menu at" << scenePos;
     
     QMenu* contextMenu = new QMenu(this);
     contextMenu->setTitle("Create Node");
@@ -371,7 +371,7 @@ void View::showNodeCreationMenu(const QPointF& scenePos)
 
 void View::createNodeAtPosition(const QString& nodeType, const QPointF& scenePos)
 {
-    qDebug() << "🎯 ✅ CONTEXT MENU NODE:" << nodeType << "at scene position:" << scenePos;
+    qDebug() << "Context menu creating" << nodeType;
     
     // Emit the same signal as drag-and-drop for consistency
     emit nodeDropped(nodeType, scenePos);

@@ -15,7 +15,7 @@ void NodeRegistry::registerNode(const QString& typeName, NodeFactoryFunction fac
     }
     
     m_factories[typeName] = factory;
-    qDebug() << "NodeRegistry: Registered node type:" << typeName;
+    // qDebug() << "NodeRegistry: Registered node type:" << typeName;
 }
 
 Node* NodeRegistry::createNode(const QString& typeName) const
@@ -24,7 +24,7 @@ Node* NodeRegistry::createNode(const QString& typeName) const
     if (it != m_factories.end()) {
         Node* node = it.value()();
         if (node) {
-            qDebug() << "NodeRegistry: Created node of type:" << typeName;
+            // qDebug() << "NodeRegistry: Created node of type:" << typeName;
             return node;
         } else {
             qCritical() << "NodeRegistry: Factory function returned null for type:" << typeName;

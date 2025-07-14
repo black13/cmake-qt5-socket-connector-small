@@ -171,6 +171,31 @@ int main(int argc, char *argv[])
         return node; 
     });
     
+    // Context menu node types (using existing registry interface)
+    NodeRegistry::instance().registerNode("Source", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("Source"); 
+        return node; 
+    });
+    
+    NodeRegistry::instance().registerNode("Sink", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("Sink"); 
+        return node; 
+    });
+    
+    NodeRegistry::instance().registerNode("1-to-2", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("1-to-2"); 
+        return node; 
+    });
+    
+    NodeRegistry::instance().registerNode("2-to-1", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("2-to-1"); 
+        return node; 
+    });
+    
     // Test the NodeRegistry to verify nodes are registered
     qDebug() << "=== NodeGraph Application Starting ===";
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
