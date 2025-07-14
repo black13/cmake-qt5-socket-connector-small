@@ -801,5 +801,264 @@ void tst_Main::test_massDestructionStress()
                    .arg(nullFromNodes).arg(nullToNodes));
 }
 
+// ============================================================================
+// Live XML Synchronization Tests
+// ============================================================================
+
+void tst_Main::test_liveXmlNodePositionSync()
+{
+    logTestSummary("LIVE_XML_TEST: Node position synchronization");
+    
+    // Create XML live sync system
+    XmlLiveSync* liveSync = new XmlLiveSync(m_testScene, m_xmlDoc);
+    QVERIFY(liveSync != nullptr);
+    QVERIFY(liveSync->isEnabled());
+    
+    // Create a test node
+    Node* node = new Node(QUuid::createUuid(), QPointF(100, 100));
+    node->setNodeType("OUT");
+    node->createSocketsFromXml(0, 1);
+    m_testScene->addNode(node);
+    
+    // Move the node to trigger live XML update
+    QPointF oldPos = node->pos();
+    QPointF newPos(250, 150);
+    node->setPos(newPos);
+    
+    // Verify XML was updated immediately
+    xmlNodePtr root = xmlDocGetRootElement(m_xmlDoc);
+    QVERIFY(root != nullptr);
+    
+    // Find the node in XML and verify position
+    bool foundNode = false;
+    QString nodeId = node->getId().toString(QUuid::WithoutBraces);
+    
+    for (xmlNodePtr child = root->children; child; child = child->next) {
+        if (child->type == XML_ELEMENT_NODE && 
+            xmlStrcmp(child->name, BAD_CAST "nodes") == 0) {
+            
+            for (xmlNodePtr nodeXml = child->children; nodeXml; nodeXml = nodeXml->next) {
+                if (nodeXml->type == XML_ELEMENT_NODE) {
+                    xmlChar* idProp = xmlGetProp(nodeXml, BAD_CAST "id");
+                    if (idProp && QString::fromUtf8((char*)idProp) == nodeId) {
+                        xmlChar* xProp = xmlGetProp(nodeXml, BAD_CAST "x");
+                        xmlChar* yProp = xmlGetProp(nodeXml, BAD_CAST "y");
+                        
+                        if (xProp && yProp) {
+                            double xmlX = QString::fromUtf8((char*)xProp).toDouble();
+                            double xmlY = QString::fromUtf8((char*)yProp).toDouble();
+                            
+                            QCOMPARE(xmlX, newPos.x());
+                            QCOMPARE(xmlY, newPos.y());
+                            foundNode = true;
+                        }
+                        
+                        if (idProp) xmlFree(idProp);
+                        if (xProp) xmlFree(xProp);
+                        if (yProp) xmlFree(yProp);
+                        break;
+                    }
+                    if (idProp) xmlFree(idProp);
+                }
+            }
+        }
+    }
+    
+    QVERIFY(foundNode);
+    delete liveSync;
+    logTestSummary("LIVE_XML_TEST: ✓ Node position sync verified");
+}
+
+void tst_Main::test_liveXmlEdgeCreationSync()
+{
+    logTestSummary("LIVE_XML_TEST: Edge creation synchronization");
+    
+    XmlLiveSync* liveSync = new XmlLiveSync(m_testScene, m_xmlDoc);
+    
+    // Create two nodes
+    Node* node1 = new Node(QUuid::createUuid(), QPointF(0, 0));
+    Node* node2 = new Node(QUuid::createUuid(), QPointF(100, 0));
+    
+    node1->setNodeType("OUT");
+    node1->createSocketsFromXml(0, 1);
+    node2->setNodeType("IN");
+    node2->createSocketsFromXml(1, 0);
+    
+    m_testScene->addNode(node1);
+    m_testScene->addNode(node2);
+    
+    // Count edges in XML before
+    int edgeCountBefore = 0;
+    xmlNodePtr root = xmlDocGetRootElement(m_xmlDoc);
+    for (xmlNodePtr child = root->children; child; child = child->next) {
+        if (child->type == XML_ELEMENT_NODE && 
+            xmlStrcmp(child->name, BAD_CAST "edges") == 0) {
+            for (xmlNodePtr edgeXml = child->children; edgeXml; edgeXml = edgeXml->next) {
+                if (edgeXml->type == XML_ELEMENT_NODE) edgeCountBefore++;
+            }
+        }
+    }
+    
+    // Create edge - should trigger live XML update
+    Edge* edge = new Edge();
+    edge->setResolvedSockets(node1->getSocketByIndex(0), node2->getSocketByIndex(0));
+    m_testScene->addEdge(edge);
+    
+    // Count edges in XML after
+    int edgeCountAfter = 0;
+    for (xmlNodePtr child = root->children; child; child = child->next) {
+        if (child->type == XML_ELEMENT_NODE && 
+            xmlStrcmp(child->name, BAD_CAST "edges") == 0) {
+            for (xmlNodePtr edgeXml = child->children; edgeXml; edgeXml = edgeXml->next) {
+                if (edgeXml->type == XML_ELEMENT_NODE) edgeCountAfter++;
+            }
+        }
+    }
+    
+    QVERIFY(edgeCountAfter > edgeCountBefore);
+    delete liveSync;
+    logTestSummary("LIVE_XML_TEST: ✓ Edge creation sync verified");
+}
+
+void tst_Main::test_liveXmlEdgeDeletionSync()
+{
+    logTestSummary("LIVE_XML_TEST: Edge deletion synchronization");
+    
+    XmlLiveSync* liveSync = new XmlLiveSync(m_testScene, m_xmlDoc);
+    
+    // Create nodes and edge
+    Node* node1 = new Node(QUuid::createUuid(), QPointF(0, 0));
+    Node* node2 = new Node(QUuid::createUuid(), QPointF(100, 0));
+    
+    node1->setNodeType("OUT");
+    node1->createSocketsFromXml(0, 1);
+    node2->setNodeType("IN");
+    node2->createSocketsFromXml(1, 0);
+    
+    m_testScene->addNode(node1);
+    m_testScene->addNode(node2);
+    
+    Edge* edge = new Edge();
+    edge->setResolvedSockets(node1->getSocketByIndex(0), node2->getSocketByIndex(0));
+    m_testScene->addEdge(edge);
+    
+    // Verify edge was added to XML
+    int edgeCountWithEdge = 0;
+    xmlNodePtr root = xmlDocGetRootElement(m_xmlDoc);
+    for (xmlNodePtr child = root->children; child; child = child->next) {
+        if (child->type == XML_ELEMENT_NODE && 
+            xmlStrcmp(child->name, BAD_CAST "edges") == 0) {
+            for (xmlNodePtr edgeXml = child->children; edgeXml; edgeXml = edgeXml->next) {
+                if (edgeXml->type == XML_ELEMENT_NODE) edgeCountWithEdge++;
+            }
+        }
+    }
+    
+    QVERIFY(edgeCountWithEdge > 0);
+    
+    // Delete edge - should trigger live XML update
+    QUuid edgeId = edge->getId();
+    m_testScene->removeEdge(edgeId);  // This calls delete internally
+    
+    // Verify edge was removed from XML
+    int edgeCountAfterDelete = 0;
+    for (xmlNodePtr child = root->children; child; child = child->next) {
+        if (child->type == XML_ELEMENT_NODE && 
+            xmlStrcmp(child->name, BAD_CAST "edges") == 0) {
+            for (xmlNodePtr edgeXml = child->children; edgeXml; edgeXml = edgeXml->next) {
+                if (edgeXml->type == XML_ELEMENT_NODE) edgeCountAfterDelete++;
+            }
+        }
+    }
+    
+    QVERIFY(edgeCountAfterDelete < edgeCountWithEdge);
+    delete liveSync;
+    logTestSummary("LIVE_XML_TEST: ✓ Edge deletion sync verified");
+}
+
+void tst_Main::test_liveXmlFastSave()
+{
+    logTestSummary("LIVE_XML_TEST: Fast save performance");
+    
+    XmlLiveSync* liveSync = new XmlLiveSync(m_testScene, m_xmlDoc);
+    
+    // Create some test data
+    Node* node = new Node(QUuid::createUuid(), QPointF(123, 456));
+    node->setNodeType("OUT");
+    node->createSocketsFromXml(0, 1);
+    m_testScene->addNode(node);
+    
+    // Test fast save
+    QString testFile = "logs/test_live_xml_save.xml";
+    QElapsedTimer timer;
+    timer.start();
+    
+    bool saveSuccess = liveSync->saveToFile(testFile);
+    qint64 saveTime = timer.elapsed();
+    
+    QVERIFY(saveSuccess);
+    QVERIFY(saveTime < 100);  // Should be very fast (< 100ms)
+    
+    // Verify file was created and contains our data
+    QFile file(testFile);
+    QVERIFY(file.exists());
+    QVERIFY(file.size() > 0);
+    
+    delete liveSync;
+    logTestSummary(QString("LIVE_XML_TEST: ✓ Fast save completed in %1ms").arg(saveTime));
+}
+
+void tst_Main::test_liveXmlRebuildFromScene()
+{
+    logTestSummary("LIVE_XML_TEST: Rebuild XML from scene");
+    
+    XmlLiveSync* liveSync = new XmlLiveSync(m_testScene, m_xmlDoc);
+    
+    // Create test data in scene
+    Node* node1 = new Node(QUuid::createUuid(), QPointF(10, 20));
+    Node* node2 = new Node(QUuid::createUuid(), QPointF(30, 40));
+    
+    node1->setNodeType("OUT");
+    node1->createSocketsFromXml(0, 1);
+    node2->setNodeType("IN");
+    node2->createSocketsFromXml(1, 0);
+    
+    m_testScene->addNode(node1);
+    m_testScene->addNode(node2);
+    
+    Edge* edge = new Edge();
+    edge->setResolvedSockets(node1->getSocketByIndex(0), node2->getSocketByIndex(0));
+    m_testScene->addEdge(edge);
+    
+    // Force rebuild from scene
+    liveSync->rebuildXmlFromScene();
+    
+    // Verify XML contains all scene elements
+    xmlNodePtr root = xmlDocGetRootElement(m_xmlDoc);
+    QVERIFY(root != nullptr);
+    
+    int nodeCount = 0, edgeCount = 0;
+    
+    for (xmlNodePtr child = root->children; child; child = child->next) {
+        if (child->type == XML_ELEMENT_NODE) {
+            if (xmlStrcmp(child->name, BAD_CAST "nodes") == 0) {
+                for (xmlNodePtr nodeXml = child->children; nodeXml; nodeXml = nodeXml->next) {
+                    if (nodeXml->type == XML_ELEMENT_NODE) nodeCount++;
+                }
+            } else if (xmlStrcmp(child->name, BAD_CAST "edges") == 0) {
+                for (xmlNodePtr edgeXml = child->children; edgeXml; edgeXml = edgeXml->next) {
+                    if (edgeXml->type == XML_ELEMENT_NODE) edgeCount++;
+                }
+            }
+        }
+    }
+    
+    QCOMPARE(nodeCount, 2);
+    QCOMPARE(edgeCount, 1);
+    
+    delete liveSync;
+    logTestSummary("LIVE_XML_TEST: ✓ XML rebuild verified");
+}
+
 QTEST_MAIN(tst_Main)
 #include "tst_main.moc"

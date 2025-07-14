@@ -10,6 +10,7 @@
 #include "node.h"
 #include "edge.h"
 #include "node_registry.h"
+#include "xml_live_sync.h"
 
 /**
  * tst_Main - Main Qt Test suite that grows with the application
@@ -44,6 +45,13 @@ private slots:
     void test_nodeDestroyedBeforeEdge();
     void test_edgeDestroyedBeforeNode();
     void test_massDestructionStress();
+    
+    // Live XML synchronization tests
+    void test_liveXmlNodePositionSync();
+    void test_liveXmlEdgeCreationSync();
+    void test_liveXmlEdgeDeletionSync();
+    void test_liveXmlFastSave();
+    void test_liveXmlRebuildFromScene();
 
 private:
     // Helper methods
