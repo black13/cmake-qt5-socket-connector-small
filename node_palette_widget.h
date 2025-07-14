@@ -30,8 +30,11 @@ public:
     // Set checkable state for toggle tools
     void setCheckable(bool checkable);
     
-    // Apply consistent styling
-    void applyDefaultStyle();
+    // Visual states
+    void setHighlighted(bool highlighted);
+
+private:
+    void setupStyling();
 };
 
 /**
@@ -51,17 +54,29 @@ class NodePaletteWidget : public QWidget
 public:
     explicit NodePaletteWidget(QWidget* parent = nullptr);
     
-    // Node template structure
+    // Node category enumeration
+    enum class NodeCategory {
+        Sources,    // Input nodes, data sources
+        Processors, // Processing, transformation nodes  
+        Outputs,    // Output nodes, sinks
+        Math,       // Mathematical operations
+        Logic,      // Logical operations
+        Custom      // User-defined nodes
+    };
+    
+    // Enhanced node template structure
     struct NodeTemplate {
-        QString type;       // Node type (IN, OUT, PROCESSOR)
-        QString name;       // Display name
-        QString description; // Tooltip description
-        QString iconPath;   // Icon file path
-        int inputSockets;   // Number of input sockets
-        int outputSockets;  // Number of output sockets
+        QString type;           // Node type (IN, OUT, PROCESSOR, etc.)
+        QString name;           // Display name
+        QString description;    // Tooltip description
+        QString iconPath;       // Icon file path
+        NodeCategory category;  // Node category for organization
+        int inputSockets;       // Number of input sockets
+        int outputSockets;      // Number of output sockets
+        QStringList keywords;   // Keywords for search filtering
         
         // Default constructor for QVariant
-        NodeTemplate() : inputSockets(0), outputSockets(0) {}
+        NodeTemplate() : category(NodeCategory::Custom), inputSockets(0), outputSockets(0) {}
         
         // Copy constructor
         NodeTemplate(const NodeTemplate& other) = default;

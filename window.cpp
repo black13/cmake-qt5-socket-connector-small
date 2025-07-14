@@ -828,7 +828,7 @@ void Window::zoomReset()
 
 void Window::closeEvent(QCloseEvent* event)
 {
-    qDebug() << "SHUTDOWN: Window closeEvent triggered";
+    qDebug() << "PHASE1: Window shutdown initiated";
     
     // PHASE 1.2: Prepare scene for safe shutdown
     if (m_scene) {
@@ -838,5 +838,5 @@ void Window::closeEvent(QCloseEvent* event)
     // Accept the close event (no dirty state tracking yet)
     QMainWindow::closeEvent(event);
     
-    qDebug() << "SHUTDOWN: ✓ Window closed safely";
+    qDebug() << "PHASE1: ✓ Window shutdown complete";
 }

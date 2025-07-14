@@ -28,7 +28,7 @@ void Scene::addNode(Node* node)
     m_nodes.insert(nodeId, node);
     addItem(node);
     
-    qDebug() << "+" << nodeId.toString(QUuid::WithoutBraces).left(8);
+    // Node added to scene
     
     // Notify observers of node addition
     notifyNodeAdded(*node);
@@ -45,7 +45,7 @@ void Scene::addEdge(Edge* edge)
     m_edges.insert(edgeId, edge);
     addItem(edge);
     
-    qDebug() << "+" << edgeId.toString(QUuid::WithoutBraces).left(8);
+    // Edge added to scene
     
     // Notify observers of edge addition
     notifyEdgeAdded(*edge);
@@ -167,7 +167,16 @@ void Scene::deleteEdge(const QUuid& edgeId)
         return;
     }
     
-    qDebug() << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
+    // PHASE 1: Clean up socket connections before deletion (Edge destructor no longer does this)
+    if (edge->getFromSocket()) {
+        qDebug() << "DELETE_EDGE: Cleaning from-socket connections";
+        edge->getFromSocket()->removeConnectedEdge(edge);
+    }
+    if (edge->getToSocket()) {
+        qDebug() << "DELETE_EDGE: Cleaning to-socket connections";
+        edge->getToSocket()->removeConnectedEdge(edge);
+    }
+    qDebug() << "DELETE_EDGE: Socket cleanup complete for edge" << edgeId.toString().left(8);
     
     // Remove from collection and scene
     m_edges.remove(edgeId);
@@ -188,38 +197,50 @@ void Scene::deleteSelected()
 {
     QList<QGraphicsItem*> selectedItems = this->selectedItems();
     if (selectedItems.isEmpty()) {
-        qDebug() << "No items selected for deletion";
+        qDebug() << "DELETE: No items selected";
         return;
     }
     
-    qDebug() << "DELETE KEY: Deleting" << selectedItems.size() << "selected items";
+    qDebug() << "DELETE: Processing" << selectedItems.size() << "selected items";
     
-    // Separate nodes and edges for proper deletion order
-    QList<Node*> selectedNodes;
-    QList<Edge*> selectedEdges;
-    
+    // PHASE 1: Safe deletion using typed registries (no casting)
+    QSet<QUuid> selectedNodeIds;
+    QSet<QUuid> selectedEdgeIds;
+
     for (QGraphicsItem* item : selectedItems) {
-        if (Node* node = qgraphicsitem_cast<Node*>(item)) {
-            selectedNodes.append(node);
-        } else if (Edge* edge = qgraphicsitem_cast<Edge*>(item)) {
-            selectedEdges.append(edge);
+        if (item->type() == QGraphicsItem::UserType + 1) { // Edge
+            for (auto it = m_edges.begin(); it != m_edges.end(); ++it) {
+                if (it.value() == item) {
+                    selectedEdgeIds.insert(it.key());
+                    qDebug() << "DELETE: Found selected edge" << it.key().toString().left(8);
+                    break;
+                }
+            }
+        } else if (item->type() == QGraphicsItem::UserType + 2) { // Node
+            for (auto it = m_nodes.begin(); it != m_nodes.end(); ++it) {
+                if (it.value() == item) {
+                    selectedNodeIds.insert(it.key());
+                    qDebug() << "DELETE: Found selected node" << it.key().toString().left(8);
+                    break;
+                }
+            }
+        } else {
+            qDebug() << "DELETE: Unknown item type" << item->type();
         }
     }
-    
-    // Delete selected edges first
-    for (Edge* edge : selectedEdges) {
-        deleteEdge(edge->getId());
+
+    // Delete edges first to prevent dangling socket references
+    qDebug() << "DELETE: Removing" << selectedEdgeIds.size() << "edges first";
+    for (const QUuid& edgeId : selectedEdgeIds) {
+        deleteEdge(edgeId);
+    }
+
+    qDebug() << "DELETE: Removing" << selectedNodeIds.size() << "nodes second";
+    for (const QUuid& nodeId : selectedNodeIds) {
+        deleteNode(nodeId);
     }
     
-    // Then delete selected nodes (which will delete their remaining edges)
-    for (Node* node : selectedNodes) {
-        deleteNode(node->getId());
-    }
-    
-    // Emit signal for UI updates
-    emit sceneChanged();
-    
-    qDebug() << "DELETE COMPLETE: Deleted" << selectedEdges.size() << "edges and" << selectedNodes.size() << "nodes - Observers notified";
+    qDebug() << "DELETE: ✓ Completed - removed" << selectedEdgeIds.size() << "edges," << selectedNodeIds.size() << "nodes";
 }
 
 void Scene::clearGraph()
@@ -266,7 +287,7 @@ void Scene::prepareForShutdown()
         return;
     }
     
-    qDebug() << "SHUTDOWN: Preparing for safe shutdown - cleaning" << m_edges.size() << "edges and" << m_nodes.size() << "nodes";
+    qDebug() << "PHASE1: Shutdown preparation -" << m_edges.size() << "edges," << m_nodes.size() << "nodes";
     m_shutdownInProgress = true;
     
     // Step 1: Clean edge-socket connections BEFORE any destruction
@@ -288,7 +309,7 @@ void Scene::prepareForShutdown()
         }
     }
     
-    qDebug() << "SHUTDOWN: ✓ All socket-edge connections safely cleared";
+    qDebug() << "PHASE1: ✓ Socket connections cleared safely";
 }
 
 // ============================================================================
@@ -317,8 +338,8 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     
     updateGhostEdge(startPos);
     
-    qDebug() << "RIGHT_CLICK_CONNECTION: Ghost edge started from socket" << fromSocket->getIndex() 
-             << "role:" << (fromSocket->getRole() == Socket::Input ? "Input" : "Output");
+    qDebug() << "GHOST: Started from socket" << fromSocket->getIndex() 
+             << "(" << (fromSocket->getRole() == Socket::Input ? "Input" : "Output") << ")";
 }
 
 void Scene::updateGhostEdge(const QPointF& currentPos)
@@ -415,11 +436,10 @@ void Scene::finishGhostEdge(Socket* toSocket)
                     toSocket->setVisualState(Socket::Normal);
                 });
                 
-                qDebug() << "RIGHT_CLICK_CONNECTION: ✓ Created edge from socket" 
-                         << m_ghostFromSocket->getIndex() << "to socket" << toSocket->getIndex();
+                qDebug() << "GHOST: ✓ Created edge" << m_ghostFromSocket->getIndex() << "→" << toSocket->getIndex();
             }
         } else {
-            qDebug() << "RIGHT_CLICK_CONNECTION: ✗ Invalid connection - wrong socket roles";
+            qDebug() << "GHOST: ✗ Invalid connection - wrong socket roles";
         }
     }
     
@@ -439,7 +459,7 @@ void Scene::cancelGhostEdge()
     m_ghostFromSocket = nullptr;
     m_ghostEdgeActive = false;
     
-    qDebug() << "RIGHT_CLICK_CONNECTION: Ghost edge cancelled";
+    qDebug() << "GHOST: Cancelled";
 }
 
 QPen Scene::ghostPen() const
