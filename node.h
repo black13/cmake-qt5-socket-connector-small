@@ -46,6 +46,7 @@ public:
     // QGraphicsItem interface
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    int type() const override { return UserType + 2; } // Node type identifier
     
     // Movement tracking for live XML updates
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
@@ -63,6 +64,9 @@ public:
     int getSocketCount() const;
     void setNodeType(const QString& type);
     QString getNodeType() const { return m_nodeType; }
+    
+    // Built-in destruction safety
+    bool isBeingDestroyed() const { return m_beingDestroyed; }
     
     // Socket registration for performance cache
     void registerSocket(Socket* socket, int index);
@@ -100,6 +104,9 @@ private:
     
     // Edge adjacency set for O(degree) edge updates - performance optimization
     QSet<Edge*> m_incidentEdges;  // Edges touching this node (cleaned up by Edge destructor)
+    
+    // Built-in destruction safety flag
+    bool m_beingDestroyed;        // Set to true during destruction
     
     // Simple callback - no QObject connect
     void (*m_changeCallback)(Node*);

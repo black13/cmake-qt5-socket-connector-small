@@ -643,5 +643,163 @@ void tst_Main::validateLoadedGraph(int expectedNodes, int expectedEdges)
     QVERIFY(actualEdges >= 0); // At least some edges should connect
 }
 
+// ============================================================================
+// Built-in Destruction Safety Tests
+// ============================================================================
+
+void tst_Main::test_nodeDestroyedBeforeEdge()
+{
+    logTestSummary("SAFETY_TEST: Node destroyed before Edge");
+    
+    // Create two nodes and connect them
+    Node* node1 = new Node(QUuid::createUuid(), QPointF(0, 0));
+    Node* node2 = new Node(QUuid::createUuid(), QPointF(100, 0));
+    
+    node1->setNodeType("OUT");
+    node1->createSocketsFromXml(0, 1);  // 1 output
+    node2->setNodeType("IN"); 
+    node2->createSocketsFromXml(1, 0);  // 1 input
+    
+    m_testScene->addItem(node1);
+    m_testScene->addItem(node2);
+    
+    // Create edge
+    Edge* edge = new Edge();
+    edge->setResolvedSockets(node1->getSocketByIndex(0), node2->getSocketByIndex(0));
+    m_testScene->addItem(edge);
+    
+    // Verify initial state
+    QVERIFY(edge->getFromNode() == node1);
+    QVERIFY(edge->getToNode() == node2);
+    
+    // CRITICAL TEST: Destroy node1 first, then check edge safety
+    delete node1;  // This should call edge->onNodeDestroying(node1)
+    
+    // Edge should now return nullptr for the destroyed node
+    QVERIFY(edge->getFromNode() == nullptr);  // Should be safe null
+    QVERIFY(edge->getToNode() == node2);      // Should still be valid
+    
+    // Clean up remaining objects - should NOT crash
+    delete edge;  
+    delete node2;
+    
+    logTestSummary("SAFETY_TEST: ✓ Node destruction safety verified");
+}
+
+void tst_Main::test_edgeDestroyedBeforeNode()
+{
+    logTestSummary("SAFETY_TEST: Edge destroyed before Node");
+    
+    // Create two nodes and connect them
+    Node* node1 = new Node(QUuid::createUuid(), QPointF(0, 0));
+    Node* node2 = new Node(QUuid::createUuid(), QPointF(100, 0));
+    
+    node1->setNodeType("OUT");
+    node1->createSocketsFromXml(0, 1);
+    node2->setNodeType("IN");
+    node2->createSocketsFromXml(1, 0);
+    
+    m_testScene->addItem(node1);
+    m_testScene->addItem(node2);
+    
+    Edge* edge = new Edge();
+    edge->setResolvedSockets(node1->getSocketByIndex(0), node2->getSocketByIndex(0));
+    m_testScene->addItem(edge);
+    
+    // CRITICAL TEST: Destroy edge first, then nodes
+    delete edge;  // This should safely unregister from both nodes
+    
+    // Nodes should still be valid and not crash
+    QVERIFY(!node1->isBeingDestroyed());
+    QVERIFY(!node2->isBeingDestroyed());
+    
+    // Clean up nodes - should not crash trying to notify destroyed edge
+    delete node1;  
+    delete node2;
+    
+    logTestSummary("SAFETY_TEST: ✓ Edge destruction safety verified");
+}
+
+void tst_Main::test_massDestructionStress()
+{
+    logTestSummary("SAFETY_TEST: Mass destruction stress test");
+    
+    QVector<Node*> nodes;
+    QVector<Edge*> edges;
+    
+    // Create a grid of interconnected nodes
+    const int gridSize = 5;  // Smaller for test performance
+    
+    // Create nodes
+    for (int i = 0; i < gridSize * gridSize; ++i) {
+        Node* node = new Node(QUuid::createUuid(), QPointF(i % gridSize * 50, i / gridSize * 50));
+        node->setNodeType("OUT");
+        node->createSocketsFromXml(2, 2);  // 2 inputs, 2 outputs each
+        m_testScene->addItem(node);
+        nodes.append(node);
+    }
+    
+    // Create edges connecting adjacent nodes
+    for (int i = 0; i < gridSize; ++i) {
+        for (int j = 0; j < gridSize; ++j) {
+            int nodeIndex = i * gridSize + j;
+            Node* currentNode = nodes[nodeIndex];
+            
+            // Connect to right neighbor
+            if (j < gridSize - 1) {
+                Node* rightNode = nodes[nodeIndex + 1];
+                Edge* edge = new Edge();
+                edge->setResolvedSockets(currentNode->getSocketByIndex(1), rightNode->getSocketByIndex(0));
+                m_testScene->addItem(edge);
+                edges.append(edge);
+            }
+            
+            // Connect to bottom neighbor
+            if (i < gridSize - 1) {
+                Node* bottomNode = nodes[nodeIndex + gridSize];
+                Edge* edge = new Edge();
+                edge->setResolvedSockets(currentNode->getSocketByIndex(3), bottomNode->getSocketByIndex(2));
+                m_testScene->addItem(edge);
+                edges.append(edge);
+            }
+        }
+    }
+    
+    // STRESS TEST: Delete nodes in random order while edges exist
+    QVector<int> nodeIndices;
+    for (int i = 0; i < nodes.size(); ++i) {
+        nodeIndices.append(i);
+    }
+    
+    // Delete first half of nodes randomly
+    for (int i = 0; i < nodes.size() / 2; ++i) {
+        int index = nodeIndices[i];
+        if (nodes[index]) {
+            delete nodes[index];
+            nodes[index] = nullptr;
+        }
+    }
+    
+    // Verify edges handle the destroyed nodes safely
+    int nullFromNodes = 0, nullToNodes = 0;
+    for (Edge* edge : edges) {
+        if (edge->getFromNode() == nullptr) nullFromNodes++;
+        if (edge->getToNode() == nullptr) nullToNodes++;
+    }
+    
+    QVERIFY(nullFromNodes > 0 || nullToNodes > 0);  // Should have some nulled nodes
+    
+    // Clean up remaining objects
+    for (Edge* edge : edges) {
+        delete edge;
+    }
+    for (Node* node : nodes) {
+        if (node) delete node;
+    }
+    
+    logTestSummary(QString("SAFETY_TEST: ✓ Stress test passed - %1 null fromNodes, %2 null toNodes")
+                   .arg(nullFromNodes).arg(nullToNodes));
+}
+
 QTEST_MAIN(tst_Main)
 #include "tst_main.moc"

@@ -17,6 +17,7 @@ Node::Node(const QUuid& id, const QPointF& position)
     , m_changeCallback(nullptr)
     , m_observer(nullptr)
     , m_lastPos(position)
+    , m_beingDestroyed(false)
 {
     setPos(position);
     setFlag(QGraphicsItem::ItemIsMovable, true);
@@ -28,11 +29,15 @@ Node::Node(const QUuid& id, const QPointF& position)
 
 Node::~Node()
 {
-    // SAFETY: Invalidate all connected edges before destruction
+    // Built-in destruction safety - notify edges before they can access us
+    m_beingDestroyed = true;
+    
+    qDebug() << "SAFETY: Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "notifying" << m_incidentEdges.size() << "edges";
+    
     // Copy the set to avoid modification during iteration
     QSet<Edge*> edgesCopy = m_incidentEdges;
     for (Edge* edge : edgesCopy) {
-        edge->invalidateNode(this);
+        edge->onNodeDestroying(this);
     }
     
     // Node destruction logging removed - working correctly

@@ -44,6 +44,7 @@ public:
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
     QPainterPath shape() const override;
+    int type() const override { return UserType + 1; } // Edge type identifier
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     
     // Connection management - clean design uses node+index only
@@ -73,12 +74,12 @@ public:
                           int fromSocketIndex, int toSocketIndex);
     void setResolvedSockets(Socket* fromSocket, Socket* toSocket);
     
-    // Manual weak pointer system for safe destruction
-    void invalidateNode(const Node* node);
+    // Built-in destruction safety - called by Node destructor
+    void onNodeDestroying(const Node* node);
     
-    // Public accessors for layout engine
-    Node* getFromNode() const { return m_fromNode; }
-    Node* getToNode() const { return m_toNode; }
+    // Public accessors for layout engine (with safety checks)
+    Node* getFromNode() const { return m_fromNodeValid ? m_fromNode : nullptr; }
+    Node* getToNode() const { return m_toNodeValid ? m_toNode : nullptr; }
     Socket* getFromSocket() const { return m_fromSocket; }
     Socket* getToSocket() const { return m_toSocket; }
 
@@ -93,9 +94,11 @@ private:
     Socket* m_fromSocket;     // Resolved socket pointers
     Socket* m_toSocket;
     
-    // Manual weak pointers for safe destruction (nulled by Node::~Node)
-    Node* m_fromNode;         // Source node (may be nullptr during destruction)
-    Node* m_toNode;           // Destination node (may be nullptr during destruction)
+    // Built-in destruction safety with validity flags
+    Node* m_fromNode;                  // Source node (raw pointer)
+    Node* m_toNode;                    // Destination node (raw pointer)
+    bool m_fromNodeValid;              // Track if fromNode is still alive
+    bool m_toNodeValid;                // Track if toNode is still alive
     
     // Cached path for rendering
     QPainterPath m_path;

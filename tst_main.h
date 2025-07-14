@@ -39,6 +39,11 @@ private slots:
     // XML Dynamic updates
     void testNodePositionToXml();
     void testEdgeModificationToXml();
+    
+    // Built-in destruction safety tests
+    void test_nodeDestroyedBeforeEdge();
+    void test_edgeDestroyedBeforeNode();
+    void test_massDestructionStress();
 
 private:
     // Helper methods
