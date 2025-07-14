@@ -139,6 +139,10 @@ set(SOURCES
     # UI widgets
     node_palette_widget.h  node_palette_widget.cpp
     
+    # Professional node palette system
+    node_tool_button.h     node_tool_button.cpp
+    node_palette_bar.h     node_palette_bar.cpp
+    
     # Resources
     icons.qrc
     
@@ -174,6 +178,8 @@ set(TEST_SOURCES
     graph_observer.h    graph_observer.cpp
     xml_autosave_observer.h xml_autosave_observer.cpp
     xml_live_sync.h     xml_live_sync.cpp
+    node_tool_button.h     node_tool_button.cpp
+    node_palette_bar.h     node_palette_bar.cpp
 )
 
 add_executable(NodeGraphTests ${TEST_SOURCES})

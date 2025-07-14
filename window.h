@@ -17,7 +17,7 @@ class View;
 class Scene;
 class GraphFactory;
 class XmlAutosaveObserver;
-class NodePaletteWidget;
+class NodePaletteBar;
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -97,9 +97,9 @@ private:
     QAction* m_addOutputAction;
     QAction* m_addProcessorAction;
     
-    // Dock widgets
+    // Professional node palette system
     QDockWidget* m_nodePaletteDock;
-    NodePaletteWidget* m_nodePalette;
+    NodePaletteBar* m_nodePalette;
     
     // Status bar components
     QLabel* m_fileInfoLabel;      // Current file info

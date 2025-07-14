@@ -5,7 +5,7 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
-#include "node_palette_widget.h"
+#include "node_palette_bar.h"
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QCloseEvent>
@@ -614,36 +614,52 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    // Node Palette
-    m_nodePalette = new NodePaletteWidget(this);
-    m_nodePaletteDock = new QDockWidget("Node Palette", this);
+    qDebug() << "Setting up professional node palette...";
+    
+    // Create the professional node palette bar
+    m_nodePalette = new NodePaletteBar(this);
+    
+    // Create dock widget for the node palette
+    m_nodePaletteDock = new QDockWidget(tr("Node Palette"), this);
     m_nodePaletteDock->setWidget(m_nodePalette);
-    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | 
-                                   QDockWidget::DockWidgetFloatable);
+    m_nodePaletteDock->setFixedWidth(130);  // Wider for categories
+    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     m_nodePaletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    
+    // Position on the left side of the main window
     addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
     
-    // Connect node palette to our factory system
-    connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested,
-            [this](const NodePaletteWidget::NodeTemplate& nodeTemplate) {
-                QPointF center = m_view->mapToScene(m_view->viewport()->rect().center());
-                
-                // Create node using our factory system
-                Node* node = m_factory->createNode(nodeTemplate.type, center, 
-                                                  nodeTemplate.inputSockets, 
-                                                  nodeTemplate.outputSockets);
-                
-                if (node) {
-                    qDebug() << "✓ Created node from palette:" << nodeTemplate.name;
-                    updateStatusBar();
-                } else {
-                    qDebug() << "✗ Failed to create node from palette:" << nodeTemplate.name;
-                }
-            });
+    // Connect node selection signal to create nodes in scene
+    connect(m_nodePalette, &NodePaletteBar::nodeSelected, this, [this](const QString& nodeType) {
+        qDebug() << "Creating node from palette:" << nodeType;
+        
+        // Create node at center of current view
+        QPointF sceneCenter = m_view->mapToScene(m_view->viewport()->rect().center());
+        
+        // Create node using the factory
+        Node* node = nullptr;
+        if (nodeType == "Input") {
+            node = m_factory->createNode("IN", sceneCenter, 1, 0);
+        } else if (nodeType == "Output") {
+            node = m_factory->createNode("OUT", sceneCenter, 0, 1);
+        } else {
+            // For math and other nodes, create with standard socket configuration
+            node = m_factory->createNode(nodeType, sceneCenter, 1, 1);
+        }
+        
+        if (node) {
+            qDebug() << "✓ Created" << nodeType << "node at" << sceneCenter;
+            updateStatusBar();
+        } else {
+            qDebug() << "✗ Failed to create" << nodeType << "node";
+        }
+    });
     
     // Add dock widget toggle to View menu
     m_viewMenu->addSeparator();
     m_viewMenu->addAction(m_nodePaletteDock->toggleViewAction());
+    
+    qDebug() << "✓ Professional node palette setup complete";
 }
 
 void Window::updateStatusBar()
