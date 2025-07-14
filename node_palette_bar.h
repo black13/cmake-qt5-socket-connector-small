@@ -43,7 +43,8 @@ private:
     QWidget* createCategorySection(const QString& title);
     void addToolToLayout(QGridLayout* layout, const QString& name, const QIcon& icon, int row, int col);
     
-    // Create placeholder icons for nodes
+    // Create icons that show socket configuration
     QIcon createNodeIcon(const QString& nodeType);
     QIcon createTextIcon(const QString& text, const QColor& bgColor = QColor(200, 200, 255));
+    QIcon createSocketIcon(int inputs, int outputs, const QColor& bgColor);
 };

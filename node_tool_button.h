@@ -26,12 +26,15 @@ signals:
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
     void enterEvent(QEvent* event) override;
     void leaveEvent(QEvent* event) override;
 
 private:
     QString m_nodeType;
+    QPoint m_dragStartPosition;
     
     void updateButtonStyle();
     void setHoverStyle(bool hovered);
+    void startDrag();
 };

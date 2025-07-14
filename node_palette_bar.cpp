@@ -51,45 +51,28 @@ void NodePaletteBar::setupUI()
 
 void NodePaletteBar::addBasicNodes()
 {
-    QWidget* basicSection = createCategorySection("Basic");
-    QGridLayout* basicLayout = new QGridLayout(basicSection);
-    basicLayout->setSpacing(2);
-    basicLayout->setContentsMargins(4, 4, 4, 4);
-    
-    addToolToLayout(basicLayout, "Constant", createNodeIcon("Const"), 0, 0);
-    addToolToLayout(basicLayout, "Variable", createNodeIcon("Var"), 0, 1);
-    
-    m_mainLayout->addWidget(basicSection);
+    // Not used - we only have the 4 specific node types
 }
 
 void NodePaletteBar::addMathNodes()
 {
-    QWidget* mathSection = createCategorySection("Math");
-    QGridLayout* mathLayout = new QGridLayout(mathSection);
-    mathLayout->setSpacing(2);
-    mathLayout->setContentsMargins(4, 4, 4, 4);
-    
-    addToolToLayout(mathLayout, "Add", createTextIcon("+", QColor(200, 255, 200)), 0, 0);
-    addToolToLayout(mathLayout, "Subtract", createTextIcon("-", QColor(255, 200, 200)), 0, 1);
-    addToolToLayout(mathLayout, "Multiply", createTextIcon("×", QColor(200, 200, 255)), 1, 0);
-    addToolToLayout(mathLayout, "Divide", createTextIcon("÷", QColor(255, 255, 200)), 1, 1);
-    addToolToLayout(mathLayout, "Sin", createTextIcon("sin", QColor(255, 200, 255)), 2, 0);
-    addToolToLayout(mathLayout, "Cos", createTextIcon("cos", QColor(200, 255, 255)), 2, 1);
-    
-    m_mainLayout->addWidget(mathSection);
+    // Not used - we only have the 4 specific node types  
 }
 
 void NodePaletteBar::addIONodes()
 {
-    QWidget* ioSection = createCategorySection("Input/Output");
-    QGridLayout* ioLayout = new QGridLayout(ioSection);
-    ioLayout->setSpacing(2);
-    ioLayout->setContentsMargins(4, 4, 4, 4);
+    QWidget* nodeSection = createCategorySection("Node Types");
+    QGridLayout* nodeLayout = new QGridLayout(nodeSection);
+    nodeLayout->setSpacing(2);
+    nodeLayout->setContentsMargins(4, 4, 4, 4);
     
-    addToolToLayout(ioLayout, "Input", createTextIcon("IN", QColor(150, 255, 150)), 0, 0);
-    addToolToLayout(ioLayout, "Output", createTextIcon("OUT", QColor(255, 150, 150)), 0, 1);
+    // The 4 required node types
+    addToolToLayout(nodeLayout, "Source", createSocketIcon(0, 1, QColor(100, 255, 100)), 0, 0);
+    addToolToLayout(nodeLayout, "Sink", createSocketIcon(1, 0, QColor(255, 100, 100)), 0, 1);
+    addToolToLayout(nodeLayout, "1-to-2", createSocketIcon(1, 2, QColor(100, 100, 255)), 1, 0);
+    addToolToLayout(nodeLayout, "2-to-1", createSocketIcon(2, 1, QColor(255, 255, 100)), 1, 1);
     
-    m_mainLayout->addWidget(ioSection);
+    m_mainLayout->addWidget(nodeSection);
 }
 
 QWidget* NodePaletteBar::createCategorySection(const QString& title)
@@ -199,6 +182,36 @@ QIcon NodePaletteBar::createTextIcon(const QString& text, const QColor& bgColor)
     painter.setFont(font);
     
     painter.drawText(pixmap.rect(), Qt::AlignCenter, text);
+    
+    return QIcon(pixmap);
+}
+
+QIcon NodePaletteBar::createSocketIcon(int inputs, int outputs, const QColor& bgColor)
+{
+    QPixmap pixmap(32, 24);
+    pixmap.fill(Qt::transparent);
+    
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // Draw main node body
+    painter.setBrush(bgColor);
+    painter.setPen(QPen(QColor(80, 80, 80), 1));
+    painter.drawRoundedRect(6, 4, 20, 16, 2, 2);
+    
+    // Draw input sockets on the left
+    painter.setBrush(QColor(60, 60, 60));
+    painter.setPen(Qt::NoPen);
+    for (int i = 0; i < inputs; ++i) {
+        int y = 8 + (i * 8) - (inputs - 1) * 4;  // Center vertically
+        painter.drawEllipse(2, y, 4, 4);
+    }
+    
+    // Draw output sockets on the right
+    for (int i = 0; i < outputs; ++i) {
+        int y = 8 + (i * 8) - (outputs - 1) * 4;  // Center vertically
+        painter.drawEllipse(26, y, 4, 4);
+    }
     
     return QIcon(pixmap);
 }

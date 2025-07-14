@@ -4,6 +4,8 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QScrollBar>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 
 class Scene;
 
@@ -38,6 +40,7 @@ public:
 signals:
     void zoomChanged(qreal zoomLevel);
     void viewChanged(const QRectF& viewRect);
+    void nodeDropped(const QString& nodeType, const QPointF& scenePos);
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -47,6 +50,11 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void drawBackground(QPainter* painter, const QRectF& rect) override;
     void scrollContentsBy(int dx, int dy) override;
+    
+    // Drag and drop support
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
 
 private:
     Scene* m_scene;

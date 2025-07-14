@@ -6,6 +6,10 @@
 #include <QPainter>
 #include <QScrollBar>
 #include <QDebug>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QDragMoveEvent>
+#include <QMimeData>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -22,6 +26,9 @@ View::View(Scene* scene, QWidget* parent)
     
     // Enable focus for keyboard events
     setFocusPolicy(Qt::StrongFocus);
+    
+    // Enable drag and drop
+    setAcceptDrops(true);
     
     // Optimize for performance
     setOptimizationFlag(QGraphicsView::DontSavePainterState);
@@ -250,4 +257,57 @@ void View::scrollContentsBy(int dx, int dy)
 {
     QGraphicsView::scrollContentsBy(dx, dy);
     emit viewChanged(mapToScene(viewport()->rect()).boundingRect());
+}
+
+// ============================================================================
+// Drag and Drop Support
+// ============================================================================
+
+void View::dragEnterEvent(QDragEnterEvent* event)
+{
+    // Check if the drag contains node type data
+    if (event->mimeData()->hasFormat("application/x-nodetype") || 
+        event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+        qDebug() << "Drag enter accepted - node type:" << event->mimeData()->text();
+    } else {
+        event->ignore();
+    }
+}
+
+void View::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Accept the drag move event if we can handle the data
+    if (event->mimeData()->hasFormat("application/x-nodetype") || 
+        event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
+
+void View::dropEvent(QDropEvent* event)
+{
+    // Get the node type from mime data
+    QString nodeType;
+    if (event->mimeData()->hasFormat("application/x-nodetype")) {
+        nodeType = QString::fromUtf8(event->mimeData()->data("application/x-nodetype"));
+    } else if (event->mimeData()->hasText()) {
+        nodeType = event->mimeData()->text();
+    }
+    
+    if (!nodeType.isEmpty()) {
+        // Convert drop position to scene coordinates
+        QPointF scenePos = mapToScene(event->pos());
+        
+        qDebug() << "✓ Node dropped:" << nodeType << "at scene position:" << scenePos;
+        
+        // Emit signal for the window to handle node creation
+        emit nodeDropped(nodeType, scenePos);
+        
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+        qDebug() << "✗ Drop ignored - no valid node type";
+    }
 }

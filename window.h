@@ -40,6 +40,9 @@ public:
     
     // Update status bar with current graph information
     void updateStatusBar();
+    
+    // Create node at specific position (for drag-and-drop)
+    void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
 
 protected:
     // PHASE 3: Safe shutdown coordination

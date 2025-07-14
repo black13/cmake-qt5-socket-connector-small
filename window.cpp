@@ -71,6 +71,11 @@ Window::Window(QWidget* parent)
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
     
+    // Connect view drag-and-drop signal
+    connect(m_view, &View::nodeDropped, this, [this](const QString& nodeType, const QPointF& scenePos) {
+        createNodeAtPosition(nodeType, scenePos);
+    });
+    
     // Initial status update
     updateStatusBar();
     
@@ -629,31 +634,7 @@ void Window::setupDockWidgets()
     // Position on the left side of the main window
     addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
     
-    // Connect node selection signal to create nodes in scene
-    connect(m_nodePalette, &NodePaletteBar::nodeSelected, this, [this](const QString& nodeType) {
-        qDebug() << "Creating node from palette:" << nodeType;
-        
-        // Create node at center of current view
-        QPointF sceneCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-        
-        // Create node using the factory
-        Node* node = nullptr;
-        if (nodeType == "Input") {
-            node = m_factory->createNode("IN", sceneCenter, 1, 0);
-        } else if (nodeType == "Output") {
-            node = m_factory->createNode("OUT", sceneCenter, 0, 1);
-        } else {
-            // For math and other nodes, create with standard socket configuration
-            node = m_factory->createNode(nodeType, sceneCenter, 1, 1);
-        }
-        
-        if (node) {
-            qDebug() << "✓ Created" << nodeType << "node at" << sceneCenter;
-            updateStatusBar();
-        } else {
-            qDebug() << "✗ Failed to create" << nodeType << "node";
-        }
-    });
+    // Note: Node creation now handled by drag-and-drop in createNodeAtPosition()
     
     // Add dock widget toggle to View menu
     m_viewMenu->addSeparator();
@@ -836,6 +817,34 @@ void Window::zoomReset()
 {
     m_view->resetTransform();
     // TODO: Update zoom label
+}
+
+void Window::createNodeAtPosition(const QString& nodeType, const QPointF& scenePos)
+{
+    qDebug() << "Creating node type:" << nodeType << "at position:" << scenePos;
+    
+    Node* node = nullptr;
+    
+    // Create the 4 specific node types with exact socket configurations
+    if (nodeType == "Source") {
+        node = m_factory->createNode("Source", scenePos, 0, 1);  // 0 input, 1 output
+    } else if (nodeType == "Sink") {
+        node = m_factory->createNode("Sink", scenePos, 1, 0);    // 1 input, 0 output
+    } else if (nodeType == "1-to-2") {
+        node = m_factory->createNode("1-to-2", scenePos, 1, 2);  // 1 input, 2 output
+    } else if (nodeType == "2-to-1") {
+        node = m_factory->createNode("2-to-1", scenePos, 2, 1);  // 2 input, 1 output
+    } else {
+        qDebug() << "✗ Unknown node type:" << nodeType;
+        return;
+    }
+    
+    if (node) {
+        qDebug() << "✓ Created" << nodeType << "node at" << scenePos;
+        updateStatusBar();
+    } else {
+        qDebug() << "✗ Failed to create" << nodeType << "node";
+    }
 }
 
 // ============================================================================
