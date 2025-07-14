@@ -17,7 +17,7 @@ class View;
 class Scene;
 class GraphFactory;
 class XmlAutosaveObserver;
-class NodePaletteBar;
+// class NodePaletteBar; // Removed - palette system disabled
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -100,9 +100,9 @@ private:
     QAction* m_addOutputAction;
     QAction* m_addProcessorAction;
     
-    // Professional node palette system
-    QDockWidget* m_nodePaletteDock;
-    NodePaletteBar* m_nodePalette;
+    // Professional node palette system (disabled)
+    // QDockWidget* m_nodePaletteDock;
+    // NodePaletteBar* m_nodePalette;
     
     // Status bar components
     QLabel* m_fileInfoLabel;      // Current file info

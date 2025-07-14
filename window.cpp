@@ -5,7 +5,7 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
-#include "node_palette_bar.h"
+// #include "node_palette_bar.h" // Removed - palette system disabled
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QCloseEvent>
@@ -36,8 +36,8 @@ Window::Window(QWidget* parent)
     resize(1400, 900);
     
     // Initialize UI components to nullptr
-    m_nodePaletteDock = nullptr;
-    m_nodePalette = nullptr;
+    // m_nodePaletteDock = nullptr;  // Palette system disabled
+    // m_nodePalette = nullptr;
     m_fileInfoLabel = nullptr;
     m_graphStatsLabel = nullptr;
     m_selectionLabel = nullptr;
@@ -619,8 +619,10 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    qDebug() << "Setting up professional node palette...";
+    qDebug() << "Dock widgets setup (palette system disabled)";
     
+    // Palette system disabled - ready for fresh implementation
+    /*
     // Create the professional node palette bar
     m_nodePalette = new NodePaletteBar(this);
     
@@ -641,6 +643,7 @@ void Window::setupDockWidgets()
     m_viewMenu->addAction(m_nodePaletteDock->toggleViewAction());
     
     qDebug() << "✓ Professional node palette setup complete";
+    */
 }
 
 void Window::updateStatusBar()
