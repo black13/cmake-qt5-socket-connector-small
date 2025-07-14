@@ -10,6 +10,9 @@
 #include <QDropEvent>
 #include <QDragMoveEvent>
 #include <QMimeData>
+#include <QMenu>
+#include <QAction>
+#include <QContextMenuEvent>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -44,6 +47,14 @@ void View::mousePressEvent(QMouseEvent* event)
         m_middleClickPanning = true;
         m_lastPanPoint = event->pos();
         setCursor(Qt::ClosedHandCursor);
+        event->accept();
+        return;
+    }
+    
+    if (event->button() == Qt::LeftButton && event->modifiers() & Qt::ShiftModifier) {
+        // Shift+Left-click: Show node creation context menu
+        QPointF scenePos = mapToScene(event->pos());
+        showNodeCreationMenu(scenePos);
         event->accept();
         return;
     }
@@ -310,4 +321,58 @@ void View::dropEvent(QDropEvent* event)
         event->ignore();
         qDebug() << "✗ Drop ignored - no valid node type";
     }
+}
+
+// ============================================================================
+// Context Menu Support
+// ============================================================================
+
+void View::contextMenuEvent(QContextMenuEvent* event)
+{
+    // Use default context menu behavior for now
+    // Shift+Left-click is handled in mousePressEvent instead
+    QGraphicsView::contextMenuEvent(event);
+}
+
+void View::showNodeCreationMenu(const QPointF& scenePos)
+{
+    qDebug() << "🎯 CONTEXT MENU: Creating node menu at scene position:" << scenePos;
+    
+    QMenu* contextMenu = new QMenu(this);
+    contextMenu->setTitle("Create Node");
+    
+    // Create actions for the 4 node types
+    QAction* sourceAction = contextMenu->addAction("Source (0→1)");
+    QAction* sinkAction = contextMenu->addAction("Sink (1→0)");
+    QAction* oneToTwoAction = contextMenu->addAction("1-to-2 (1→2)");
+    QAction* twoToOneAction = contextMenu->addAction("2-to-1 (2→1)");
+    
+    // Connect actions to node creation
+    connect(sourceAction, &QAction::triggered, [this, scenePos]() {
+        createNodeAtPosition("Source", scenePos);
+    });
+    connect(sinkAction, &QAction::triggered, [this, scenePos]() {
+        createNodeAtPosition("Sink", scenePos);
+    });
+    connect(oneToTwoAction, &QAction::triggered, [this, scenePos]() {
+        createNodeAtPosition("1-to-2", scenePos);
+    });
+    connect(twoToOneAction, &QAction::triggered, [this, scenePos]() {
+        createNodeAtPosition("2-to-1", scenePos);
+    });
+    
+    // Show the menu at the cursor position
+    QPoint globalPos = mapToGlobal(mapFromScene(scenePos));
+    contextMenu->exec(globalPos);
+    
+    // Clean up
+    contextMenu->deleteLater();
+}
+
+void View::createNodeAtPosition(const QString& nodeType, const QPointF& scenePos)
+{
+    qDebug() << "🎯 ✅ CONTEXT MENU NODE:" << nodeType << "at scene position:" << scenePos;
+    
+    // Emit the same signal as drag-and-drop for consistency
+    emit nodeDropped(nodeType, scenePos);
 }

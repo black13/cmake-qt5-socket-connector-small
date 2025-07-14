@@ -87,7 +87,6 @@ if errorlevel 1 (
     echo 2. Verify Qt5 is installed at E:\Qt\5.15.16\
     echo 3. Check that cmake is in your PATH
     echo.
-    pause
     exit /b 1
 )
 
@@ -105,7 +104,6 @@ if /i "%CLEAN_BUILD%"=="clean" (
 )
 if errorlevel 1 (
     echo *** Release Build FAILED ***
-    pause
     exit /b 1
 )
 echo ✓ RELEASE build complete
@@ -122,7 +120,6 @@ if /i "%CLEAN_BUILD%"=="clean" (
 )
 if errorlevel 1 (
     echo *** Debug Build FAILED ***
-    pause
     exit /b 1
 )
 echo ✓ DEBUG build complete
@@ -195,7 +192,7 @@ goto END
 
 :BUILD_ERROR
 echo *** Build FAILED ***
-pause
+echo Build complete - returning to console
 exit /b 1
 
 :END
@@ -220,7 +217,7 @@ echo === Updating Visual Studio user settings ===
 call :UPDATE_USER_FILE
 
 echo.
-pause
+echo Build complete - returning to console
 goto :EOF
 
 :: ================================================================

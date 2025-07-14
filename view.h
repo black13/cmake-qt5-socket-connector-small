@@ -7,6 +7,8 @@
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QMenu>
+#include <QContextMenuEvent>
 
 class Scene;
 
@@ -56,6 +58,9 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+    
+    // Context menu support
+    void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
     Scene* m_scene;
@@ -76,4 +81,8 @@ private:
     
     void updateZoom(qreal factor, const QPointF& center = QPointF());
     void drawGrid(QPainter* painter, const QRectF& rect);
+    
+    // Context menu support
+    void showNodeCreationMenu(const QPointF& scenePos);
+    void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
 };
