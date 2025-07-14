@@ -80,7 +80,7 @@ void NodeToolButton::setHoverStyle(bool hovered)
 
 void NodeToolButton::startDrag()
 {
-    qDebug() << "Starting drag for node type:" << m_nodeType;
+    qDebug() << "🔥 STARTING DRAG for node type:" << m_nodeType;
     
     QDrag* drag = new QDrag(this);
     QMimeData* mimeData = new QMimeData;

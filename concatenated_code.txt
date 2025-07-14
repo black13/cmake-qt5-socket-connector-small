@@ -1,5 +1,5 @@
 // === Concatenated Top-Level C++ Code Files ===
-// Created on Mon Jul 14 08:51:26 CDT 2025
+// Created on Mon Jul 14 09:20:06 CDT 2025
 
 // ====================================
 // FILE: edge.h
@@ -507,7 +507,7 @@ private:
 
 // ====================================
 // FILE: node_palette_bar.h
-// LAST MODIFIED: 2025-07-14 08:40:26
+// LAST MODIFIED: 2025-07-14 09:09:44
 // ====================================
 
 #pragma once
@@ -555,9 +555,10 @@ private:
     QWidget* createCategorySection(const QString& title);
     void addToolToLayout(QGridLayout* layout, const QString& name, const QIcon& icon, int row, int col);
     
-    // Create placeholder icons for nodes
+    // Create icons that show socket configuration
     QIcon createNodeIcon(const QString& nodeType);
     QIcon createTextIcon(const QString& text, const QColor& bgColor = QColor(200, 200, 255));
+    QIcon createSocketIcon(int inputs, int outputs, const QColor& bgColor);
 };
 
 // ====================================
@@ -768,7 +769,7 @@ private:
 
 // ====================================
 // FILE: node_tool_button.h
-// LAST MODIFIED: 2025-07-14 08:39:41
+// LAST MODIFIED: 2025-07-14 09:07:54
 // ====================================
 
 #pragma once
@@ -799,14 +800,17 @@ signals:
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
     void enterEvent(QEvent* event) override;
     void leaveEvent(QEvent* event) override;
 
 private:
     QString m_nodeType;
+    QPoint m_dragStartPosition;
     
     void updateButtonStyle();
     void setHoverStyle(bool hovered);
+    void startDrag();
 };
 
 // ====================================
@@ -1162,7 +1166,7 @@ private:
 
 // ====================================
 // FILE: view.h
-// LAST MODIFIED: 2025-07-14 03:03:20
+// LAST MODIFIED: 2025-07-14 09:11:28
 // ====================================
 
 #pragma once
@@ -1171,6 +1175,8 @@ private:
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QScrollBar>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 
 class Scene;
 
@@ -1205,6 +1211,7 @@ public:
 signals:
     void zoomChanged(qreal zoomLevel);
     void viewChanged(const QRectF& viewRect);
+    void nodeDropped(const QString& nodeType, const QPointF& scenePos);
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -1214,6 +1221,11 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void drawBackground(QPainter* painter, const QRectF& rect) override;
     void scrollContentsBy(int dx, int dy) override;
+    
+    // Drag and drop support
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
 
 private:
     Scene* m_scene;
@@ -1238,7 +1250,7 @@ private:
 
 // ====================================
 // FILE: window.h
-// LAST MODIFIED: 2025-07-14 08:51:15
+// LAST MODIFIED: 2025-07-14 09:14:22
 // ====================================
 
 #pragma once
@@ -1283,6 +1295,9 @@ public:
     
     // Update status bar with current graph information
     void updateStatusBar();
+    
+    // Create node at specific position (for drag-and-drop)
+    void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
 
 protected:
     // PHASE 3: Safe shutdown coordination
@@ -1340,13 +1355,9 @@ private:
     QAction* m_addOutputAction;
     QAction* m_addProcessorAction;
     
-    // Dock widgets
-    QDockWidget* m_nodePaletteDock;
-    NodePaletteWidget* m_nodePalette;
-    
     // Professional node palette system
-    QDockWidget* m_nodePaletteBarDock;
-    NodePaletteBar* m_nodePaletteBar;
+    QDockWidget* m_nodePaletteDock;
+    NodePaletteBar* m_nodePalette;
     
     // Status bar components
     QLabel* m_fileInfoLabel;      // Current file info
@@ -1372,7 +1383,6 @@ private:
     void setupActions();
     void setupStatusBar();
     void setupDockWidgets();
-    void setupNodePaletteBar();
     
     // Menu creation helpers
     void createFileMenu();
@@ -3788,7 +3798,7 @@ void Node::read(xmlNodePtr node)
 
 // ====================================
 // FILE: node_palette_bar.cpp
-// LAST MODIFIED: 2025-07-14 08:41:13
+// LAST MODIFIED: 2025-07-14 09:10:06
 // ====================================
 
 #include "node_palette_bar.h"
@@ -3844,45 +3854,28 @@ void NodePaletteBar::setupUI()
 
 void NodePaletteBar::addBasicNodes()
 {
-    QWidget* basicSection = createCategorySection("Basic");
-    QGridLayout* basicLayout = new QGridLayout(basicSection);
-    basicLayout->setSpacing(2);
-    basicLayout->setContentsMargins(4, 4, 4, 4);
-    
-    addToolToLayout(basicLayout, "Constant", createNodeIcon("Const"), 0, 0);
-    addToolToLayout(basicLayout, "Variable", createNodeIcon("Var"), 0, 1);
-    
-    m_mainLayout->addWidget(basicSection);
+    // Not used - we only have the 4 specific node types
 }
 
 void NodePaletteBar::addMathNodes()
 {
-    QWidget* mathSection = createCategorySection("Math");
-    QGridLayout* mathLayout = new QGridLayout(mathSection);
-    mathLayout->setSpacing(2);
-    mathLayout->setContentsMargins(4, 4, 4, 4);
-    
-    addToolToLayout(mathLayout, "Add", createTextIcon("+", QColor(200, 255, 200)), 0, 0);
-    addToolToLayout(mathLayout, "Subtract", createTextIcon("-", QColor(255, 200, 200)), 0, 1);
-    addToolToLayout(mathLayout, "Multiply", createTextIcon("×", QColor(200, 200, 255)), 1, 0);
-    addToolToLayout(mathLayout, "Divide", createTextIcon("÷", QColor(255, 255, 200)), 1, 1);
-    addToolToLayout(mathLayout, "Sin", createTextIcon("sin", QColor(255, 200, 255)), 2, 0);
-    addToolToLayout(mathLayout, "Cos", createTextIcon("cos", QColor(200, 255, 255)), 2, 1);
-    
-    m_mainLayout->addWidget(mathSection);
+    // Not used - we only have the 4 specific node types  
 }
 
 void NodePaletteBar::addIONodes()
 {
-    QWidget* ioSection = createCategorySection("Input/Output");
-    QGridLayout* ioLayout = new QGridLayout(ioSection);
-    ioLayout->setSpacing(2);
-    ioLayout->setContentsMargins(4, 4, 4, 4);
+    QWidget* nodeSection = createCategorySection("Node Types");
+    QGridLayout* nodeLayout = new QGridLayout(nodeSection);
+    nodeLayout->setSpacing(2);
+    nodeLayout->setContentsMargins(4, 4, 4, 4);
     
-    addToolToLayout(ioLayout, "Input", createTextIcon("IN", QColor(150, 255, 150)), 0, 0);
-    addToolToLayout(ioLayout, "Output", createTextIcon("OUT", QColor(255, 150, 150)), 0, 1);
+    // The 4 required node types
+    addToolToLayout(nodeLayout, "Source", createSocketIcon(0, 1, QColor(100, 255, 100)), 0, 0);
+    addToolToLayout(nodeLayout, "Sink", createSocketIcon(1, 0, QColor(255, 100, 100)), 0, 1);
+    addToolToLayout(nodeLayout, "1-to-2", createSocketIcon(1, 2, QColor(100, 100, 255)), 1, 0);
+    addToolToLayout(nodeLayout, "2-to-1", createSocketIcon(2, 1, QColor(255, 255, 100)), 1, 1);
     
-    m_mainLayout->addWidget(ioSection);
+    m_mainLayout->addWidget(nodeSection);
 }
 
 QWidget* NodePaletteBar::createCategorySection(const QString& title)
@@ -3992,6 +3985,36 @@ QIcon NodePaletteBar::createTextIcon(const QString& text, const QColor& bgColor)
     painter.setFont(font);
     
     painter.drawText(pixmap.rect(), Qt::AlignCenter, text);
+    
+    return QIcon(pixmap);
+}
+
+QIcon NodePaletteBar::createSocketIcon(int inputs, int outputs, const QColor& bgColor)
+{
+    QPixmap pixmap(32, 24);
+    pixmap.fill(Qt::transparent);
+    
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // Draw main node body
+    painter.setBrush(bgColor);
+    painter.setPen(QPen(QColor(80, 80, 80), 1));
+    painter.drawRoundedRect(6, 4, 20, 16, 2, 2);
+    
+    // Draw input sockets on the left
+    painter.setBrush(QColor(60, 60, 60));
+    painter.setPen(Qt::NoPen);
+    for (int i = 0; i < inputs; ++i) {
+        int y = 8 + (i * 8) - (inputs - 1) * 4;  // Center vertically
+        painter.drawEllipse(2, y, 4, 4);
+    }
+    
+    // Draw output sockets on the right
+    for (int i = 0; i < outputs; ++i) {
+        int y = 8 + (i * 8) - (outputs - 1) * 4;  // Center vertically
+        painter.drawEllipse(26, y, 4, 4);
+    }
     
     return QIcon(pixmap);
 }
@@ -4369,11 +4392,14 @@ void NodeRegistry::clear()
 
 // ====================================
 // FILE: node_tool_button.cpp
-// LAST MODIFIED: 2025-07-14 08:40:00
+// LAST MODIFIED: 2025-07-14 09:08:51
 // ====================================
 
 #include "node_tool_button.h"
 #include <QDebug>
+#include <QDrag>
+#include <QMimeData>
+#include <QApplication>
 
 NodeToolButton::NodeToolButton(const QString& type, const QIcon& icon, QWidget* parent)
     : QToolButton(parent)
@@ -4392,10 +4418,22 @@ NodeToolButton::NodeToolButton(const QString& type, const QIcon& icon, QWidget* 
 
 void NodeToolButton::mousePressEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::LeftButton) {
+        m_dragStartPosition = event->pos();
+    }
     QToolButton::mousePressEvent(event);
-    
-    qDebug() << "NodeToolButton clicked:" << m_nodeType;
-    emit nodeClicked(m_nodeType);
+}
+
+void NodeToolButton::mouseMoveEvent(QMouseEvent* event)
+{
+    if (!(event->buttons() & Qt::LeftButton))
+        return;
+
+    if ((event->pos() - m_dragStartPosition).manhattanLength()
+         < QApplication::startDragDistance())
+        return;
+
+    startDrag();
 }
 
 void NodeToolButton::enterEvent(QEvent* event)
@@ -4435,6 +4473,39 @@ void NodeToolButton::setHoverStyle(bool hovered)
     // Additional hover feedback could be added here
     // For now, CSS handles the visual feedback
     Q_UNUSED(hovered);
+}
+
+void NodeToolButton::startDrag()
+{
+    qDebug() << "Starting drag for node type:" << m_nodeType;
+    
+    QDrag* drag = new QDrag(this);
+    QMimeData* mimeData = new QMimeData;
+    
+    // Set the node type as mime data
+    mimeData->setText(m_nodeType);
+    mimeData->setData("application/x-nodetype", m_nodeType.toUtf8());
+    drag->setMimeData(mimeData);
+    
+    // Use the button's icon as drag pixmap
+    QPixmap dragPixmap = icon().pixmap(32, 32);
+    if (dragPixmap.isNull()) {
+        // Create a simple drag pixmap if no icon
+        dragPixmap = QPixmap(32, 32);
+        dragPixmap.fill(Qt::lightGray);
+    }
+    
+    drag->setPixmap(dragPixmap);
+    drag->setHotSpot(QPoint(16, 16));  // Center of the pixmap
+    
+    // Execute the drag operation
+    Qt::DropAction dropAction = drag->exec(Qt::CopyAction);
+    
+    if (dropAction == Qt::CopyAction) {
+        qDebug() << "✓ Node drag completed successfully";
+    } else {
+        qDebug() << "✗ Node drag cancelled or failed";
+    }
 }
 
 // ====================================
@@ -6645,7 +6716,7 @@ QTEST_MAIN(tst_Main)
 
 // ====================================
 // FILE: view.cpp
-// LAST MODIFIED: 2025-07-14 03:03:20
+// LAST MODIFIED: 2025-07-14 09:13:24
 // ====================================
 
 #include "view.h"
@@ -6656,6 +6727,10 @@ QTEST_MAIN(tst_Main)
 #include <QPainter>
 #include <QScrollBar>
 #include <QDebug>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QDragMoveEvent>
+#include <QMimeData>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -6672,6 +6747,9 @@ View::View(Scene* scene, QWidget* parent)
     
     // Enable focus for keyboard events
     setFocusPolicy(Qt::StrongFocus);
+    
+    // Enable drag and drop
+    setAcceptDrops(true);
     
     // Optimize for performance
     setOptimizationFlag(QGraphicsView::DontSavePainterState);
@@ -6902,9 +6980,62 @@ void View::scrollContentsBy(int dx, int dy)
     emit viewChanged(mapToScene(viewport()->rect()).boundingRect());
 }
 
+// ============================================================================
+// Drag and Drop Support
+// ============================================================================
+
+void View::dragEnterEvent(QDragEnterEvent* event)
+{
+    // Check if the drag contains node type data
+    if (event->mimeData()->hasFormat("application/x-nodetype") || 
+        event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+        qDebug() << "Drag enter accepted - node type:" << event->mimeData()->text();
+    } else {
+        event->ignore();
+    }
+}
+
+void View::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Accept the drag move event if we can handle the data
+    if (event->mimeData()->hasFormat("application/x-nodetype") || 
+        event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
+
+void View::dropEvent(QDropEvent* event)
+{
+    // Get the node type from mime data
+    QString nodeType;
+    if (event->mimeData()->hasFormat("application/x-nodetype")) {
+        nodeType = QString::fromUtf8(event->mimeData()->data("application/x-nodetype"));
+    } else if (event->mimeData()->hasText()) {
+        nodeType = event->mimeData()->text();
+    }
+    
+    if (!nodeType.isEmpty()) {
+        // Convert drop position to scene coordinates
+        QPointF scenePos = mapToScene(event->pos());
+        
+        qDebug() << "✓ Node dropped:" << nodeType << "at scene position:" << scenePos;
+        
+        // Emit signal for the window to handle node creation
+        emit nodeDropped(nodeType, scenePos);
+        
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+        qDebug() << "✗ Drop ignored - no valid node type";
+    }
+}
+
 // ====================================
 // FILE: window.cpp
-// LAST MODIFIED: 2025-07-14 08:46:25
+// LAST MODIFIED: 2025-07-14 09:14:50
 // ====================================
 
 #include "window.h"
@@ -6914,7 +7045,6 @@ void View::scrollContentsBy(int dx, int dy)
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
-#include "node_palette_widget.h"
 #include "node_palette_bar.h"
 #include <QKeyEvent>
 #include <QFileDialog>
@@ -6948,8 +7078,6 @@ Window::Window(QWidget* parent)
     // Initialize UI components to nullptr
     m_nodePaletteDock = nullptr;
     m_nodePalette = nullptr;
-    m_nodePaletteBarDock = nullptr;
-    m_nodePaletteBar = nullptr;
     m_fileInfoLabel = nullptr;
     m_graphStatsLabel = nullptr;
     m_selectionLabel = nullptr;
@@ -6979,10 +7107,14 @@ Window::Window(QWidget* parent)
     setupMenus();
     setupStatusBar();
     setupDockWidgets();
-    setupNodePaletteBar();
     
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
+    
+    // Connect view drag-and-drop signal
+    connect(m_view, &View::nodeDropped, this, [this](const QString& nodeType, const QPointF& scenePos) {
+        createNodeAtPosition(nodeType, scenePos);
+    });
     
     // Initial status update
     updateStatusBar();
@@ -7527,36 +7659,28 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    // Node Palette
-    m_nodePalette = new NodePaletteWidget(this);
-    m_nodePaletteDock = new QDockWidget("Node Palette", this);
+    qDebug() << "Setting up professional node palette...";
+    
+    // Create the professional node palette bar
+    m_nodePalette = new NodePaletteBar(this);
+    
+    // Create dock widget for the node palette
+    m_nodePaletteDock = new QDockWidget(tr("Node Palette"), this);
     m_nodePaletteDock->setWidget(m_nodePalette);
-    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | 
-                                   QDockWidget::DockWidgetFloatable);
+    m_nodePaletteDock->setFixedWidth(130);  // Wider for categories
+    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     m_nodePaletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    
+    // Position on the left side of the main window
     addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
     
-    // Connect node palette to our factory system
-    connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested,
-            [this](const NodePaletteWidget::NodeTemplate& nodeTemplate) {
-                QPointF center = m_view->mapToScene(m_view->viewport()->rect().center());
-                
-                // Create node using our factory system
-                Node* node = m_factory->createNode(nodeTemplate.type, center, 
-                                                  nodeTemplate.inputSockets, 
-                                                  nodeTemplate.outputSockets);
-                
-                if (node) {
-                    qDebug() << "✓ Created node from palette:" << nodeTemplate.name;
-                    updateStatusBar();
-                } else {
-                    qDebug() << "✗ Failed to create node from palette:" << nodeTemplate.name;
-                }
-            });
+    // Note: Node creation now handled by drag-and-drop in createNodeAtPosition()
     
     // Add dock widget toggle to View menu
     m_viewMenu->addSeparator();
     m_viewMenu->addAction(m_nodePaletteDock->toggleViewAction());
+    
+    qDebug() << "✓ Professional node palette setup complete";
 }
 
 void Window::updateStatusBar()
@@ -7735,53 +7859,32 @@ void Window::zoomReset()
     // TODO: Update zoom label
 }
 
-// ============================================================================
-// Professional Node Palette System
-// ============================================================================
-
-void Window::setupNodePaletteBar()
+void Window::createNodeAtPosition(const QString& nodeType, const QPointF& scenePos)
 {
-    qDebug() << "Setting up professional node palette bar...";
+    qDebug() << "Creating node type:" << nodeType << "at position:" << scenePos;
     
-    // Create the professional node palette bar
-    m_nodePaletteBar = new NodePaletteBar(this);
+    Node* node = nullptr;
     
-    // Create dock widget for the node palette bar
-    m_nodePaletteBarDock = new QDockWidget(tr("Node Palette"), this);
-    m_nodePaletteBarDock->setWidget(m_nodePaletteBar);
-    m_nodePaletteBarDock->setFixedWidth(130);  // Slightly wider for categories
-    m_nodePaletteBarDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    // Create the 4 specific node types with exact socket configurations
+    if (nodeType == "Source") {
+        node = m_factory->createNode("Source", scenePos, 0, 1);  // 0 input, 1 output
+    } else if (nodeType == "Sink") {
+        node = m_factory->createNode("Sink", scenePos, 1, 0);    // 1 input, 0 output
+    } else if (nodeType == "1-to-2") {
+        node = m_factory->createNode("1-to-2", scenePos, 1, 2);  // 1 input, 2 output
+    } else if (nodeType == "2-to-1") {
+        node = m_factory->createNode("2-to-1", scenePos, 2, 1);  // 2 input, 1 output
+    } else {
+        qDebug() << "✗ Unknown node type:" << nodeType;
+        return;
+    }
     
-    // Position on the left side of the main window
-    addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteBarDock);
-    
-    // Connect node selection signal to create nodes in scene
-    connect(m_nodePaletteBar, &NodePaletteBar::nodeSelected, this, [this](const QString& nodeType) {
-        qDebug() << "Creating node from palette:" << nodeType;
-        
-        // Create node at center of current view
-        QPointF sceneCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-        
-        // Create node using the factory
-        Node* node = nullptr;
-        if (nodeType == "Input") {
-            node = m_factory->createNode("IN", sceneCenter, 1, 0);
-        } else if (nodeType == "Output") {
-            node = m_factory->createNode("OUT", sceneCenter, 0, 1);
-        } else {
-            // For math and other nodes, create with standard socket configuration
-            node = m_factory->createNode(nodeType, sceneCenter, 1, 1);
-        }
-        
-        if (node) {
-            qDebug() << "✓ Created" << nodeType << "node at" << sceneCenter;
-            updateStatusBar();
-        } else {
-            qDebug() << "✗ Failed to create" << nodeType << "node";
-        }
-    });
-    
-    qDebug() << "✓ Professional node palette bar setup complete";
+    if (node) {
+        qDebug() << "✓ Created" << nodeType << "node at" << scenePos;
+        updateStatusBar();
+    } else {
+        qDebug() << "✗ Failed to create" << nodeType << "node";
+    }
 }
 
 // ============================================================================

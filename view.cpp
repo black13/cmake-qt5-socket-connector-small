@@ -21,7 +21,7 @@ View::View(Scene* scene, QWidget* parent)
 {
     setRenderHint(QPainter::Antialiasing);
     setRenderHint(QPainter::SmoothPixmapTransform);
-    setDragMode(QGraphicsView::RubberBandDrag);
+    setDragMode(QGraphicsView::NoDrag);  // Allow custom drag handling
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     
     // Enable focus for keyboard events
@@ -269,7 +269,7 @@ void View::dragEnterEvent(QDragEnterEvent* event)
     if (event->mimeData()->hasFormat("application/x-nodetype") || 
         event->mimeData()->hasText()) {
         event->acceptProposedAction();
-        qDebug() << "Drag enter accepted - node type:" << event->mimeData()->text();
+        qDebug() << "🎯 DRAG ENTER accepted - node type:" << event->mimeData()->text();
     } else {
         event->ignore();
     }
@@ -300,7 +300,7 @@ void View::dropEvent(QDropEvent* event)
         // Convert drop position to scene coordinates
         QPointF scenePos = mapToScene(event->pos());
         
-        qDebug() << "✓ Node dropped:" << nodeType << "at scene position:" << scenePos;
+        qDebug() << "🎯 ✅ NODE DROPPED:" << nodeType << "at scene position:" << scenePos;
         
         // Emit signal for the window to handle node creation
         emit nodeDropped(nodeType, scenePos);

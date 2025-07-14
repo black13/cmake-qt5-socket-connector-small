@@ -16,9 +16,7 @@ NodePaletteBar::NodePaletteBar(QWidget* parent)
     , m_scrollArea(nullptr)
 {
     setupUI();
-    addBasicNodes();
-    addMathNodes();
-    addIONodes();
+    addIONodes();  // Only add the 4 specific node types
     
     qDebug() << "✓ NodePaletteBar initialized";
 }

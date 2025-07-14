@@ -5,6 +5,7 @@
 #include <QWheelEvent>
 #include <QScrollBar>
 #include <QDragEnterEvent>
+#include <QDragMoveEvent>
 #include <QDropEvent>
 
 class Scene;
