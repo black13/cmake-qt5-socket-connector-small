@@ -78,22 +78,40 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     Q_UNUSED(option)
     Q_UNUSED(widget)
     
-    // Clean edge painting - strokes only, no fills
-    painter->setRenderHint(QPainter::Antialiasing);
-    painter->setBrush(Qt::NoBrush);  // Explicitly no fill
+    if (m_path.isEmpty())
+        return;
     
-    // Simple edge styling
-    QPen edgePen;
+    painter->setRenderHint(QPainter::Antialiasing);
+    
+    // 🔍 DEBUG: Log edge draw (minimal logging)
+    #ifdef QT_DEBUG
+    static int paintCallCount = 0;
+    if (++paintCallCount % 50 == 0) {  // Throttled logging
+        qDebug() << "Drawing Edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
+    }
+    #endif
+    
+    QPen connectionPen;
+    
     if (isSelected()) {
-        edgePen = QPen(QColor(255, 100, 0), 3);  // Orange selection
+        connectionPen = QPen(QColor(255, 69, 0), 6);  // Selected: Orange + thick
     } else if (m_hovered) {
-        edgePen = QPen(QColor(100, 150, 255), 2);  // Blue hover
+        connectionPen = QPen(QColor(100, 150, 255), 4);  // Hovered: Blue
     } else {
-        edgePen = QPen(QColor(80, 80, 80), 1);  // Gray normal
+        connectionPen = QPen(QColor(70, 70, 70), 2);  // Default: Dark gray
     }
     
-    // Draw edge path - stroke only
-    painter->setPen(edgePen);
+    // ✨ Optional: Drop shadow for depth (when not selected)
+    if (!isSelected()) {
+        QPen shadowPen(QColor(0, 0, 0, 50), 3);
+        painter->setPen(shadowPen);
+        QPainterPath shadowPath = m_path;
+        shadowPath.translate(1, 1);
+        painter->drawPath(shadowPath);
+    }
+    
+    // ✅ Clean stroke, no fill
+    painter->setPen(connectionPen);
     painter->drawPath(m_path);
 }
 
