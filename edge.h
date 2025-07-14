@@ -82,6 +82,10 @@ public:
     Node* getToNode() const { return m_toNodeValid ? m_toNode : nullptr; }
     Socket* getFromSocket() const { return m_fromSocket; }
     Socket* getToSocket() const { return m_toSocket; }
+    
+    // Socket index accessors for XML serialization
+    int getFromSocketIndex() const { return m_fromSocketIndex; }
+    int getToSocketIndex() const { return m_toSocketIndex; }
 
 private:
     QUuid m_id;

@@ -146,6 +146,9 @@ set(SOURCES
     # Observer pattern implementation
     graph_observer.h    graph_observer.cpp
     xml_autosave_observer.h xml_autosave_observer.cpp
+    
+    # Live XML synchronization
+    xml_live_sync.h     xml_live_sync.cpp
 )
 
 # ─────────────────────────────────────
@@ -170,6 +173,7 @@ set(TEST_SOURCES
     scene.h        scene.cpp
     graph_observer.h    graph_observer.cpp
     xml_autosave_observer.h xml_autosave_observer.cpp
+    xml_live_sync.h     xml_live_sync.cpp
 )
 
 add_executable(NodeGraphTests ${TEST_SOURCES})
