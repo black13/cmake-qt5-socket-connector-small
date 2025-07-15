@@ -13,6 +13,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QContextMenuEvent>
+#include <QTimer>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -338,6 +339,7 @@ void View::showNodeCreationMenu(const QPointF& scenePos)
 {
     qDebug() << "Context menu at" << scenePos;
     
+    // Create menu with heap allocation for safety
     QMenu* contextMenu = new QMenu(this);
     contextMenu->setTitle("Create Node");
     
@@ -347,25 +349,33 @@ void View::showNodeCreationMenu(const QPointF& scenePos)
     QAction* oneToTwoAction = contextMenu->addAction("1-to-2 (1→2)");
     QAction* twoToOneAction = contextMenu->addAction("2-to-1 (2→1)");
     
-    // Connect actions to node creation
+    // Use QTimer::singleShot for safe deferred node creation
     connect(sourceAction, &QAction::triggered, [this, scenePos]() {
-        createNodeAtPosition("Source", scenePos);
+        QTimer::singleShot(0, [this, scenePos]() {
+            createNodeAtPosition("Source", scenePos);
+        });
     });
     connect(sinkAction, &QAction::triggered, [this, scenePos]() {
-        createNodeAtPosition("Sink", scenePos);
+        QTimer::singleShot(0, [this, scenePos]() {
+            createNodeAtPosition("Sink", scenePos);
+        });
     });
     connect(oneToTwoAction, &QAction::triggered, [this, scenePos]() {
-        createNodeAtPosition("1-to-2", scenePos);
+        QTimer::singleShot(0, [this, scenePos]() {
+            createNodeAtPosition("1-to-2", scenePos);
+        });
     });
     connect(twoToOneAction, &QAction::triggered, [this, scenePos]() {
-        createNodeAtPosition("2-to-1", scenePos);
+        QTimer::singleShot(0, [this, scenePos]() {
+            createNodeAtPosition("2-to-1", scenePos);
+        });
     });
     
     // Show the menu at the cursor position
     QPoint globalPos = mapToGlobal(mapFromScene(scenePos));
     contextMenu->exec(globalPos);
     
-    // Clean up
+    // Safe cleanup after menu closes
     contextMenu->deleteLater();
 }
 

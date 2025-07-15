@@ -85,17 +85,32 @@ Window::Window(QWidget* parent)
 
 Window::~Window()
 {
-    // Clean up autosave observer
+    qDebug() << "Window: Starting destruction sequence";
+    
+    // PHASE 1: Detach observers first to prevent XML access during destruction
     if (m_autosaveObserver) {
         m_scene->detach(m_autosaveObserver);
         delete m_autosaveObserver;
+        m_autosaveObserver = nullptr;
+        qDebug() << "Window: Autosave observer detached and deleted";
     }
     
-    // Clean up XML document
+    // PHASE 2: Clear scene to destroy all Qt objects while XML is still valid
+    if (m_scene) {
+        qDebug() << "Window: Clearing scene before XML cleanup";
+        m_scene->clear();
+        qDebug() << "Window: Scene cleared successfully";
+    }
+    
+    // PHASE 3: Now safe to free XML document after all objects are destroyed
     if (m_xmlDocument) {
+        qDebug() << "Window: Freeing XML document";
         xmlFreeDoc(m_xmlDocument);
         m_xmlDocument = nullptr;
+        qDebug() << "Window: XML document freed successfully";
     }
+    
+    qDebug() << "Window: Destruction complete";
 }
 
 void Window::setupActions()
