@@ -5,6 +5,7 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
+#include "simple_palette.h"
 // #include "node_palette_bar.h" // Removed - palette system disabled
 #include <QKeyEvent>
 #include <QFileDialog>
@@ -36,8 +37,8 @@ Window::Window(QWidget* parent)
     resize(1400, 900);
     
     // Initialize UI components to nullptr
-    // m_nodePaletteDock = nullptr;  // Palette system disabled
-    // m_nodePalette = nullptr;
+    m_paletteDock = nullptr;
+    m_palette = nullptr;
     m_fileInfoLabel = nullptr;
     m_graphStatsLabel = nullptr;
     m_selectionLabel = nullptr;
@@ -634,31 +635,26 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    qDebug() << "Dock widgets setup (palette system disabled)";
+    qDebug() << "Setting up simple drag-and-drop palette";
     
-    // Palette system disabled - ready for fresh implementation
-    /*
-    // Create the professional node palette bar
-    m_nodePalette = new NodePaletteBar(this);
+    // Create the simple 4-button palette
+    m_palette = new SimplePalette(this);
     
-    // Create dock widget for the node palette
-    m_nodePaletteDock = new QDockWidget(tr("Node Palette"), this);
-    m_nodePaletteDock->setWidget(m_nodePalette);
-    m_nodePaletteDock->setFixedWidth(130);  // Wider for categories
-    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-    m_nodePaletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    // Create dock widget for the palette
+    m_paletteDock = new QDockWidget(tr("Node Palette"), this);
+    m_paletteDock->setWidget(m_palette);
+    m_paletteDock->setFixedWidth(140);
+    m_paletteDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    m_paletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     
     // Position on the left side of the main window
-    addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
-    
-    // Note: Node creation now handled by drag-and-drop in createNodeAtPosition()
+    addDockWidget(Qt::LeftDockWidgetArea, m_paletteDock);
     
     // Add dock widget toggle to View menu
     m_viewMenu->addSeparator();
-    m_viewMenu->addAction(m_nodePaletteDock->toggleViewAction());
+    m_viewMenu->addAction(m_paletteDock->toggleViewAction());
     
-    qDebug() << "✓ Professional node palette setup complete";
-    */
+    qDebug() << "✓ Simple drag-and-drop palette setup complete";
 }
 
 void Window::updateStatusBar()

@@ -52,6 +52,8 @@ void View::mousePressEvent(QMouseEvent* event)
         return;
     }
     
+    // Context menu disabled - using drag-and-drop palette instead
+    /*
     if (event->button() == Qt::LeftButton && event->modifiers() & Qt::ShiftModifier) {
         // Shift+Left-click: Show node creation context menu
         QPointF scenePos = mapToScene(event->pos());
@@ -59,6 +61,7 @@ void View::mousePressEvent(QMouseEvent* event)
         event->accept();
         return;
     }
+    */
     
     QGraphicsView::mousePressEvent(event);
 }
