@@ -38,7 +38,7 @@ endif()
 # ─────────────────────────────────────
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test)
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test Qml)
 
 # ─────────────────────────────────────
 # Find or build libxml2 for cross-platform XML handling
@@ -115,37 +115,57 @@ set(SOURCES
     main.cpp
     
     # Self-serializing architecture
-    node.h         node.cpp
-    socket.h       socket.cpp
-    edge.h         edge.cpp
+    node.h
+    node.cpp
+    socket.h
+    socket.cpp
+    edge.h
+    edge.cpp
     
     # Node registry system
-    node_registry.h node_registry.cpp
-    
-    # Node registration modules (clean design - only IN/OUT nodes)
-    # Dead node files removed: source_node.cpp, processor_node.cpp, sink_node.cpp
+    node_registry.h
+    node_registry.cpp
     
     # XML-first factory
-    graph_factory.h graph_factory.cpp
+    graph_factory.h
+    graph_factory.cpp
     
     # Layout engine using Graaf
-    layout_engine.h layout_engine.cpp
+    layout_engine.h
+    layout_engine.cpp
     
     # UI classes
-    window.h       window.cpp
-    view.h         view.cpp
-    scene.h        scene.cpp
+    window.h
+    window.cpp
+    view.h
+    view.cpp
+    scene.h
+    scene.cpp
     
-    # UI widgets
-    node_palette_widget.h  node_palette_widget.cpp
+    # Professional drag-and-drop palette
+    node_palette_bar.h
+    node_palette_bar.cpp
+    node_tool_button.h
+    node_tool_button.cpp
+    
+    # JavaScript engine integration
+    javascript_engine.h
+    javascript_engine.cpp
+    graph_controller.h
+    graph_controller.cpp
     
     # Resources
     icons.qrc
     
-    
     # Observer pattern implementation
-    graph_observer.h    graph_observer.cpp
-    xml_autosave_observer.h xml_autosave_observer.cpp
+    graph_observer.h
+    graph_observer.cpp
+    xml_autosave_observer.h
+    xml_autosave_observer.cpp
+    
+    # Live XML synchronization
+    xml_live_sync.h
+    xml_live_sync.cpp
 )
 
 # ─────────────────────────────────────
@@ -161,15 +181,28 @@ set(TEST_SOURCES
     tst_main.cpp
     
     # Shared source files needed by tests
-    node.h         node.cpp
-    socket.h       socket.cpp
-    edge.h         edge.cpp
-    node_registry.h node_registry.cpp
-    graph_factory.h graph_factory.cpp
-    layout_engine.h layout_engine.cpp
-    scene.h        scene.cpp
-    graph_observer.h    graph_observer.cpp
-    xml_autosave_observer.h xml_autosave_observer.cpp
+    node.h
+    node.cpp
+    socket.h
+    socket.cpp
+    edge.h
+    edge.cpp
+    node_registry.h
+    node_registry.cpp
+    graph_factory.h
+    graph_factory.cpp
+    scene.h
+    scene.cpp
+    graph_observer.h
+    graph_observer.cpp
+    xml_autosave_observer.h
+    xml_autosave_observer.cpp
+    xml_live_sync.h
+    xml_live_sync.cpp
+    javascript_engine.h
+    javascript_engine.cpp
+    graph_controller.h
+    graph_controller.cpp
 )
 
 add_executable(NodeGraphTests ${TEST_SOURCES})
@@ -182,6 +215,7 @@ if(LIBXML2_FOUND)
         Qt5::Widgets
         Qt5::Gui
         Qt5::Test
+        Qt5::Qml
         ${LIBXML2_LIBRARIES}
     )
     target_include_directories(NodeGraph PRIVATE ${LIBXML2_INCLUDE_DIRS})
@@ -193,6 +227,7 @@ if(LIBXML2_FOUND)
         Qt5::Widgets
         Qt5::Gui
         Qt5::Test
+        Qt5::Qml
         ${LIBXML2_LIBRARIES}
     )
     target_include_directories(NodeGraphTests PRIVATE ${LIBXML2_INCLUDE_DIRS})
@@ -204,6 +239,7 @@ else()
         Qt5::Widgets
         Qt5::Gui
         Qt5::Test
+        Qt5::Qml
         LibXml2::LibXml2
     )
     
@@ -213,6 +249,7 @@ else()
         Qt5::Widgets
         Qt5::Gui
         Qt5::Test
+        Qt5::Qml
         LibXml2::LibXml2
     )
 endif()

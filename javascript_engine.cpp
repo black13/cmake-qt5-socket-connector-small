@@ -1,0 +1,421 @@
+#include "javascript_engine.h"
+#include "node.h"
+#include "edge.h"
+#include "scene.h"
+#include "graph_controller.h"
+#include "graph_factory.h"
+#include <QFile>
+#include <QTextStream>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+JavaScriptEngine::JavaScriptEngine(QObject* parent)
+    : QObject(parent)
+    , m_engine(new QJSEngine(this))
+    , m_scene(nullptr)
+    , m_graphController(nullptr)
+{
+    setupGlobalAPI();
+    registerConsoleAPI();
+    registerUtilityAPI();
+    
+    qDebug() << "JavaScriptEngine: Modern JavaScript engine initialized";
+}
+
+JavaScriptEngine::~JavaScriptEngine()
+{
+    qDebug() << "JavaScriptEngine: Shutting down";
+}
+
+QJSValue JavaScriptEngine::evaluate(const QString& script)
+{
+    clearErrors();
+    
+    QJSValue result = m_engine->evaluate(script);
+    
+    if (result.isError()) {
+        m_lastError = QString("JavaScript Error: %1").arg(result.toString());
+        emit scriptError(m_lastError);
+        qDebug() << m_lastError;
+    } else {
+        emit scriptExecuted(script, result);
+    }
+    
+    return result;
+}
+
+QJSValue JavaScriptEngine::evaluateFile(const QString& filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        m_lastError = QString("Cannot open script file: %1").arg(filePath);
+        emit scriptError(m_lastError);
+        return QJSValue();
+    }
+    
+    QTextStream in(&file);
+    QString script = in.readAll();
+    
+    qDebug() << "JavaScriptEngine: Evaluating script file:" << filePath;
+    return evaluate(script);
+}
+
+void JavaScriptEngine::registerNodeAPI(Scene* scene)
+{
+    m_scene = scene;
+    
+    // Register Node API
+    QJSValue nodeAPI = m_engine->newObject();
+    
+    // Node creation functions - Qt5 compatible
+    QJSValue createFunc = m_engine->evaluate(R"(
+        (function(type, x, y) {
+            if (arguments.length < 3) {
+                throw new Error("Node.create() requires type, x, y parameters");
+            }
+            console.log("JavaScript: Creating node " + type + " at " + x + "," + y);
+            return {}; // Placeholder
+        })
+    )");
+    nodeAPI.setProperty("create", createFunc);
+    
+    // Node query functions - Qt5 compatible
+    QJSValue findByIdFunc = m_engine->evaluate(R"(
+        (function(id) {
+            if (arguments.length < 1) {
+                throw new Error("Node.findById() requires id parameter");
+            }
+            console.log("JavaScript: Finding node by ID: " + id);
+            return null; // Placeholder
+        })
+    )");
+    nodeAPI.setProperty("findById", findByIdFunc);
+    
+    m_engine->globalObject().setProperty("Node", nodeAPI);
+    
+    // Register Graph API
+    QJSValue graphAPI = m_engine->newObject();
+    
+    // Graph API functions - Qt5 compatible
+    QJSValue getNodesFunc = m_engine->evaluate(R"(
+        (function() {
+            console.log("JavaScript: Getting all nodes");
+            return []; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("getNodes", getNodesFunc);
+    
+    QJSValue getEdgesFunc = m_engine->evaluate(R"(
+        (function() {
+            console.log("JavaScript: Getting all edges");
+            return []; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("getEdges", getEdgesFunc);
+    
+    m_engine->globalObject().setProperty("Graph", graphAPI);
+    
+    qDebug() << "JavaScriptEngine: Node and Graph APIs registered";
+}
+
+void JavaScriptEngine::registerGraphAPI()
+{
+    QJSValue algorithms = m_engine->newObject();
+    
+    // Layout algorithms - Qt5 compatible
+    QJSValue forceDirectedFunc = m_engine->evaluate(R"(
+        (function() {
+            console.log("JavaScript: Running force-directed layout");
+            return {}; // Placeholder
+        })
+    )");
+    algorithms.setProperty("forceDirected", forceDirectedFunc);
+    
+    QJSValue hierarchicalFunc = m_engine->evaluate(R"(
+        (function() {
+            console.log("JavaScript: Running hierarchical layout");
+            return {}; // Placeholder
+        })
+    )");
+    algorithms.setProperty("hierarchical", hierarchicalFunc);
+    
+    m_engine->globalObject().setProperty("Algorithms", algorithms);
+    
+    qDebug() << "JavaScriptEngine: Graph algorithms registered";
+}
+
+void JavaScriptEngine::registerGraphController(Scene* scene, GraphFactory* factory)
+{
+    m_scene = scene;
+    
+    // Create GraphController instance
+    m_graphController = new GraphController(scene, factory, this);
+    
+    // Register as global Graph object
+    QJSValue controllerValue = m_engine->newQObject(m_graphController);
+    m_engine->globalObject().setProperty("Graph", controllerValue);
+    
+    // Connect signals for debugging
+    connect(m_graphController, &GraphController::nodeCreated, [](const QString& uuid) {
+        qDebug() << "JavaScript: Node created:" << uuid;
+    });
+    
+    connect(m_graphController, &GraphController::nodeDeleted, [](const QString& uuid) {
+        qDebug() << "JavaScript: Node deleted:" << uuid;
+    });
+    
+    connect(m_graphController, &GraphController::edgeCreated, [](const QString& uuid) {
+        qDebug() << "JavaScript: Edge created:" << uuid;
+    });
+    
+    connect(m_graphController, &GraphController::edgeDeleted, [](const QString& uuid) {
+        qDebug() << "JavaScript: Edge deleted:" << uuid;
+    });
+    
+    connect(m_graphController, &GraphController::error, [](const QString& message) {
+        qDebug() << "JavaScript Graph Error:" << message;
+    });
+    
+    qDebug() << "JavaScriptEngine: GraphController registered as 'Graph' global object";
+}
+
+QJSValue JavaScriptEngine::createNodeScript(const QString& nodeType, const QString& script)
+{
+    QString wrappedScript = QString(R"(
+        (function(nodeType, inputs, outputs) {
+            %1
+        })
+    )").arg(script);
+    
+    QJSValue nodeFunction = evaluate(wrappedScript);
+    
+    if (!nodeFunction.isError()) {
+        m_scriptModules[nodeType] = nodeFunction;
+        qDebug() << "JavaScriptEngine: Created node script for type:" << nodeType;
+    }
+    
+    return nodeFunction;
+}
+
+bool JavaScriptEngine::executeNodeScript(Node* node, const QString& script, const QVariantMap& inputs)
+{
+    if (!node) {
+        m_lastError = "Cannot execute script on null node";
+        return false;
+    }
+    
+    // Convert inputs to JavaScript object
+    QJSValue jsInputs = m_engine->newObject();
+    for (auto it = inputs.begin(); it != inputs.end(); ++it) {
+        jsInputs.setProperty(it.key(), m_engine->toScriptValue(it.value()));
+    }
+    
+    // Set up node context
+    QJSValue nodeObj = nodeToJSValue(node);
+    m_engine->globalObject().setProperty("currentNode", nodeObj);
+    m_engine->globalObject().setProperty("inputs", jsInputs);
+    
+    QJSValue result = evaluate(script);
+    
+    return !result.isError();
+}
+
+QJSValue JavaScriptEngine::processGraph(const QString& algorithm, const QVariantMap& parameters)
+{
+    QJSValue params = m_engine->newObject();
+    for (auto it = parameters.begin(); it != parameters.end(); ++it) {
+        params.setProperty(it.key(), m_engine->toScriptValue(it.value()));
+    }
+    
+    QString script = QString("Algorithms.%1(arguments[0])").arg(algorithm);
+    QJSValue algorithmFunc = evaluate(script);
+    
+    if (algorithmFunc.isCallable()) {
+        return algorithmFunc.call(QJSValueList() << params);
+    }
+    
+    return QJSValue();
+}
+
+bool JavaScriptEngine::hasErrors() const
+{
+    return !m_lastError.isEmpty();
+}
+
+QString JavaScriptEngine::getLastError() const
+{
+    return m_lastError;
+}
+
+void JavaScriptEngine::clearErrors()
+{
+    m_lastError.clear();
+}
+
+void JavaScriptEngine::loadScriptModule(const QString& moduleName, const QString& scriptContent)
+{
+    QString moduleScript = QString(R"(
+        (function() {
+            var module = { exports: {} };
+            var exports = module.exports;
+            
+            %1
+            
+            return module.exports;
+        })()
+    )").arg(scriptContent);
+    
+    QJSValue moduleResult = evaluate(moduleScript);
+    
+    if (!moduleResult.isError()) {
+        m_scriptModules[moduleName] = moduleResult;
+        qDebug() << "JavaScriptEngine: Loaded module:" << moduleName;
+    }
+}
+
+QJSValue JavaScriptEngine::getModule(const QString& moduleName)
+{
+    return m_scriptModules.value(moduleName, QJSValue());
+}
+
+void JavaScriptEngine::handleJavaScriptException(const QJSValue& exception)
+{
+    m_lastError = QString("JavaScript Exception: %1").arg(exception.toString());
+    emit scriptError(m_lastError);
+    qDebug() << m_lastError;
+}
+
+void JavaScriptEngine::setupGlobalAPI()
+{
+    // Set up global JavaScript environment
+    QJSValue globalObject = m_engine->globalObject();
+    
+    // Add setTimeout/setInterval placeholders - Qt5 compatible
+    QJSValue setTimeoutFunc = m_engine->evaluate(
+        "(function(func, delay) {"
+        "    console.log('JavaScript: setTimeout called (not implemented)');"
+        "    return 0;"
+        "})"
+    );
+    globalObject.setProperty("setTimeout", setTimeoutFunc);
+    
+    QJSValue setIntervalFunc = m_engine->evaluate(
+        "(function(func, delay) {"
+        "    console.log('JavaScript: setInterval called (not implemented)');"
+        "    return 0;"
+        "})"
+    );
+    globalObject.setProperty("setInterval", setIntervalFunc);
+}
+
+void JavaScriptEngine::registerConsoleAPI()
+{
+    QJSValue console = m_engine->newObject();
+    
+    // Console API - Qt5 compatible with C++ callback
+    QJSValue consoleLog = m_engine->evaluate(R"(
+        (function() {
+            var args = Array.prototype.slice.call(arguments);
+            qt_console_log(args.join(" "));
+        })
+    )");
+    console.setProperty("log", consoleLog);
+    
+    QJSValue consoleError = m_engine->evaluate(R"(
+        (function() {
+            var args = Array.prototype.slice.call(arguments);
+            qt_console_error(args.join(" "));
+        })
+    )");
+    console.setProperty("error", consoleError);
+    
+    // Register native console functions
+    m_engine->globalObject().setProperty("qt_console_log", m_engine->newQObject(this));
+    m_engine->globalObject().setProperty("qt_console_error", m_engine->newQObject(this));
+    
+    m_engine->globalObject().setProperty("console", console);
+}
+
+void JavaScriptEngine::qt_console_log(const QString& message)
+{
+    qDebug() << "JavaScript Console:" << message;
+}
+
+void JavaScriptEngine::qt_console_error(const QString& message)
+{
+    qDebug() << "JavaScript Error:" << message;
+}
+
+void JavaScriptEngine::registerUtilityAPI()
+{
+    QJSValue utils = m_engine->newObject();
+    
+    // JSON utilities - Qt5 compatible using built-in JSON
+    QJSValue parseJSONFunc = m_engine->evaluate(R"(
+        (function(jsonString) {
+            if (arguments.length < 1) {
+                throw new Error("parseJSON() requires a string parameter");
+            }
+            try {
+                return JSON.parse(jsonString);
+            } catch (e) {
+                throw new Error("Invalid JSON string");
+            }
+        })
+    )");
+    utils.setProperty("parseJSON", parseJSONFunc);
+    
+    QJSValue stringifyJSONFunc = m_engine->evaluate(R"(
+        (function(obj) {
+            if (arguments.length < 1) {
+                throw new Error("stringifyJSON() requires an object parameter");
+            }
+            try {
+                return JSON.stringify(obj);
+            } catch (e) {
+                throw new Error("Cannot stringify object");
+            }
+        })
+    )");
+    utils.setProperty("stringifyJSON", stringifyJSONFunc);
+    
+    m_engine->globalObject().setProperty("Utils", utils);
+}
+
+QJSValue JavaScriptEngine::nodeToJSValue(Node* node)
+{
+    if (!node) {
+        return QJSValue();
+    }
+    
+    QJSValue nodeObj = m_engine->newObject();
+    
+    // Basic node properties
+    nodeObj.setProperty("id", node->getId().toString());
+    nodeObj.setProperty("type", node->getNodeType());
+    nodeObj.setProperty("x", node->pos().x());
+    nodeObj.setProperty("y", node->pos().y());
+    
+    // Socket information
+    QJSValue sockets = m_engine->newArray();
+    // TODO: Populate with actual socket data
+    nodeObj.setProperty("sockets", sockets);
+    
+    return nodeObj;
+}
+
+QJSValue JavaScriptEngine::edgeToJSValue(Edge* edge)
+{
+    if (!edge) {
+        return QJSValue();
+    }
+    
+    QJSValue edgeObj = m_engine->newObject();
+    
+    // Basic edge properties
+    edgeObj.setProperty("id", edge->getId().toString());
+    
+    // TODO: Add from/to node information
+    
+    return edgeObj;
+}
