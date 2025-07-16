@@ -3,6 +3,9 @@
 #include <QGraphicsView>
 #include <QMouseEvent>
 #include <QWheelEvent>
+// #include <QDragEnterEvent>
+// #include <QDragMoveEvent>
+// #include <QDropEvent>
 
 class Scene;
 
@@ -14,6 +17,8 @@ class Scene;
  */
 class View : public QGraphicsView
 {
+    Q_OBJECT
+
 public:
     explicit View(Scene* scene, QWidget* parent = nullptr);
 

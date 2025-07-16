@@ -37,3 +37,20 @@ void View::wheelEvent(QWheelEvent* event)
         scale(1.0 / scaleFactor, 1.0 / scaleFactor);
     }
 }
+
+/* Drag-and-drop functionality disabled for now
+void View::dragEnterEvent(QDragEnterEvent* event)
+{
+    // Drag-and-drop disabled
+}
+
+void View::dragMoveEvent(QDragMoveEvent* event)
+{
+    // Drag-and-drop disabled  
+}
+
+void View::dropEvent(QDropEvent* event)
+{
+    // Drag-and-drop disabled
+}
+*/

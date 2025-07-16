@@ -33,6 +33,12 @@ public:
         Output
     };
     
+    // enum VisualState {
+    //     Normal,
+    //     ValidTarget,
+    //     InvalidTarget
+    // };
+    
     // Helper for debugging
     static const char* roleToString(Role role) {
         switch (role) {
@@ -71,6 +77,10 @@ public:
     
     // Socket positioning (automatic based on index and role)
     void updatePosition();
+    
+    // Visual state for drag-and-drop feedback (disabled)
+    // VisualState getVisualState() const { return m_visualState; }
+    // void setVisualState(VisualState state) { m_visualState = state; update(); }
 
 private:
     Role m_role;
@@ -78,6 +88,7 @@ private:
     Edge* m_connectedEdge;       // Connected edge (if any)  
     qreal m_radius;
     bool m_hovered;
+    // VisualState m_visualState;   // Visual feedback state for drag-and-drop (disabled)
     
     // Performance optimization: cache index string (created once, not every frame)
     mutable QString m_cachedIndexString;

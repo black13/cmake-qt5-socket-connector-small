@@ -5,7 +5,8 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
-#include "node_palette_widget.h"
+#include "javascript_engine.h"
+// #include "node_palette_bar.h" // Disabled for now
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -23,6 +24,7 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QJSValue>
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
 
@@ -35,8 +37,8 @@ Window::Window(QWidget* parent)
     resize(1400, 900);
     
     // Initialize UI components to nullptr
-    m_nodePaletteDock = nullptr;
-    m_nodePalette = nullptr;
+    // m_nodePaletteDock = nullptr;
+    // m_nodePalette = nullptr;
     m_fileInfoLabel = nullptr;
     m_graphStatsLabel = nullptr;
     m_selectionLabel = nullptr;
@@ -65,10 +67,13 @@ Window::Window(QWidget* parent)
     setupActions();
     setupMenus();
     setupStatusBar();
-    setupDockWidgets();
+    // setupDockWidgets(); // Disabled for now
     
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
+    
+    // Connect view signals for drag-and-drop (disabled)
+    // connect(m_view, &View::nodeDropped, this, &Window::createNodeAtPosition);
     
     // Initial status update
     updateStatusBar();
@@ -531,6 +536,14 @@ void Window::createToolsMenu()
     QAction* statisticsAction = new QAction("Graph &Statistics", this);
     statisticsAction->setStatusTip("Show detailed graph statistics");
     m_toolsMenu->addAction(statisticsAction);
+    
+    // JavaScript test runner
+    m_toolsMenu->addSeparator();
+    QAction* jsTestAction = new QAction("🧪 Run &JavaScript Tests", this);
+    jsTestAction->setStatusTip("Run embedded JavaScript test suite");
+    jsTestAction->setShortcut(QKeySequence("Ctrl+J"));
+    connect(jsTestAction, &QAction::triggered, this, &Window::runJavaScriptTests);
+    m_toolsMenu->addAction(jsTestAction);
 }
 
 void Window::createHelpMenu()
@@ -613,36 +626,9 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    // Node Palette
-    m_nodePalette = new NodePaletteWidget(this);
-    m_nodePaletteDock = new QDockWidget("Node Palette", this);
-    m_nodePaletteDock->setWidget(m_nodePalette);
-    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | 
-                                   QDockWidget::DockWidgetFloatable);
-    m_nodePaletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
-    
-    // Connect node palette to our factory system
-    connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested,
-            [this](const NodePaletteWidget::NodeTemplate& nodeTemplate) {
-                QPointF center = m_view->mapToScene(m_view->viewport()->rect().center());
-                
-                // Create node using our factory system
-                Node* node = m_factory->createNode(nodeTemplate.type, center, 
-                                                  nodeTemplate.inputSockets, 
-                                                  nodeTemplate.outputSockets);
-                
-                if (node) {
-                    qDebug() << "✓ Created node from palette:" << nodeTemplate.name;
-                    updateStatusBar();
-                } else {
-                    qDebug() << "✗ Failed to create node from palette:" << nodeTemplate.name;
-                }
-            });
-    
-    // Add dock widget toggle to View menu
-    m_viewMenu->addSeparator();
-    m_viewMenu->addAction(m_nodePaletteDock->toggleViewAction());
+    // Drag-and-drop palette disabled for now
+    // Focus on JavaScript integration
+    qDebug() << "Dock widgets disabled - focusing on JavaScript integration";
 }
 
 void Window::updateStatusBar()
@@ -819,4 +805,150 @@ void Window::zoomReset()
 {
     m_view->resetTransform();
     // TODO: Update zoom label
+}
+
+/*
+void Window::createNodeAtPosition(const QString& nodeType, const QPointF& scenePos)
+{
+    // Drag-and-drop node creation disabled for now
+    // Focus on JavaScript integration
+}
+*/
+
+// ============================================================================
+// PHASE 3: Safe Shutdown Coordination
+// ============================================================================
+
+void Window::closeEvent(QCloseEvent* event)
+{
+    qDebug() << "PHASE1: Window shutdown initiated";
+    
+    // PHASE 1.2: Prepare scene for safe shutdown
+    if (m_scene) {
+        m_scene->prepareForShutdown();
+    }
+    
+    // Accept the close event (no dirty state tracking yet)
+    QMainWindow::closeEvent(event);
+    
+    qDebug() << "PHASE1: ✓ Window shutdown complete";
+}
+
+void Window::runJavaScriptTests()
+{
+    qDebug() << "Window: Running JavaScript test suite";
+    
+    // Initialize JavaScript engine with GraphController
+    auto* jsEngine = m_scene->getJavaScriptEngine();
+    if (!jsEngine) {
+        QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
+        return;
+    }
+    
+    // Register GraphController if not already done
+    jsEngine->registerGraphController(m_scene, m_factory);
+    
+    // Show status message
+    statusBar()->showMessage("Running JavaScript tests...", 2000);
+    
+    // Run the basic test suite
+    QString testScript = R"(
+        console.log("=== Starting JavaScript Test Suite ===");
+        
+        // Test 1: Basic graph creation
+        try {
+            console.log("Test 1: Basic graph creation");
+            Graph.clear();
+            let node1 = Graph.createNode("Source", 100, 100);
+            let node2 = Graph.createNode("Sink", 300, 100);
+            let edge = Graph.connect(node1, 0, node2, 0);
+            
+            let stats = Graph.getStats();
+            console.log("Created graph with " + stats.nodes + " nodes and " + stats.edges + " edges");
+            
+            if (stats.nodes === 2 && stats.edges === 1) {
+                console.log("✅ Test 1 PASSED");
+            } else {
+                console.log("❌ Test 1 FAILED");
+            }
+        } catch (e) {
+            console.log("❌ Test 1 ERROR: " + e.toString());
+        }
+        
+        // Test 2: Node deletion
+        try {
+            console.log("Test 2: Node deletion");
+            let beforeStats = Graph.getStats();
+            Graph.deleteNode(node1);
+            let afterStats = Graph.getStats();
+            
+            if (afterStats.nodes === 1 && afterStats.edges === 0) {
+                console.log("✅ Test 2 PASSED");
+            } else {
+                console.log("❌ Test 2 FAILED");
+            }
+        } catch (e) {
+            console.log("❌ Test 2 ERROR: " + e.toString());
+        }
+        
+        // Test 3: XML operations
+        try {
+            console.log("Test 3: XML operations");
+            Graph.clear();
+            let testNode = Graph.createNode("Source", 150, 150);
+            
+            Graph.saveXml("test_output.xml");
+            let xmlString = Graph.getXmlString();
+            
+            if (xmlString.length > 0 && xmlString.includes('<graph')) {
+                console.log("✅ Test 3 PASSED");
+            } else {
+                console.log("❌ Test 3 FAILED");
+            }
+        } catch (e) {
+            console.log("❌ Test 3 ERROR: " + e.toString());
+        }
+        
+        // Test 4: Complex graph
+        try {
+            console.log("Test 4: Complex graph creation");
+            Graph.clear();
+            
+            let source = Graph.createNode("Source", 50, 100);
+            let processor = Graph.createNode("1-to-2", 200, 100);
+            let sink1 = Graph.createNode("Sink", 350, 50);
+            let sink2 = Graph.createNode("Sink", 350, 150);
+            
+            Graph.connect(source, 0, processor, 0);
+            Graph.connect(processor, 0, sink1, 0);
+            Graph.connect(processor, 1, sink2, 0);
+            
+            let complexStats = Graph.getStats();
+            
+            if (complexStats.nodes === 4 && complexStats.edges === 3) {
+                console.log("✅ Test 4 PASSED");
+            } else {
+                console.log("❌ Test 4 FAILED - Expected 4 nodes, 3 edges, got " + 
+                           complexStats.nodes + " nodes, " + complexStats.edges + " edges");
+            }
+        } catch (e) {
+            console.log("❌ Test 4 ERROR: " + e.toString());
+        }
+        
+        console.log("=== JavaScript Test Suite Complete ===");
+    )";
+    
+    // Execute the test script
+    QJSValue result = jsEngine->evaluate(testScript);
+    
+    if (result.isError()) {
+        QMessageBox::critical(this, "JavaScript Test Error", 
+                             QString("Test execution failed: %1").arg(result.toString()));
+    } else {
+        QMessageBox::information(this, "JavaScript Tests", 
+                                "Test suite completed. Check debug output for results.");
+    }
+    
+    // Update status bar
+    updateStatusBar();
 }

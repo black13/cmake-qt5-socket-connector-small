@@ -17,7 +17,7 @@ class View;
 class Scene;
 class GraphFactory;
 class XmlAutosaveObserver;
-class NodePaletteWidget;
+// class NodePaletteBar; // Disabled for now
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -41,6 +41,15 @@ public:
     // Update status bar with current graph information
     void updateStatusBar();
     
+    // Create node at specific position (disabled for now)
+    // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
+    
+    // JavaScript test runner
+    void runJavaScriptTests();
+
+protected:
+    // PHASE 3: Safe shutdown coordination
+    void closeEvent(QCloseEvent* event) override;
 public slots:
     // Scene event handlers
     void onSceneChanged();
@@ -93,9 +102,9 @@ private:
     QAction* m_addOutputAction;
     QAction* m_addProcessorAction;
     
-    // Dock widgets
-    QDockWidget* m_nodePaletteDock;
-    NodePaletteWidget* m_nodePalette;
+    // Professional node palette system (disabled)
+    // QDockWidget* m_nodePaletteDock;
+    // NodePaletteBar* m_nodePalette;
     
     // Status bar components
     QLabel* m_fileInfoLabel;      // Current file info

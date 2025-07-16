@@ -79,6 +79,8 @@ public:
     // Public accessors for layout engine
     Node* getFromNode() const { return m_fromNode; }
     Node* getToNode() const { return m_toNode; }
+    Socket* getFromSocket() const { return m_fromSocket; }
+    Socket* getToSocket() const { return m_toSocket; }
 
 private:
     QUuid m_id;
