@@ -108,12 +108,9 @@ if(MSVC)
 endif()
 
 # ─────────────────────────────────────
-# 7.  Sources & headers
-#     (existing + new event/persistence files)
+# 7.  Shared core library to avoid double building
 # ─────────────────────────────────────
-set(SOURCES
-    main.cpp
-    
+set(CORE_SOURCES
     # Self-serializing architecture
     node.h
     node.cpp
@@ -130,9 +127,9 @@ set(SOURCES
     graph_factory.h
     graph_factory.cpp
     
-    # Layout engine using Graaf
-    layout_engine.h
-    layout_engine.cpp
+    # Layout engine using Graaf (disabled for now)
+    # layout_engine.h
+    # layout_engine.cpp
     
     # UI classes
     window.h
@@ -142,11 +139,11 @@ set(SOURCES
     scene.h
     scene.cpp
     
-    # Professional drag-and-drop palette
-    node_palette_bar.h
-    node_palette_bar.cpp
-    node_tool_button.h
-    node_tool_button.cpp
+    # Professional drag-and-drop palette (disabled)
+    # node_palette_bar.h
+    # node_palette_bar.cpp
+    # node_tool_button.h
+    # node_tool_button.cpp
     
     # JavaScript engine integration
     javascript_engine.h
@@ -154,63 +151,50 @@ set(SOURCES
     graph_controller.h
     graph_controller.cpp
     
-    # Resources
-    icons.qrc
-    
     # Observer pattern implementation
     graph_observer.h
     graph_observer.cpp
     xml_autosave_observer.h
     xml_autosave_observer.cpp
     
-    # Live XML synchronization
-    xml_live_sync.h
-    xml_live_sync.cpp
+    # Live XML synchronization (not implemented yet)
+    # xml_live_sync.h
+    # xml_live_sync.cpp
 )
 
-# ─────────────────────────────────────
-# 8.  Main executable target
-# ─────────────────────────────────────
-add_executable(NodeGraph WIN32 ${SOURCES})
+# Main application sources (only main.cpp + resources)
+set(MAIN_SOURCES
+    main.cpp
+    icons.qrc
+)
 
-# ─────────────────────────────────────
-# 9.  Test executable target
-# ─────────────────────────────────────
+# Test application sources (only test files)
 set(TEST_SOURCES
     tst_main.h
     tst_main.cpp
-    
-    # Shared source files needed by tests
-    node.h
-    node.cpp
-    socket.h
-    socket.cpp
-    edge.h
-    edge.cpp
-    node_registry.h
-    node_registry.cpp
-    graph_factory.h
-    graph_factory.cpp
-    scene.h
-    scene.cpp
-    graph_observer.h
-    graph_observer.cpp
-    xml_autosave_observer.h
-    xml_autosave_observer.cpp
-    xml_live_sync.h
-    xml_live_sync.cpp
-    javascript_engine.h
-    javascript_engine.cpp
-    graph_controller.h
-    graph_controller.cpp
 )
 
+# ─────────────────────────────────────
+# 8.  Shared core library - compile once, use twice
+# ─────────────────────────────────────
+add_library(NodeGraphCore STATIC ${CORE_SOURCES})
+
+# ─────────────────────────────────────
+# 9.  Main executable target
+# ─────────────────────────────────────
+add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
+target_link_libraries(NodeGraph NodeGraphCore)
+
+# ─────────────────────────────────────
+# 10. Test executable target
+# ─────────────────────────────────────
 add_executable(NodeGraphTests ${TEST_SOURCES})
+target_link_libraries(NodeGraphTests NodeGraphCore)
 
 # Link libraries based on how libxml2 was found
 if(LIBXML2_FOUND)
-    # System libxml2 - Main application
-    target_link_libraries(NodeGraph
+    # System libxml2 - Core library (shared by both main and test)
+    target_link_libraries(NodeGraphCore
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
@@ -218,33 +202,11 @@ if(LIBXML2_FOUND)
         Qt5::Qml
         ${LIBXML2_LIBRARIES}
     )
-    target_include_directories(NodeGraph PRIVATE ${LIBXML2_INCLUDE_DIRS})
-    target_compile_options(NodeGraph PRIVATE ${LIBXML2_CFLAGS_OTHER})
-    
-    # System libxml2 - Test application
-    target_link_libraries(NodeGraphTests
-        Qt5::Core
-        Qt5::Widgets
-        Qt5::Gui
-        Qt5::Test
-        Qt5::Qml
-        ${LIBXML2_LIBRARIES}
-    )
-    target_include_directories(NodeGraphTests PRIVATE ${LIBXML2_INCLUDE_DIRS})
-    target_compile_options(NodeGraphTests PRIVATE ${LIBXML2_CFLAGS_OTHER})
+    target_include_directories(NodeGraphCore PRIVATE ${LIBXML2_INCLUDE_DIRS})
+    target_compile_options(NodeGraphCore PRIVATE ${LIBXML2_CFLAGS_OTHER})
 else()
-    # FetchContent libxml2 - Main application
-    target_link_libraries(NodeGraph
-        Qt5::Core
-        Qt5::Widgets
-        Qt5::Gui
-        Qt5::Test
-        Qt5::Qml
-        LibXml2::LibXml2
-    )
-    
-    # FetchContent libxml2 - Test application
-    target_link_libraries(NodeGraphTests
+    # FetchContent libxml2 - Core library (shared by both main and test)
+    target_link_libraries(NodeGraphCore
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
@@ -255,7 +217,7 @@ else()
 endif()
 
 # ─────────────────────────────────────
-# 9.  VS / Windows extras
+# 11. VS / Windows extras
 # ─────────────────────────────────────
 if(WIN32)
     # Main application settings
@@ -286,7 +248,7 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 10. Install rules (optional on Win)
+# 12. Install rules (optional on Win)
 # ─────────────────────────────────────
 if(WIN32)
     install(TARGETS NodeGraph NodeGraphTests RUNTIME DESTINATION .)
@@ -299,7 +261,7 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 11.  Info
+# 13. Info
 # ─────────────────────────────────────
 message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Qt5 found        : ${Qt5_FOUND}")
