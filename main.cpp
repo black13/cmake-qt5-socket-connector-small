@@ -226,48 +226,10 @@ int main(int argc, char *argv[])
         qDebug() << "✓ Graph loaded successfully from file:" << filename;
         
     } else {
-        // Create test nodes with different socket configurations
-        qDebug() << "=== XML-First Variable Socket Node Creation ===";
-        
-        Node* sourceNode = factory.createNode("OUT", QPointF(100, 100), 0, 1);    // 0 inputs, 1 output
-        Node* processorNode = factory.createNode("OUT", QPointF(300, 100), 1, 1); // 1 input, 1 output  
-        Node* sinkNode = factory.createNode("IN", QPointF(500, 100), 1, 0);       // 1 input, 0 outputs
-        
-        if (sourceNode && processorNode && sinkNode) {
-            qDebug() << "✓ Successfully created variable socket nodes via XML-first approach";
-            qDebug() << "  - Source node:" << sourceNode->getId().toString(QUuid::WithoutBraces).left(8) << "sockets:" << sourceNode->getSocketCount();
-            qDebug() << "  - Processor node:" << processorNode->getId().toString(QUuid::WithoutBraces).left(8) << "sockets:" << processorNode->getSocketCount();
-            qDebug() << "  - Sink node:" << sinkNode->getId().toString(QUuid::WithoutBraces).left(8) << "sockets:" << sinkNode->getSocketCount();
-            
-            // Test XML-first edge creation with variable sockets
-            qDebug() << "=== XML-First Variable Socket Edge Creation ===";
-            
-            // Connect source output 0 to processor input 0
-            Edge* edge1 = factory.createEdge(sourceNode, 0, processorNode, 0);
-            // Connect processor output 1 to sink input 0  
-            Edge* edge2 = factory.createEdge(processorNode, 1, sinkNode, 0);
-            
-            if (edge1 && edge2) {
-                qDebug() << "✓ Created test edges via XML-first approach";
-                qDebug() << "  - Edge 1 ID:" << edge1->getId().toString(QUuid::WithoutBraces).left(8);
-                qDebug() << "  - Edge 2 ID:" << edge2->getId().toString(QUuid::WithoutBraces).left(8);
-                
-                // Resolve connections for test edges
-                QVector<Edge*> testEdges = {edge1, edge2};
-                int successfulConnections = 0;
-                for (Edge* edge : testEdges) {
-                    if (edge->resolveConnections(scene)) {
-                        successfulConnections++;
-                    }
-                }
-                qDebug() << "✓ Test edges resolved:" << successfulConnections << "/" << testEdges.size() << "connected";
-            }
-        }
-        
-        // Save XML to file to verify XML-first architecture
-        QString xmlFileName = QString("logs/test_graph_%1.xml").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss"));
-        xmlSaveFormatFileEnc(xmlFileName.toUtf8().constData(), xmlDoc, "UTF-8", 1);
-        qDebug() << "✓ XML document saved to:" << xmlFileName;
+        // Start with empty graph - no default test nodes
+        qDebug() << "=== Starting with Empty Graph ===";
+        qDebug() << "✓ No file specified - application will start with clean scene";
+        qDebug() << "  Users can create nodes manually or load XML files via Ctrl+L";
     }
     
     qDebug() << "=== XML-First Architecture Test Complete ===";
