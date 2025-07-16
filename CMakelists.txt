@@ -44,14 +44,8 @@ find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test Qml)
 # Find or build libxml2 for cross-platform XML handling
 # ─────────────────────────────────────
 
-# Try to find system libxml2 first (fastest option) - but skip on Windows
+# Always use FetchContent for libxml2 to ensure consistency
 set(LIBXML2_FOUND FALSE)
-if(NOT WIN32)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(LIBXML2 QUIET libxml-2.0)
-    endif()
-endif()
 
 if(NOT LIBXML2_FOUND)
     # Use FetchContent with proper caching
@@ -191,30 +185,15 @@ target_link_libraries(NodeGraph NodeGraphCore)
 add_executable(NodeGraphTests ${TEST_SOURCES})
 target_link_libraries(NodeGraphTests NodeGraphCore)
 
-# Link libraries based on how libxml2 was found
-if(LIBXML2_FOUND)
-    # System libxml2 - Core library (shared by both main and test)
-    target_link_libraries(NodeGraphCore
-        Qt5::Core
-        Qt5::Widgets
-        Qt5::Gui
-        Qt5::Test
-        Qt5::Qml
-        ${LIBXML2_LIBRARIES}
-    )
-    target_include_directories(NodeGraphCore PRIVATE ${LIBXML2_INCLUDE_DIRS})
-    target_compile_options(NodeGraphCore PRIVATE ${LIBXML2_CFLAGS_OTHER})
-else()
-    # FetchContent libxml2 - Core library (shared by both main and test)
-    target_link_libraries(NodeGraphCore
-        Qt5::Core
-        Qt5::Widgets
-        Qt5::Gui
-        Qt5::Test
-        Qt5::Qml
-        LibXml2::LibXml2
-    )
-endif()
+# Always use FetchContent libxml2 - Core library (shared by both main and test)
+target_link_libraries(NodeGraphCore
+    Qt5::Core
+    Qt5::Widgets
+    Qt5::Gui
+    Qt5::Test
+    Qt5::Qml
+    LibXml2::LibXml2
+)
 
 # ─────────────────────────────────────
 # 11. VS / Windows extras
@@ -225,10 +204,14 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
         VS_DPI_AWARE "PerMonitor"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        VS_DEBUGGER_ENVIRONMENT
-            "PATH=E:/Qt/5.15.16/Debug_x64/bin;E:/Qt/5.15.16/Release_x64/bin;%PATH%"
-        VS_DEBUGGER_COMMAND_ARGUMENTS
-            "test_working_graph.xml"
+        
+        # Separate Debug and Release Qt paths
+        VS_DEBUGGER_ENVIRONMENT_DEBUG
+            "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
+        VS_DEBUGGER_ENVIRONMENT_RELEASE
+            "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+            
+        # No command arguments - removed test_working_graph.xml
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
@@ -237,8 +220,13 @@ if(WIN32)
     set_target_properties(NodeGraphTests PROPERTIES
         WIN32_EXECUTABLE FALSE
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        VS_DEBUGGER_ENVIRONMENT
-            "PATH=E:/Qt/5.15.16/Debug_x64/bin;E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+        
+        # Separate Debug and Release Qt paths for tests
+        VS_DEBUGGER_ENVIRONMENT_DEBUG
+            "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
+        VS_DEBUGGER_ENVIRONMENT_RELEASE
+            "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+            
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
