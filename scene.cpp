@@ -292,7 +292,11 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     m_ghostEdge = new QGraphicsPathItem();
     m_ghostEdge->setZValue(-10); // Below all interactive items
     m_ghostEdge->setFlag(QGraphicsItem::ItemIsSelectable, false);
+    m_ghostEdge->setFlag(QGraphicsItem::ItemIsMovable, false);
+    m_ghostEdge->setFlag(QGraphicsItem::ItemIsFocusable, false);
+    m_ghostEdge->setAcceptHoverEvents(false);
     m_ghostEdge->setAcceptedMouseButtons(Qt::NoButton);
+    m_ghostEdge->setBrush(Qt::NoBrush); // Ensure no fill/bounding box
     m_ghostEdge->setData(0, GHOST_EDGE_UUID); // IUnknown UUID marker
     m_ghostEdge->setPen(ghostPen());
     addItem(m_ghostEdge);
