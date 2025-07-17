@@ -213,6 +213,9 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     }
     m_sockets.clear();  // Clear cache to prevent dangling pointers
     
+    // Calculate dynamic node size based on socket count
+    calculateNodeSize(inputCount, outputCount);
+    
     int socketIndex = 0;
     
     // Create input sockets (indexes 0, 1, 2, ...)
@@ -435,4 +438,45 @@ void Node::read(xmlNodePtr node)
     }
     
     update();
+}
+
+void Node::calculateNodeSize(int inputCount, int outputCount)
+{
+    // Calculate required height based on socket count
+    int maxSockets = qMax(inputCount, outputCount);
+    
+    // Constants matching socket configuration
+    const qreal socketSpacing = 32.0;  // Must match socket.cpp
+    const qreal minNodeHeight = 50.0;  // Minimum height for node text
+    const qreal topPadding = 14.0;     // Top padding (socket width)
+    const qreal bottomPadding = 14.0;  // Bottom padding (socket width)
+    const qreal minNodeWidth = 100.0;  // Minimum width for node text
+    
+    // Calculate height based on socket count
+    if (maxSockets > 0) {
+        // Height = top padding + (sockets * spacing) + bottom padding
+        qreal requiredHeight = topPadding + (maxSockets - 1) * socketSpacing + 14.0 + bottomPadding;
+        m_height = qMax(minNodeHeight, requiredHeight);
+    } else {
+        m_height = minNodeHeight;
+    }
+    
+    // Calculate width based on node type and content
+    QString displayText = m_nodeType + " " + m_id.toString(QUuid::WithoutBraces).left(8);
+    QFont font("Arial", 10);
+    QFontMetrics metrics(font);
+    qreal textWidth = metrics.horizontalAdvance(displayText) + 20; // Add padding
+    
+    m_width = qMax(minNodeWidth, textWidth);
+    
+    // Ensure node is wide enough to accommodate sockets with proper spacing
+    const qreal socketOffset = 8.0; // Space for socket offset from edges
+    m_width = qMax(m_width, socketOffset * 2 + 20); // Minimum width for sockets
+    
+    // Notify Qt graphics system of geometry change
+    prepareGeometryChange();
+    
+    qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
+             << "resized to" << m_width << "x" << m_height 
+             << "for" << inputCount << "inputs," << outputCount << "outputs";
 }

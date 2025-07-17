@@ -109,6 +109,9 @@ private:
     // Per-node position tracking (fixes global static bug)
     QPointF m_lastPos;
     
+    // Dynamic node sizing based on socket count
+    void calculateNodeSize(int inputCount, int outputCount);
+    
     // Socket creation
     void createStaticSockets();
     

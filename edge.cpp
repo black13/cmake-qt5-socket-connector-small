@@ -212,16 +212,16 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     
     // Adjust start point (output socket) - extend slightly toward the target
     if (end.x() > start.x()) {
-        adjustedStart.setX(start.x() + 8); // Move 8 pixels toward target
+        adjustedStart.setX(start.x() + 6); // Move 6 pixels toward target (smaller sockets)
     } else {
-        adjustedStart.setX(start.x() - 8);
+        adjustedStart.setX(start.x() - 6);
     }
     
     // Adjust end point (input socket) - extend slightly toward the source
     if (end.x() > start.x()) {
-        adjustedEnd.setX(end.x() - 8); // Move 8 pixels toward source
+        adjustedEnd.setX(end.x() - 6); // Move 6 pixels toward source (smaller sockets)
     } else {
-        adjustedEnd.setX(end.x() + 8);
+        adjustedEnd.setX(end.x() + 6);
     }
     
     m_path.moveTo(adjustedStart);
