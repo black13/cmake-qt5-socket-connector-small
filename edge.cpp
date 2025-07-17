@@ -74,17 +74,20 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     
     painter->setRenderHint(QPainter::Antialiasing);
     
-    // Improved edge styling with hover and selection feedback
+    // Enhanced edge styling with cable-like appearance
     QPen connectionPen;
     
     if (isSelected()) {
         connectionPen = QPen(QColor(255, 69, 0), 6); // Thick bright orange for selection
         connectionPen.setStyle(Qt::SolidLine); // Solid line for better visibility
+        connectionPen.setCapStyle(Qt::RoundCap); // Round caps like a cable
     } else if (m_hovered) {
         connectionPen = QPen(QColor(100, 150, 255), 4); // Blue and thicker when hovered
         connectionPen.setStyle(Qt::SolidLine);
+        connectionPen.setCapStyle(Qt::RoundCap);
     } else {
-        connectionPen = QPen(QColor(70, 70, 70), 2); // Dark gray for normal state
+        connectionPen = QPen(QColor(70, 70, 70), 3); // Slightly thicker for cable appearance
+        connectionPen.setCapStyle(Qt::RoundCap);
     }
     
     // Add subtle gradient effect by drawing shadow first
@@ -201,15 +204,35 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     
     // Clear and rebuild path safely
     m_path.clear();
-    m_path.moveTo(start);
+    
+    // Create "plugged-in" appearance by adjusting connection points
+    // Move connection points toward center of sockets for better visual integration
+    QPointF adjustedStart = start;
+    QPointF adjustedEnd = end;
+    
+    // Adjust start point (output socket) - extend slightly toward the target
+    if (end.x() > start.x()) {
+        adjustedStart.setX(start.x() + 8); // Move 8 pixels toward target
+    } else {
+        adjustedStart.setX(start.x() - 8);
+    }
+    
+    // Adjust end point (input socket) - extend slightly toward the source
+    if (end.x() > start.x()) {
+        adjustedEnd.setX(end.x() - 8); // Move 8 pixels toward source
+    } else {
+        adjustedEnd.setX(end.x() + 8);
+    }
+    
+    m_path.moveTo(adjustedStart);
     
     // Create a curved connection with bounds checking
-    qreal dx = end.x() - start.x();
+    qreal dx = adjustedEnd.x() - adjustedStart.x();
     qreal controlOffset = qMin(qAbs(dx) * 0.5, 100.0); // Limit control point distance
     
-    QPointF control1 = start + QPointF(controlOffset, 0);
-    QPointF control2 = end - QPointF(controlOffset, 0);
-    m_path.cubicTo(control1, control2, end);
+    QPointF control1 = adjustedStart + QPointF(controlOffset, 0);
+    QPointF control2 = adjustedEnd - QPointF(controlOffset, 0);
+    m_path.cubicTo(control1, control2, adjustedEnd);
     
     // Notify Qt's BSP cache before changing bounding rectangle
     prepareGeometryChange();

@@ -302,6 +302,9 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     addItem(m_ghostEdge);
     m_ghostEdgeActive = true;
     
+    // Set source socket to connecting state
+    fromSocket->setConnectionState(Socket::Connecting);
+    
     updateGhostEdge(startPos);
     
     qDebug() << "GHOST: Started from socket" << fromSocket->getIndex() 
@@ -339,10 +342,9 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
                             targetSocket->getParentNode() != m_ghostFromSocket->getParentNode());
         
         if (isValidTarget) {
-            // targetSocket->setVisualState(Socket::ValidTarget); // Disabled
+            targetSocket->setConnectionState(Socket::Highlighted);
             ghostPenCurrent.setColor(QColor(0, 255, 0, 180)); // Green ghost edge
         } else {
-            // targetSocket->setVisualState(Socket::InvalidTarget); // Disabled
             ghostPenCurrent.setColor(QColor(255, 0, 0, 180)); // Red ghost edge
         }
     } else {
@@ -356,19 +358,16 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
 
 void Scene::resetAllSocketStates()
 {
-    // Reset all sockets to normal state when not being targeted (disabled)
-    /*
+    // Reset all sockets to normal state when not being targeted
     for (Node* node : m_nodes.values()) {
         for (QGraphicsItem* child : node->childItems()) {
             if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-                if (socket->getVisualState() == Socket::ValidTarget || 
-                    socket->getVisualState() == Socket::InvalidTarget) {
-                    socket->setVisualState(Socket::Normal);
+                if (socket != m_ghostFromSocket) {
+                    socket->updateConnectionState(); // Reset to connected/disconnected
                 }
             }
         }
     }
-    */
 }
 
 void Scene::finishGhostEdge(Socket* toSocket)
@@ -411,6 +410,8 @@ void Scene::finishGhostEdge(Socket* toSocket)
         }
     }
     
+    // Reset all socket states before canceling
+    resetAllSocketStates();
     cancelGhostEdge();
 }
 
