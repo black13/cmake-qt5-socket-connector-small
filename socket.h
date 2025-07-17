@@ -33,11 +33,12 @@ public:
         Output
     };
     
-    // enum VisualState {
-    //     Normal,
-    //     ValidTarget,
-    //     InvalidTarget
-    // };
+    enum ConnectionState {
+        Disconnected,
+        Connecting,    // During ghost edge drag
+        Connected,     // Has connected edge
+        Highlighted    // Target of ghost edge
+    };
     
     // Helper for debugging
     static const char* roleToString(Role role) {
@@ -72,8 +73,15 @@ public:
     
     // Connection state
     bool isConnected() const { return m_connectedEdge != nullptr; }
-    void setConnectedEdge(Edge* edge) { m_connectedEdge = edge; }
+    void setConnectedEdge(Edge* edge) { m_connectedEdge = edge; updateConnectionState(); }
     Edge* getConnectedEdge() const { return m_connectedEdge; }
+    
+    // Visual connection state
+    ConnectionState getConnectionState() const { return m_connectionState; }
+    void setConnectionState(ConnectionState state) { m_connectionState = state; update(); }
+    void updateConnectionState() { 
+        setConnectionState(m_connectedEdge ? Connected : Disconnected); 
+    }
     
     // Socket positioning (automatic based on index and role)
     void updatePosition();
@@ -86,9 +94,9 @@ private:
     Role m_role;
     int m_index;                 // Socket index within parent node (0, 1, 2...)
     Edge* m_connectedEdge;       // Connected edge (if any)  
+    ConnectionState m_connectionState; // Visual connection state
     qreal m_radius;
     bool m_hovered;
-    // VisualState m_visualState;   // Visual feedback state for drag-and-drop (disabled)
     
     // Performance optimization: cache index string (created once, not every frame)
     mutable QString m_cachedIndexString;
