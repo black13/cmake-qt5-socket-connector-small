@@ -19,7 +19,10 @@ JavaScriptEngine::JavaScriptEngine(QObject* parent)
     registerConsoleAPI();
     registerUtilityAPI();
     
-    qDebug() << "JavaScriptEngine: Modern JavaScript engine initialized";
+    // Auto-load enhanced APIs disabled for now - will load scripts manually
+    // loadEnhancedAPIs();
+    
+    qDebug() << "JavaScriptEngine: Simple JavaScript engine initialized";
 }
 
 JavaScriptEngine::~JavaScriptEngine()
@@ -91,6 +94,29 @@ void JavaScriptEngine::registerNodeAPI(Scene* scene)
     )");
     nodeAPI.setProperty("findById", findByIdFunc);
     
+    // Enhanced node manipulation functions
+    QJSValue moveNodeFunc = m_engine->evaluate(R"(
+        (function(nodeId, x, y) {
+            if (arguments.length < 3) {
+                throw new Error("Node.move() requires nodeId, x, y parameters");
+            }
+            console.log("JavaScript: Moving node " + nodeId + " to " + x + "," + y);
+            return true; // Placeholder
+        })
+    )");
+    nodeAPI.setProperty("move", moveNodeFunc);
+    
+    QJSValue getPropertiesFunc = m_engine->evaluate(R"(
+        (function(nodeId) {
+            if (arguments.length < 1) {
+                throw new Error("Node.getProperties() requires nodeId parameter");
+            }
+            console.log("JavaScript: Getting properties for node " + nodeId);
+            return {}; // Placeholder
+        })
+    )");
+    nodeAPI.setProperty("getProperties", getPropertiesFunc);
+    
     m_engine->globalObject().setProperty("Node", nodeAPI);
     
     // Register Graph API
@@ -112,6 +138,67 @@ void JavaScriptEngine::registerNodeAPI(Scene* scene)
         })
     )");
     graphAPI.setProperty("getEdges", getEdgesFunc);
+    
+    // Enhanced graph operations
+    QJSValue clearGraphFunc = m_engine->evaluate(R"(
+        (function() {
+            console.log("JavaScript: Clearing graph");
+            return true; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("clear", clearGraphFunc);
+    
+    QJSValue connectNodesFunc = m_engine->evaluate(R"(
+        (function(fromNodeId, fromSocket, toNodeId, toSocket) {
+            if (arguments.length < 4) {
+                throw new Error("Graph.connect() requires fromNodeId, fromSocket, toNodeId, toSocket parameters");
+            }
+            console.log("JavaScript: Connecting " + fromNodeId + "[" + fromSocket + "] to " + toNodeId + "[" + toSocket + "]");
+            return {}; // Placeholder edge ID
+        })
+    )");
+    graphAPI.setProperty("connect", connectNodesFunc);
+    
+    QJSValue getStatsFunc = m_engine->evaluate(R"(
+        (function() {
+            console.log("JavaScript: Getting graph statistics");
+            return {nodes: 0, edges: 0}; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("getStats", getStatsFunc);
+    
+    QJSValue moveNodeFunc = m_engine->evaluate(R"(
+        (function(nodeId, x, y) {
+            if (arguments.length < 3) {
+                throw new Error("Graph.moveNode() requires nodeId, x, y parameters");
+            }
+            console.log("JavaScript: Moving node " + nodeId + " to " + x + "," + y);
+            return true; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("moveNode", moveNodeFunc);
+    
+    QJSValue saveXmlFunc = m_engine->evaluate(R"(
+        (function(filename) {
+            if (arguments.length < 1) {
+                throw new Error("Graph.saveXml() requires filename parameter");
+            }
+            console.log("JavaScript: Saving graph to " + filename);
+            return true; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("saveXml", saveXmlFunc);
+    
+    QJSValue loadXmlFunc = m_engine->evaluate(R"(
+        (function(filename) {
+            if (arguments.length < 1) {
+                throw new Error("Graph.loadXml() requires filename parameter");
+            }
+            console.log("JavaScript: Loading graph from " + filename);
+            return true; // Placeholder
+        })
+    )");
+    graphAPI.setProperty("loadXml", loadXmlFunc);
     
     m_engine->globalObject().setProperty("Graph", graphAPI);
     
@@ -418,4 +505,33 @@ QJSValue JavaScriptEngine::edgeToJSValue(Edge* edge)
     // TODO: Add from/to node information
     
     return edgeObj;
+}
+
+void JavaScriptEngine::loadEnhancedAPIs()
+{
+    // List of enhanced API scripts to auto-load
+    QStringList apiScripts = {
+        "scripts/enhanced_graph_api.js",
+        "scripts/custom_nodes.js",
+        "scripts/node_algorithms.js",
+        "scripts/node_execution_engine.js",
+        "scripts/demo_interactive.js"
+    };
+    
+    for (const QString& scriptPath : apiScripts) {
+        QFile file(scriptPath);
+        if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            QString script = in.readAll();
+            
+            QJSValue result = evaluate(script);
+            if (!result.isError()) {
+                qDebug() << "JavaScriptEngine: Loaded enhanced API:" << scriptPath;
+            } else {
+                qDebug() << "JavaScriptEngine: Failed to load API:" << scriptPath << "-" << result.toString();
+            }
+        } else {
+            qDebug() << "JavaScriptEngine: API script not found:" << scriptPath;
+        }
+    }
 }

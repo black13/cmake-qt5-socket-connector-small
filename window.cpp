@@ -6,6 +6,7 @@
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
 #include "javascript_engine.h"
+// #include "javascript_console.h"  // Disabled for now
 // #include "node_palette_bar.h" // Disabled for now
 #include <QKeyEvent>
 #include <QFileDialog>
@@ -39,6 +40,8 @@ Window::Window(QWidget* parent)
     // Initialize UI components to nullptr
     // m_nodePaletteDock = nullptr;
     // m_nodePalette = nullptr;
+    // m_javaScriptConsoleDock = nullptr;
+    // m_javaScriptConsole = nullptr;
     m_fileInfoLabel = nullptr;
     m_graphStatsLabel = nullptr;
     m_selectionLabel = nullptr;
@@ -67,7 +70,7 @@ Window::Window(QWidget* parent)
     setupActions();
     setupMenus();
     setupStatusBar();
-    // setupDockWidgets(); // Disabled for now
+    // setupDockWidgets(); // JavaScript console disabled for now
     
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
@@ -544,6 +547,13 @@ void Window::createToolsMenu()
     jsTestAction->setShortcut(QKeySequence("Ctrl+J"));
     connect(jsTestAction, &QAction::triggered, this, &Window::runJavaScriptTests);
     m_toolsMenu->addAction(jsTestAction);
+    
+    // Simple script execution
+    QAction* jsScriptAction = new QAction("📝 Load &Script", this);
+    jsScriptAction->setStatusTip("Load and execute JavaScript script");
+    jsScriptAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
+    connect(jsScriptAction, &QAction::triggered, this, &Window::loadAndExecuteScript);
+    m_toolsMenu->addAction(jsScriptAction);
 }
 
 void Window::createHelpMenu()
@@ -626,9 +636,22 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    // Drag-and-drop palette disabled for now
-    // Focus on JavaScript integration
-    qDebug() << "Dock widgets disabled - focusing on JavaScript integration";
+    // Create JavaScript console dock widget
+    m_javaScriptConsoleDock = new QDockWidget("JavaScript Console", this);
+    m_javaScriptConsoleDock->setObjectName("JavaScriptConsoleDock");
+    m_javaScriptConsoleDock->setAllowedAreas(Qt::AllDockWidgetAreas);
+    
+    // Create JavaScript console widget
+    m_javaScriptConsole = new JavaScriptConsole(m_scene->getJavaScriptEngine(), this);
+    m_javaScriptConsoleDock->setWidget(m_javaScriptConsole);
+    
+    // Add dock widget to bottom area
+    addDockWidget(Qt::BottomDockWidgetArea, m_javaScriptConsoleDock);
+    
+    // Initially hide the console (user can show it via menu)
+    m_javaScriptConsoleDock->hide();
+    
+    qDebug() << "JavaScript console dock widget created";
 }
 
 void Window::updateStatusBar()
@@ -951,4 +974,39 @@ void Window::runJavaScriptTests()
     
     // Update status bar
     updateStatusBar();
+}
+
+void Window::loadAndExecuteScript()
+{
+    QString fileName = QFileDialog::getOpenFileName(
+        this, 
+        "Load JavaScript File", 
+        "./scripts/", 
+        "JavaScript Files (*.js);;All Files (*)"
+    );
+    
+    if (!fileName.isEmpty()) {
+        auto* jsEngine = m_scene->getJavaScriptEngine();
+        if (!jsEngine) {
+            QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
+            return;
+        }
+        
+        // Register GraphController if not already done
+        jsEngine->registerGraphController(m_scene, m_factory);
+        
+        QJSValue result = jsEngine->evaluateFile(fileName);
+        
+        if (result.isError()) {
+            QMessageBox::critical(this, "Script Error", 
+                                 QString("Script execution failed: %1").arg(result.toString()));
+        } else {
+            QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
+            QMessageBox::information(this, "Script Executed", 
+                                   QString("Script completed: %1").arg(resultText));
+        }
+        
+        // Update status bar
+        updateStatusBar();
+    }
 }

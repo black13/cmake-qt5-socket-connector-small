@@ -17,6 +17,7 @@ class View;
 class Scene;
 class GraphFactory;
 class XmlAutosaveObserver;
+// class JavaScriptConsole;  // Disabled for now
 // class NodePaletteBar; // Disabled for now
 
 /**
@@ -46,6 +47,9 @@ public:
     
     // JavaScript test runner
     void runJavaScriptTests();
+    
+    // Simple script execution
+    void loadAndExecuteScript();
 
 protected:
     // PHASE 3: Safe shutdown coordination
@@ -105,6 +109,10 @@ private:
     // Professional node palette system (disabled)
     // QDockWidget* m_nodePaletteDock;
     // NodePaletteBar* m_nodePalette;
+    
+    // JavaScript console (disabled for now)
+    // QDockWidget* m_javaScriptConsoleDock;
+    // JavaScriptConsole* m_javaScriptConsole;
     
     // Status bar components
     QLabel* m_fileInfoLabel;      // Current file info
