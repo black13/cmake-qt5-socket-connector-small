@@ -34,14 +34,21 @@ QJSValue JavaScriptEngine::evaluate(const QString& script)
 {
     clearErrors();
     
+    qDebug() << "JS_EXECUTION: Starting script execution";
+    qDebug() << "JS_EXECUTION: Script length:" << script.length() << "characters";
+    
     QJSValue result = m_engine->evaluate(script);
     
     if (result.isError()) {
         m_lastError = QString("JavaScript Error: %1").arg(result.toString());
         emit scriptError(m_lastError);
-        qDebug() << m_lastError;
+        qDebug() << "JS_ERROR: Script execution failed:" << m_lastError;
+        qDebug() << "JS_ERROR: Script content:" << script.left(500); // Log first 500 chars
     } else {
         emit scriptExecuted(script, result);
+        QString resultStr = result.isUndefined() ? "undefined" : result.toString();
+        qDebug() << "JS_EXECUTION: Script completed successfully";
+        qDebug() << "JS_EXECUTION: Result:" << resultStr;
     }
     
     return result;
@@ -49,17 +56,22 @@ QJSValue JavaScriptEngine::evaluate(const QString& script)
 
 QJSValue JavaScriptEngine::evaluateFile(const QString& filePath)
 {
+    qDebug() << "JS_EXECUTION: Loading script file:" << filePath;
+    
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         m_lastError = QString("Cannot open script file: %1").arg(filePath);
         emit scriptError(m_lastError);
+        qDebug() << "JS_ERROR: Failed to open script file:" << filePath;
         return QJSValue();
     }
     
     QTextStream in(&file);
     QString script = in.readAll();
     
-    qDebug() << "JavaScriptEngine: Evaluating script file:" << filePath;
+    qDebug() << "JS_EXECUTION: Loaded script file:" << filePath;
+    qDebug() << "JS_EXECUTION: Script size:" << script.length() << "characters";
+    
     return evaluate(script);
 }
 
@@ -167,7 +179,7 @@ void JavaScriptEngine::registerNodeAPI(Scene* scene)
     )");
     graphAPI.setProperty("getStats", getStatsFunc);
     
-    QJSValue moveNodeFunc = m_engine->evaluate(R"(
+    QJSValue graphMoveNodeFunc = m_engine->evaluate(R"(
         (function(nodeId, x, y) {
             if (arguments.length < 3) {
                 throw new Error("Graph.moveNode() requires nodeId, x, y parameters");
@@ -176,7 +188,7 @@ void JavaScriptEngine::registerNodeAPI(Scene* scene)
             return true; // Placeholder
         })
     )");
-    graphAPI.setProperty("moveNode", moveNodeFunc);
+    graphAPI.setProperty("moveNode", graphMoveNodeFunc);
     
     QJSValue saveXmlFunc = m_engine->evaluate(R"(
         (function(filename) {

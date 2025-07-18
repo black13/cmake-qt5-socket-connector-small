@@ -48,8 +48,30 @@ void setupLogging()
         case QtFatalMsg:    typeStr = "FATAL"; break;
         }
         
-        stream << QString("[%1] %2: %3").arg(timestamp, typeStr, msg) << Qt::endl;
+        QString logEntry = QString("[%1] %2: %3").arg(timestamp, typeStr, msg);
+        
+        // Write to main log
+        stream << logEntry << Qt::endl;
         stream.flush();
+        
+        // Write JavaScript-related messages to separate JS log
+        if (msg.contains("JavaScript", Qt::CaseInsensitive) || 
+            msg.contains("Script", Qt::CaseInsensitive) ||
+            msg.contains("QJSEngine", Qt::CaseInsensitive) ||
+            msg.contains("JS_ERROR", Qt::CaseInsensitive) ||
+            msg.contains("JS_EXECUTION", Qt::CaseInsensitive)) {
+            
+            static QFile jsLogFile(QString("logs/JavaScript_%1.log").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss")));
+            if (!jsLogFile.isOpen()) {
+                jsLogFile.open(QIODevice::WriteOnly | QIODevice::Append);
+            }
+            
+            if (jsLogFile.isOpen()) {
+                QTextStream jsStream(&jsLogFile);
+                jsStream << logEntry << Qt::endl;
+                jsStream.flush();
+            }
+        }
     });
     
     qDebug() << "=== NodeGraph Application Started ===";

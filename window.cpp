@@ -70,7 +70,7 @@ Window::Window(QWidget* parent)
     setupActions();
     setupMenus();
     setupStatusBar();
-    // setupDockWidgets(); // JavaScript console disabled for now
+    setupDockWidgets(); // JavaScript console disabled for now
     
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
@@ -636,22 +636,8 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    // Create JavaScript console dock widget
-    m_javaScriptConsoleDock = new QDockWidget("JavaScript Console", this);
-    m_javaScriptConsoleDock->setObjectName("JavaScriptConsoleDock");
-    m_javaScriptConsoleDock->setAllowedAreas(Qt::AllDockWidgetAreas);
-    
-    // Create JavaScript console widget
-    m_javaScriptConsole = new JavaScriptConsole(m_scene->getJavaScriptEngine(), this);
-    m_javaScriptConsoleDock->setWidget(m_javaScriptConsole);
-    
-    // Add dock widget to bottom area
-    addDockWidget(Qt::BottomDockWidgetArea, m_javaScriptConsoleDock);
-    
-    // Initially hide the console (user can show it via menu)
-    m_javaScriptConsoleDock->hide();
-    
-    qDebug() << "JavaScript console dock widget created";
+    // Dock widgets disabled for now - using simple script loading instead
+    qDebug() << "Dock widgets disabled - using simple script loading";
 }
 
 void Window::updateStatusBar()
@@ -978,6 +964,8 @@ void Window::runJavaScriptTests()
 
 void Window::loadAndExecuteScript()
 {
+    qDebug() << "JS_EXECUTION: User requested script loading";
+    
     QString fileName = QFileDialog::getOpenFileName(
         this, 
         "Load JavaScript File", 
@@ -986,27 +974,46 @@ void Window::loadAndExecuteScript()
     );
     
     if (!fileName.isEmpty()) {
+        qDebug() << "JS_EXECUTION: User selected file:" << fileName;
+        
+        qDebug() << "JS_EXECUTION: Getting JavaScript engine from scene";
+        qDebug() << "JS_EXECUTION: Scene pointer:" << m_scene;
+        
         auto* jsEngine = m_scene->getJavaScriptEngine();
+        qDebug() << "JS_EXECUTION: JavaScript engine pointer:" << jsEngine;
+        
         if (!jsEngine) {
+            qDebug() << "JS_ERROR: JavaScript engine not initialized";
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
             return;
         }
         
         // Register GraphController if not already done
         jsEngine->registerGraphController(m_scene, m_factory);
+        qDebug() << "JS_EXECUTION: GraphController registered";
+        
+        // Log current graph state before script execution
+        qDebug() << "JS_EXECUTION: Current graph state - nodes:" << m_scene->getNodes().size() << "edges:" << m_scene->getEdges().size();
         
         QJSValue result = jsEngine->evaluateFile(fileName);
         
         if (result.isError()) {
+            qDebug() << "JS_ERROR: Script execution failed, showing error dialog";
             QMessageBox::critical(this, "Script Error", 
                                  QString("Script execution failed: %1").arg(result.toString()));
         } else {
             QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
+            qDebug() << "JS_EXECUTION: Script completed, showing success dialog";
             QMessageBox::information(this, "Script Executed", 
                                    QString("Script completed: %1").arg(resultText));
         }
         
+        // Log graph state after script execution
+        qDebug() << "JS_EXECUTION: Post-execution graph state - nodes:" << m_scene->getNodes().size() << "edges:" << m_scene->getEdges().size();
+        
         // Update status bar
         updateStatusBar();
+    } else {
+        qDebug() << "JS_EXECUTION: User cancelled script loading";
     }
 }

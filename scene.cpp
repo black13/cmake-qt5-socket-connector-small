@@ -17,12 +17,18 @@ Scene::Scene(QObject* parent)
 {
     setSceneRect(-1000, -1000, 2000, 2000);
     
-    // Initialize JavaScript engine with this scene
-    m_jsEngine->registerNodeAPI(this);
-    m_jsEngine->registerGraphAPI();
-    // GraphController will be registered when GraphFactory is available
+    qDebug() << "Scene: Creating JavaScript engine, pointer:" << m_jsEngine;
     
-    qDebug() << "Scene: JavaScript engine integrated";
+    // Initialize JavaScript engine with this scene
+    if (m_jsEngine) {
+        m_jsEngine->registerNodeAPI(this);
+        m_jsEngine->registerGraphAPI();
+        // GraphController will be registered when GraphFactory is available
+        
+        qDebug() << "Scene: JavaScript engine integrated successfully";
+    } else {
+        qDebug() << "Scene: ERROR - Failed to create JavaScript engine";
+    }
 }
 
 // QElectroTech-style QHash implementation with SIMPLE_FIX logging
