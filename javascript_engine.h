@@ -72,6 +72,7 @@ private:
     void setupGlobalAPI();
     void registerConsoleAPI();
     void registerUtilityAPI();
+    void loadEnhancedAPIs();
     
     QJSValue nodeToJSValue(Node* node);
     QJSValue edgeToJSValue(Edge* edge);
