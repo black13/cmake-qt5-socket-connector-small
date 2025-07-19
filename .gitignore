@@ -53,6 +53,9 @@ Thumbs.db
 _deps/
 */_deps/
 
+# CMake persistent cache directory
+.cmake-cache/
+
 # External archives
 graphviz*/
 
