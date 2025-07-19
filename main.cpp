@@ -11,6 +11,7 @@
 #include <QMutex>
 #include <QTimer>
 #include <QMessageBox>
+#include <QJSValue>
 #include <iostream>
 #include "window.h"
 #include "scene.h"
@@ -18,6 +19,7 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "node_registry.h"
+#include "javascript_engine.h"
 
 void setupLogging()
 {
@@ -125,6 +127,50 @@ int main(int argc, char *argv[])
     // Create main window
     Window window;
     
+    // Test JavaScript engine at startup and log version info
+    qDebug() << "=== JavaScript Engine Initialization Test ===";
+    qDebug() << "Qt Version:" << QT_VERSION_STR;
+    qDebug() << "Qt Qml Module Available:" << true; // We're linking Qt5::Qml
+    
+    Scene* scene = window.getScene();
+    if (scene) {
+        auto* jsEngine = scene->getJavaScriptEngine();
+        if (jsEngine) {
+            // Get JavaScript engine capabilities
+            QJSValue engineInfo = jsEngine->evaluate(R"(
+                JSON.stringify({
+                    engine: 'QJSEngine',
+                    qtVersion: '5.15+',
+                    ecmaScript: 'ES5+',
+                    features: {
+                        objects: typeof Object !== 'undefined',
+                        arrays: typeof Array !== 'undefined',
+                        functions: typeof Function !== 'undefined',
+                        json: typeof JSON !== 'undefined',
+                        console: typeof console !== 'undefined',
+                        math: typeof Math !== 'undefined'
+                    }
+                }, null, 2)
+            )");
+            
+            if (!engineInfo.isError()) {
+                qDebug() << "JS_ENGINE: Capabilities:" << engineInfo.toString();
+            }
+            
+            // Test basic functionality
+            QJSValue startupTest = jsEngine->evaluate("console.log('Startup test'); 5 * 5");
+            if (startupTest.isError()) {
+                qDebug() << "JS_ENGINE: STARTUP FAILED - Engine not working:" << startupTest.toString();
+            } else {
+                qDebug() << "JS_ENGINE: STARTUP SUCCESS - Engine working, result:" << startupTest.toString();
+            }
+        } else {
+            qDebug() << "JS_ENGINE: STARTUP FAILED - JavaScript engine is null";
+        }
+    } else {
+        qDebug() << "JS_ENGINE: STARTUP FAILED - Scene is null";
+    }
+    
     // Handle file loading - Qt5 professional way
     qDebug() << "\n=== File Loading Analysis ===";
     QString filename;
@@ -229,7 +275,7 @@ int main(int argc, char *argv[])
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
     
     // Initialize GraphFactory with scene and XML document
-    Scene* scene = window.getScene();
+    // Scene* scene = window.getScene(); // Already declared above
     if (!scene) {
         qCritical() << "✗ Failed to get scene from window";
         return -1;
