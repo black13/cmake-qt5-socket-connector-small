@@ -83,7 +83,7 @@ private:
     void updateVisibility();
     
     // Custom node button class with drag and drop support
-    class NodeButton : public QPushButton {
+    class NodeButton : public QToolButton {
     public:
         NodeButton(const NodeTemplate& nodeTemplate, QWidget* parent = nullptr);
         NodeTemplate getNodeTemplate() const { return m_nodeTemplate; }
