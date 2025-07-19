@@ -48,13 +48,20 @@ void View::wheelEvent(QWheelEvent* event)
 
 void View::dragEnterEvent(QDragEnterEvent* event)
 {
+    qDebug() << "View: Drag enter event received";
+    qDebug() << "View: Available mime formats:" << event->mimeData()->formats();
+    
     // Check if the drag contains node template data
     if (event->mimeData()->hasFormat("application/x-node-template")) {
+        QByteArray nodeData = event->mimeData()->data("application/x-node-template");
+        QString nodeString = QString::fromUtf8(nodeData);
+        qDebug() << "View: Node template data detected:" << nodeString;
+        
         event->acceptProposedAction();
-        qDebug() << "View: Drag enter accepted - node template detected";
+        qDebug() << "✓ View: Drag enter accepted - node template detected";
     } else {
         event->ignore();
-        qDebug() << "View: Drag enter ignored - no node template data";
+        qDebug() << "✗ View: Drag enter ignored - no node template data";
     }
 }
 
@@ -63,18 +70,30 @@ void View::dragMoveEvent(QDragMoveEvent* event)
     // Allow drag movement if it contains node template data
     if (event->mimeData()->hasFormat("application/x-node-template")) {
         event->acceptProposedAction();
+        // Only log every 10th move event to avoid spam
+        static int moveCount = 0;
+        if (++moveCount % 10 == 0) {
+            QPointF scenePos = mapToScene(event->pos());
+            qDebug() << "View: Drag move accepted at scene position:" << scenePos;
+        }
     } else {
         event->ignore();
+        qDebug() << "View: Drag move ignored - no node template data";
     }  
 }
 
 void View::dropEvent(QDropEvent* event)
 {
+    qDebug() << "View: Drop event received";
+    
     // Handle node template drop
     if (event->mimeData()->hasFormat("application/x-node-template")) {
         QByteArray nodeData = event->mimeData()->data("application/x-node-template");
         QString nodeString = QString::fromUtf8(nodeData);
+        qDebug() << "View: Decoding drop data:" << nodeString;
+        
         QStringList parts = nodeString.split("|");
+        qDebug() << "View: Split into" << parts.size() << "parts:" << parts;
         
         if (parts.size() >= 5) {
             QString nodeType = parts[0];
@@ -86,18 +105,27 @@ void View::dropEvent(QDropEvent* event)
             // Convert drop position to scene coordinates
             QPointF scenePos = mapToScene(event->pos());
             
-            qDebug() << "View: Dropping node" << name << "of type" << nodeType 
-                     << "at scene position:" << scenePos;
+            qDebug() << "View: Parsed node data:";
+            qDebug() << "  - Type:" << nodeType;
+            qDebug() << "  - Name:" << name;
+            qDebug() << "  - Description:" << description;
+            qDebug() << "  - Input sockets:" << inputSockets;
+            qDebug() << "  - Output sockets:" << outputSockets;
+            qDebug() << "  - Scene position:" << scenePos;
+            
+            qDebug() << "View: Emitting nodeDropped signal to Window";
             
             // Emit signal to notify the window
-            emit nodeDropped(nodeType, name, inputSockets, outputSockets, scenePos);
+            emit nodeDropped(scenePos, nodeType, name, inputSockets, outputSockets);
             
             event->acceptProposedAction();
+            qDebug() << "✓ View: Drop event accepted and processed";
         } else {
-            qWarning() << "View: Invalid node template data format";
+            qWarning() << "✗ View: Invalid node template data format - expected 5 parts, got" << parts.size();
             event->ignore();
         }
     } else {
+        qDebug() << "✗ View: Drop event ignored - no node template data";
         event->ignore();
     }
 }

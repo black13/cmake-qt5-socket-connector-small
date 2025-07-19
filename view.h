@@ -35,8 +35,8 @@ protected:
 
 signals:
     // Signal emitted when a node is dropped
-    void nodeDropped(const QString& nodeType, const QString& name, 
-                    int inputSockets, int outputSockets, const QPointF& scenePos);
+    void nodeDropped(const QPointF& scenePos, const QString& nodeType, const QString& name, 
+                    int inputSockets, int outputSockets);
 
 private:
     Scene* m_scene;

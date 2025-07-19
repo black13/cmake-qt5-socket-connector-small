@@ -76,7 +76,9 @@ Window::Window(QWidget* parent)
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
     
     // Connect view signals for drag-and-drop
+    qDebug() << "Window: Connecting View::nodeDropped signal to Window::createNodeFromPalette slot";
     connect(m_view, &View::nodeDropped, this, &Window::createNodeFromPalette);
+    qDebug() << "✓ Window: Signal connection established for drag and drop";
     
     // Initial status update
     updateStatusBar();
@@ -369,6 +371,40 @@ void Window::createProcessorNode()
     } else {
         qDebug() << "✗ Failed to create processor node";
     }
+}
+
+void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
+                                  const QString& name, int inputSockets, int outputSockets)
+{
+    qDebug() << "========================================";
+    qDebug() << "Window: RECEIVED nodeDropped signal";
+    qDebug() << "Window: Creating node from palette:";
+    qDebug() << "  - Name:" << name;
+    qDebug() << "  - Type:" << nodeType;
+    qDebug() << "  - Position:" << scenePos;
+    qDebug() << "  - Input sockets:" << inputSockets;
+    qDebug() << "  - Output sockets:" << outputSockets;
+    qDebug() << "Window: Calling factory->createNode()";
+    
+    // Create node using factory with the exact specifications from the palette
+    Node* node = m_factory->createNode(nodeType, scenePos, inputSockets, outputSockets);
+    
+    if (node) {
+        qDebug() << "✓ Window: Factory successfully created" << name << "node";
+        qDebug() << "Window: Node created at scene position:" << scenePos;
+        qDebug() << "Window: Updating status bar";
+        
+        // Update status bar to reflect the new node
+        updateStatusBar();
+        statusBar()->showMessage(QString("Created %1 node").arg(name), 2000);
+        
+        qDebug() << "✓ Window: Node creation process completed successfully";
+    } else {
+        qDebug() << "✗ Window: Factory FAILED to create" << name << "node";
+        qDebug() << "Window: This may indicate factory or scene issues";
+        statusBar()->showMessage(QString("Failed to create %1 node").arg(name), 3000);
+    }
+    qDebug() << "========================================";
 }
 
 // ============================================================================
@@ -1059,24 +1095,3 @@ void Window::onNodeCreationRequested()
     createNodeFromPalette(centerPoint, "IN", "Input", 0, 2);
 }
 
-void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
-                                  const QString& name, int inputSockets, int outputSockets)
-{
-    if (!m_factory) {
-        qWarning() << "Cannot create node - GraphFactory not initialized";
-        return;
-    }
-    
-    qDebug() << "Creating node:" << nodeType << "at position:" << scenePos;
-    
-    // Use the factory to create a node with the specified socket counts
-    Node* newNode = m_factory->createNode(nodeType, scenePos);
-    if (newNode) {
-        // TODO: Configure socket counts based on template
-        // For now, the node will use default socket configuration
-        qDebug() << "✓ Node created successfully:" << newNode->getId().toString().left(8);
-        updateStatusBar();
-    } else {
-        qWarning() << "Failed to create node of type:" << nodeType;
-    }
-}

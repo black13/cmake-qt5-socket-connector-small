@@ -240,8 +240,10 @@ int main(int argc, char *argv[])
         qDebug() << "✓ XML document created with root element";
     }
     
-    // Register clean design node types
+    // Register all supported node types
     qDebug() << "=== Registering Node Types ===";
+    
+    // Core node types
     NodeRegistry::instance().registerNode("IN", []() { 
         Node* node = new Node(); 
         node->setNodeType("IN"); 
@@ -252,21 +254,43 @@ int main(int argc, char *argv[])
         node->setNodeType("OUT"); 
         return node; 
     });
-    
-    // Legacy compatibility for tests (maps to clean types)
-    NodeRegistry::instance().registerNode("PROCESSOR", []() { 
+    NodeRegistry::instance().registerNode("PROC", []() { 
         Node* node = new Node(); 
-        node->setNodeType("OUT");  // Map legacy PROCESSOR to OUT
+        node->setNodeType("PROC"); 
         return node; 
     });
+    
+    // Palette node types - each with proper type designation
     NodeRegistry::instance().registerNode("SOURCE", []() { 
         Node* node = new Node(); 
-        node->setNodeType("OUT");  // Map legacy SOURCE to OUT
+        node->setNodeType("SOURCE"); 
         return node; 
     });
     NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
-        node->setNodeType("IN");   // Map legacy SINK to IN
+        node->setNodeType("SINK"); 
+        return node; 
+    });
+    NodeRegistry::instance().registerNode("TRANSFORM", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("TRANSFORM"); 
+        return node; 
+    });
+    NodeRegistry::instance().registerNode("MERGE", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("MERGE"); 
+        return node; 
+    });
+    NodeRegistry::instance().registerNode("SPLIT", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("SPLIT"); 
+        return node; 
+    });
+    
+    // Legacy compatibility for older tests
+    NodeRegistry::instance().registerNode("PROCESSOR", []() { 
+        Node* node = new Node(); 
+        node->setNodeType("PROCESSOR"); 
         return node; 
     });
     

@@ -125,8 +125,9 @@ void NodePaletteWidget::setupUI()
     // Content widget for the grid
     m_scrollContent = new QWidget();
     m_gridLayout = new QGridLayout(m_scrollContent);
-    m_gridLayout->setContentsMargins(4, 4, 4, 4);
-    m_gridLayout->setSpacing(6);
+    m_gridLayout->setContentsMargins(8, 8, 8, 8);
+    m_gridLayout->setSpacing(10); // Increased spacing between buttons
+    m_gridLayout->setAlignment(Qt::AlignTop | Qt::AlignHCenter); // Center buttons and align to top
     
     m_scrollArea->setWidget(m_scrollContent);
     
@@ -141,53 +142,87 @@ void NodePaletteWidget::setupUI()
 
 void NodePaletteWidget::populateNodeTemplates()
 {
-    // Add our self-serializing node types with visual icons
+    qDebug() << "NodePalette: Starting population of 5 node templates";
     
-    NodeTemplate inputNode;
-    inputNode.type = "IN";
-    inputNode.name = "Input";
-    inputNode.description = "Input node with configurable outputs";
-    inputNode.iconPath = ""; // We'll create custom icons
-    inputNode.inputSockets = 0;
-    inputNode.outputSockets = 2;
-    addNodeTemplate(inputNode);
+    // 1. One Source (0 inputs, 1 output)
+    NodeTemplate sourceNode;
+    sourceNode.type = "SOURCE";
+    sourceNode.name = "Source";
+    sourceNode.description = "Source node with one output";
+    sourceNode.iconPath = "";
+    sourceNode.inputSockets = 0;
+    sourceNode.outputSockets = 1;
+    qDebug() << "NodePalette: Adding SOURCE node template - inputs:" << sourceNode.inputSockets << "outputs:" << sourceNode.outputSockets;
+    addNodeTemplate(sourceNode);
     
-    NodeTemplate outputNode;
-    outputNode.type = "OUT";
-    outputNode.name = "Output";
-    outputNode.description = "Output node with configurable inputs";
-    outputNode.iconPath = "";
-    outputNode.inputSockets = 2;
-    outputNode.outputSockets = 0;
-    addNodeTemplate(outputNode);
+    // 2. One Sink (1 input, 0 outputs)
+    NodeTemplate sinkNode;
+    sinkNode.type = "SINK";
+    sinkNode.name = "Sink";
+    sinkNode.description = "Sink node with one input";
+    sinkNode.iconPath = "";
+    sinkNode.inputSockets = 1;
+    sinkNode.outputSockets = 0;
+    qDebug() << "NodePalette: Adding SINK node template - inputs:" << sinkNode.inputSockets << "outputs:" << sinkNode.outputSockets;
+    addNodeTemplate(sinkNode);
     
-    NodeTemplate processorNode;
-    processorNode.type = "PROC";
-    processorNode.name = "Processor";
-    processorNode.description = "Processing node with inputs and outputs";
-    processorNode.iconPath = "";
-    processorNode.inputSockets = 2;
-    processorNode.outputSockets = 2;
-    addNodeTemplate(processorNode);
+    // 3. One Sink + One Source (1 input, 1 output)
+    NodeTemplate transformNode;
+    transformNode.type = "TRANSFORM";
+    transformNode.name = "Transform";
+    transformNode.description = "Transform node with one input and one output";
+    transformNode.iconPath = "";
+    transformNode.inputSockets = 1;
+    transformNode.outputSockets = 1;
+    qDebug() << "NodePalette: Adding TRANSFORM node template - inputs:" << transformNode.inputSockets << "outputs:" << transformNode.outputSockets;
+    addNodeTemplate(transformNode);
     
-    qDebug() << "✓ Node palette populated with" << m_nodeTemplates.size() << "icon-based templates";
+    // 4. Two Sinks + One Source (2 inputs, 1 output)
+    NodeTemplate mergeNode;
+    mergeNode.type = "MERGE";
+    mergeNode.name = "Merge";
+    mergeNode.description = "Merge node with two inputs and one output";
+    mergeNode.iconPath = "";
+    mergeNode.inputSockets = 2;
+    mergeNode.outputSockets = 1;
+    qDebug() << "NodePalette: Adding MERGE node template - inputs:" << mergeNode.inputSockets << "outputs:" << mergeNode.outputSockets;
+    addNodeTemplate(mergeNode);
+    
+    // 5. One Sink + Two Sources (1 input, 2 outputs)
+    NodeTemplate splitNode;
+    splitNode.type = "SPLIT";
+    splitNode.name = "Split";
+    splitNode.description = "Split node with one input and two outputs";
+    splitNode.iconPath = "";
+    splitNode.inputSockets = 1;
+    splitNode.outputSockets = 2;
+    qDebug() << "NodePalette: Adding SPLIT node template - inputs:" << splitNode.inputSockets << "outputs:" << splitNode.outputSockets;
+    addNodeTemplate(splitNode);
+    
+    qDebug() << "✓ NodePalette: Populated with" << m_nodeTemplates.size() << "socket configuration templates";
 }
 
 void NodePaletteWidget::addNodeTemplate(const NodeTemplate& nodeTemplate)
 {
+    qDebug() << "NodePalette: Adding template to internal list -" << nodeTemplate.name << "(" << nodeTemplate.type << ")";
     m_nodeTemplates.append(nodeTemplate);
     
     // Create icon button for this node type
+    qDebug() << "NodePalette: Creating NodeButton for" << nodeTemplate.name;
     NodeButton* button = new NodeButton(nodeTemplate, m_scrollContent);
     m_nodeButtons.append(button);
     
     // Connect button to our slot
+    qDebug() << "NodePalette: Connecting button signals for" << nodeTemplate.name;
     connect(button, &QPushButton::clicked, this, &NodePaletteWidget::onNodeButtonClicked);
     
-    // Add to grid layout (2 columns)
-    int row = m_nodeButtons.size() / 2;
-    int col = (m_nodeButtons.size() - 1) % 2;
+    // Add to grid layout (2 columns) - proper grid arrangement
+    int buttonIndex = m_nodeButtons.size() - 1; // Current button index (0-based)
+    int row = buttonIndex / 2; // Integer division for row
+    int col = buttonIndex % 2; // Remainder for column (0 or 1)
+    qDebug() << "NodePalette: Adding button" << (buttonIndex + 1) << "to grid layout at row" << row << "col" << col;
     m_gridLayout->addWidget(button, row, col);
+    qDebug() << "✓ NodePalette: Successfully added" << nodeTemplate.name << "button to palette";
 }
 
 void NodePaletteWidget::filterChanged(const QString& text)
@@ -222,6 +257,9 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     : QPushButton(parent)
     , m_nodeTemplate(nodeTemplate)
 {
+    qDebug() << "NodeButton: Creating button for" << nodeTemplate.name << "type:" << nodeTemplate.type;
+    qDebug() << "NodeButton: Socket configuration - inputs:" << nodeTemplate.inputSockets << "outputs:" << nodeTemplate.outputSockets;
+    
     setFixedSize(80, 80);
     setToolTip(QString("%1\n%2\nInputs: %3, Outputs: %4\n\nDrag to create or double-click")
                .arg(nodeTemplate.name)
@@ -230,6 +268,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
                .arg(nodeTemplate.outputSockets));
     
     // Create custom icon based on node type
+    qDebug() << "NodeButton: Creating custom icon for" << nodeTemplate.name;
     QIcon icon = NodeButton::createNodeIcon(nodeTemplate);
     setIcon(icon);
     setIconSize(QSize(48, 48));
@@ -242,6 +281,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     
     // Enable drag support
     setAcceptDrops(false); // This is a drag source, not a drop target
+    qDebug() << "✓ NodeButton: Button created successfully for" << nodeTemplate.name;
 }
 
 bool NodePaletteWidget::NodeButton::matchesFilter(const QString& filter) const
@@ -253,57 +293,107 @@ bool NodePaletteWidget::NodeButton::matchesFilter(const QString& filter) const
 
 QIcon NodePaletteWidget::NodeButton::createNodeIcon(const NodeTemplate& nodeTemplate)
 {
-    // Create a custom icon for each node type
+    // Create a custom icon representing the node function
     QPixmap pixmap(48, 48);
     pixmap.fill(Qt::transparent);
     
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
     
-    // Define colors for different node types
+    // Define colors and symbols based on node type
     QColor nodeColor;
     QString symbol;
     
-    if (nodeTemplate.type == "IN") {
-        nodeColor = QColor(46, 204, 113); // Green for input
-        symbol = "IN";
-    } else if (nodeTemplate.type == "OUT") {
-        nodeColor = QColor(231, 76, 60); // Red for output
-        symbol = "OUT";
-    } else if (nodeTemplate.type == "PROC") {
-        nodeColor = QColor(52, 152, 219); // Blue for processor
-        symbol = "PROC";
+    if (nodeTemplate.type == "SOURCE") {
+        nodeColor = QColor(46, 204, 113); // Green for source
+        symbol = "SRC";
+    } else if (nodeTemplate.type == "SINK") {
+        nodeColor = QColor(231, 76, 60); // Red for sink
+        symbol = "SNK";
+    } else if (nodeTemplate.type == "TRANSFORM") {
+        nodeColor = QColor(52, 152, 219); // Blue for transform
+        symbol = "TRN";
+    } else if (nodeTemplate.type == "MERGE") {
+        nodeColor = QColor(155, 89, 182); // Purple for merge
+        symbol = "MRG";
+    } else if (nodeTemplate.type == "SPLIT") {
+        nodeColor = QColor(243, 156, 18); // Orange for split
+        symbol = "SPL";
     } else {
         nodeColor = QColor(149, 165, 166); // Gray for unknown
         symbol = "?";
     }
     
-    // Draw node shape
+    // Draw main node body
     painter.setBrush(QBrush(nodeColor));
     painter.setPen(QPen(nodeColor.darker(120), 2));
-    painter.drawRoundedRect(4, 4, 40, 40, 6, 6);
+    painter.drawRoundedRect(6, 6, 36, 36, 4, 4);
     
-    // Draw text
+    // Draw function symbol
     painter.setPen(Qt::white);
-    painter.setFont(QFont("Arial", 8, QFont::Bold));
-    painter.drawText(QRect(4, 4, 40, 40), Qt::AlignCenter, symbol);
+    painter.setFont(QFont("Arial", 7, QFont::Bold));
+    painter.drawText(QRect(6, 6, 36, 20), Qt::AlignCenter, symbol);
     
-    // Draw socket indicators
+    // Draw socket representations with proper alignment
     painter.setBrush(QBrush(Qt::white));
-    painter.setPen(QPen(Qt::darkGray, 1));
+    painter.setPen(QPen(Qt::darkGray, 1.5));
     
-    // Input sockets (left side)
-    int inputSpacing = nodeTemplate.inputSockets > 0 ? 32 / (nodeTemplate.inputSockets + 1) : 0;
-    for (int i = 0; i < nodeTemplate.inputSockets; ++i) {
-        int y = 8 + inputSpacing * (i + 1);
-        painter.drawEllipse(0, y, 6, 6);
+    // Constants for consistent positioning
+    const qreal nodeTop = 6;
+    const qreal nodeHeight = 36;
+    const qreal socketSize = 4;
+    const qreal socketSpacing = 8; // Consistent spacing between sockets
+    
+    // Input sockets (left side) - properly centered vertically
+    if (nodeTemplate.inputSockets > 0) {
+        qreal totalHeight = (nodeTemplate.inputSockets - 1) * socketSpacing;
+        qreal startY = nodeTop + (nodeHeight - totalHeight) / 2;
+        
+        for (int i = 0; i < nodeTemplate.inputSockets; ++i) {
+            qreal y = startY + (i * socketSpacing) - socketSize/2;
+            painter.drawEllipse(QRectF(1, y, socketSize, socketSize));
+        }
     }
     
-    // Output sockets (right side)
-    int outputSpacing = nodeTemplate.outputSockets > 0 ? 32 / (nodeTemplate.outputSockets + 1) : 0;
-    for (int i = 0; i < nodeTemplate.outputSockets; ++i) {
-        int y = 8 + outputSpacing * (i + 1);
-        painter.drawEllipse(42, y, 6, 6);
+    // Output sockets (right side) - properly centered vertically  
+    if (nodeTemplate.outputSockets > 0) {
+        qreal totalHeight = (nodeTemplate.outputSockets - 1) * socketSpacing;
+        qreal startY = nodeTop + (nodeHeight - totalHeight) / 2;
+        
+        for (int i = 0; i < nodeTemplate.outputSockets; ++i) {
+            qreal y = startY + (i * socketSpacing) - socketSize/2;
+            painter.drawEllipse(QRectF(43, y, socketSize, socketSize));
+        }
+    }
+    
+    // Add visual flow indicators for function type - aligned with node center
+    const qreal centerY = nodeTop + nodeHeight / 2;
+    painter.setPen(QPen(Qt::white, 1.5, Qt::SolidLine));
+    
+    if (nodeTemplate.type == "TRANSFORM") {
+        // Horizontal arrow through center
+        painter.drawLine(8, centerY, 40, centerY);
+        // Arrow head
+        painter.drawLine(36, centerY - 3, 40, centerY);
+        painter.drawLine(36, centerY + 3, 40, centerY);
+    } else if (nodeTemplate.type == "MERGE") {
+        // Converging lines to center
+        painter.drawLine(8, centerY - 6, 24, centerY);
+        painter.drawLine(8, centerY + 6, 24, centerY);
+        painter.drawLine(24, centerY, 40, centerY);
+        // Arrow head
+        painter.drawLine(36, centerY - 2, 40, centerY);
+        painter.drawLine(36, centerY + 2, 40, centerY);
+    } else if (nodeTemplate.type == "SPLIT") {
+        // Diverging lines from center
+        painter.drawLine(8, centerY, 24, centerY);
+        painter.drawLine(24, centerY, 40, centerY - 6);
+        painter.drawLine(24, centerY, 40, centerY + 6);
+        // Arrow heads
+        painter.drawLine(36, centerY - 8, 40, centerY - 6);
+        painter.drawLine(36, centerY - 4, 40, centerY - 6);
+        painter.drawLine(36, centerY + 4, 40, centerY + 6);
+        painter.drawLine(36, centerY + 8, 40, centerY + 6);
     }
     
     return QIcon(pixmap);
@@ -312,6 +402,7 @@ QIcon NodePaletteWidget::NodeButton::createNodeIcon(const NodeTemplate& nodeTemp
 void NodePaletteWidget::NodeButton::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {
+        qDebug() << "NodeButton: Mouse press detected on" << m_nodeTemplate.name << "at position:" << event->pos();
         m_dragStartPosition = event->pos();
     }
     QPushButton::mousePressEvent(event);
@@ -324,29 +415,35 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
         return;
     }
     
-    if ((event->pos() - m_dragStartPosition).manhattanLength() < QApplication::startDragDistance()) {
+    qreal distance = (event->pos() - m_dragStartPosition).manhattanLength();
+    if (distance < QApplication::startDragDistance()) {
+        qDebug() << "NodeButton: Mouse moved but distance" << distance << "< drag threshold" << QApplication::startDragDistance();
         QPushButton::mouseMoveEvent(event);
         return;
     }
+    
+    qDebug() << "NodeButton: Starting drag operation for" << m_nodeTemplate.name;
+    qDebug() << "NodeButton: Template data - type:" << m_nodeTemplate.type << "inputs:" << m_nodeTemplate.inputSockets << "outputs:" << m_nodeTemplate.outputSockets;
     
     // Start drag operation
     QDrag* drag = new QDrag(this);
     QMimeData* mimeData = new QMimeData;
     
     // Store node template data in mime data
-    mimeData->setData("application/x-node-template", 
-                     QString("%1|%2|%3|%4|%5")
-                     .arg(m_nodeTemplate.type)
-                     .arg(m_nodeTemplate.name)
-                     .arg(m_nodeTemplate.description)
-                     .arg(m_nodeTemplate.inputSockets)
-                     .arg(m_nodeTemplate.outputSockets)
-                     .toUtf8());
+    QString mimeString = QString("%1|%2|%3|%4|%5")
+                        .arg(m_nodeTemplate.type)
+                        .arg(m_nodeTemplate.name)
+                        .arg(m_nodeTemplate.description)
+                        .arg(m_nodeTemplate.inputSockets)
+                        .arg(m_nodeTemplate.outputSockets);
+    
+    qDebug() << "NodeButton: Encoding mime data:" << mimeString;
+    mimeData->setData("application/x-node-template", mimeString.toUtf8());
     
     // Create drag pixmap from the button's icon
     QPixmap dragPixmap = icon().pixmap(48, 48);
     if (dragPixmap.isNull()) {
-        // Fallback: create a simple drag pixmap
+        qDebug() << "NodeButton: Warning - icon pixmap is null, creating fallback";
         dragPixmap = QPixmap(48, 48);
         dragPixmap.fill(Qt::gray);
     }
@@ -363,15 +460,15 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     drag->setPixmap(transparentPixmap);
     drag->setHotSpot(QPoint(24, 24)); // Center of the icon
     
-    qDebug() << "NodeButton: Starting drag operation for" << m_nodeTemplate.name;
+    qDebug() << "NodeButton: Executing drag operation for" << m_nodeTemplate.name;
     
     // Execute the drag
     Qt::DropAction dropAction = drag->exec(Qt::CopyAction);
     
     if (dropAction == Qt::CopyAction) {
-        qDebug() << "NodeButton: Drag completed successfully";
+        qDebug() << "✓ NodeButton: Drag completed successfully for" << m_nodeTemplate.name;
     } else {
-        qDebug() << "NodeButton: Drag was cancelled";
+        qDebug() << "✗ NodeButton: Drag was cancelled or failed for" << m_nodeTemplate.name;
     }
 }
 
