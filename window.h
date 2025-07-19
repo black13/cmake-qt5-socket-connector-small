@@ -17,8 +17,8 @@ class View;
 class Scene;
 class GraphFactory;
 class XmlAutosaveObserver;
+class NodePaletteWidget;
 // class JavaScriptConsole;  // Disabled for now
-// class NodePaletteBar; // Disabled for now
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -72,6 +72,10 @@ public slots:
     void createOutputNode();
     void createProcessorNode();
     
+    // Node creation from palette (will be implemented with proper includes)
+    void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
+                              const QString& name, int inputSockets, int outputSockets);
+    
 private slots:
     // Menu actions
     void newFile();
@@ -90,6 +94,9 @@ private slots:
     // Selection info update
     void updateSelectionInfo();
     
+    // Palette integration
+    void onNodeCreationRequested();
+    
 protected:
     // Handle keyboard shortcuts
     void keyPressEvent(QKeyEvent* event) override;
@@ -106,9 +113,9 @@ private:
     QAction* m_addOutputAction;
     QAction* m_addProcessorAction;
     
-    // Professional node palette system (disabled)
-    // QDockWidget* m_nodePaletteDock;
-    // NodePaletteBar* m_nodePalette;
+    // Professional node palette system
+    QDockWidget* m_nodePaletteDock;
+    NodePaletteWidget* m_nodePalette;
     
     // JavaScript console (disabled for now)
     // QDockWidget* m_javaScriptConsoleDock;

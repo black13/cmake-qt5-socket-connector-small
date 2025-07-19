@@ -6,8 +6,8 @@
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
 #include "javascript_engine.h"
+#include "node_palette_widget.h"
 // #include "javascript_console.h"  // Disabled for now
-// #include "node_palette_bar.h" // Disabled for now
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -38,8 +38,8 @@ Window::Window(QWidget* parent)
     resize(1400, 900);
     
     // Initialize UI components to nullptr
-    // m_nodePaletteDock = nullptr;
-    // m_nodePalette = nullptr;
+    m_nodePaletteDock = nullptr;
+    m_nodePalette = nullptr;
     // m_javaScriptConsoleDock = nullptr;
     // m_javaScriptConsole = nullptr;
     m_fileInfoLabel = nullptr;
@@ -75,8 +75,8 @@ Window::Window(QWidget* parent)
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
     
-    // Connect view signals for drag-and-drop (disabled)
-    // connect(m_view, &View::nodeDropped, this, &Window::createNodeAtPosition);
+    // Connect view signals for drag-and-drop
+    connect(m_view, &View::nodeDropped, this, &Window::createNodeFromPalette);
     
     // Initial status update
     updateStatusBar();
@@ -636,8 +636,23 @@ void Window::connectStatusBarSignals()
 
 void Window::setupDockWidgets()
 {
-    // Dock widgets disabled for now - using simple script loading instead
-    qDebug() << "Dock widgets disabled - using simple script loading";
+    // Create node palette dock widget
+    m_nodePaletteDock = new QDockWidget("Node Palette", this);
+    m_nodePaletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_nodePaletteDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    
+    // Create palette widget
+    m_nodePalette = new NodePaletteWidget();
+    m_nodePaletteDock->setWidget(m_nodePalette);
+    
+    // Add dock widget to left side
+    addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
+    
+    // Connect palette signals
+    connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested, 
+            this, &Window::onNodeCreationRequested);
+    
+    qDebug() << "✓ Node palette dock widget created and connected";
 }
 
 void Window::updateStatusBar()
@@ -1026,5 +1041,42 @@ void Window::loadAndExecuteScript()
         updateStatusBar();
     } else {
         qDebug() << "JS_EXECUTION: User cancelled script loading";
+    }
+}
+
+void Window::onNodeCreationRequested()
+{
+    // The signal includes the nodeTemplate, but we need to handle it via sender() for now
+    // due to header file forward declaration limitations
+    
+    // For double-click from palette, create node at center of view
+    QPointF centerPoint = m_view->mapToScene(m_view->rect().center());
+    
+    // We'll implement drag-and-drop separately - for now just handle the signal connection
+    qDebug() << "Node creation requested from palette - creating at center:" << centerPoint;
+    
+    // Create a default input node for testing
+    createNodeFromPalette(centerPoint, "IN", "Input", 0, 2);
+}
+
+void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
+                                  const QString& name, int inputSockets, int outputSockets)
+{
+    if (!m_factory) {
+        qWarning() << "Cannot create node - GraphFactory not initialized";
+        return;
+    }
+    
+    qDebug() << "Creating node:" << nodeType << "at position:" << scenePos;
+    
+    // Use the factory to create a node with the specified socket counts
+    Node* newNode = m_factory->createNode(nodeType, scenePos);
+    if (newNode) {
+        // TODO: Configure socket counts based on template
+        // For now, the node will use default socket configuration
+        qDebug() << "✓ Node created successfully:" << newNode->getId().toString().left(8);
+        updateStatusBar();
+    } else {
+        qWarning() << "Failed to create node of type:" << nodeType;
     }
 }
