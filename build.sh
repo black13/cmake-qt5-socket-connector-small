@@ -8,19 +8,41 @@ set -e  # Exit on any error
 echo "🚀 NodeGraph Linux Build Script"
 echo "================================"
 
-# Parse build type argument
+# Parse build type and clean arguments
 BUILD_TYPE="Debug"
-if [ "$1" = "release" ] || [ "$1" = "Release" ]; then
-    BUILD_TYPE="Release"
-elif [ "$1" = "debug" ] || [ "$1" = "Debug" ]; then
-    BUILD_TYPE="Debug"
-elif [ -n "$1" ]; then
-    echo "Usage: $0 [debug|release]"
-    echo "Default: debug"
-    exit 1
-fi
+CLEAN_BUILD=false
+
+# Parse all arguments
+for arg in "$@"; do
+    case $arg in
+        release|Release)
+            BUILD_TYPE="Release"
+            ;;
+        debug|Debug)
+            BUILD_TYPE="Debug"
+            ;;
+        clean)
+            CLEAN_BUILD=true
+            ;;
+        *)
+            echo "Usage: $0 [debug|release] [clean]"
+            echo "Examples:"
+            echo "  $0 debug       # Debug build (incremental)"
+            echo "  $0 release     # Release build (incremental)"
+            echo "  $0 debug clean # Debug build (clean)"
+            echo "  $0 clean debug # Debug build (clean)"
+            echo "Default: debug (incremental)"
+            exit 1
+            ;;
+    esac
+done
 
 echo "Build Type: $BUILD_TYPE"
+if [ "$CLEAN_BUILD" = true ]; then
+    echo "Clean Build: Yes"
+else
+    echo "Clean Build: No (incremental)"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -102,17 +124,28 @@ print_status "Setting up build environment..."
 export CMAKE_PREFIX_PATH="/usr/local:$CMAKE_PREFIX_PATH"
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-# Create build directory
+# Create build directory with smart cache preservation
 BUILD_DIR="build_linux"
-if [ -d "$BUILD_DIR" ]; then
-    print_warning "Removing existing build directory..."
+CACHE_DIR=".cmake-cache"
+
+if [ -d "$BUILD_DIR" ] && [ "$CLEAN_BUILD" = true ]; then
+    print_warning "Clean build requested - removing existing build directory..."
     rm -rf "$BUILD_DIR"
+elif [ -d "$BUILD_DIR" ]; then
+    print_status "Preserving existing build directory for incremental build"
+fi
+
+# Preserve cache directory even during clean builds
+if [ -d "$CACHE_DIR" ]; then
+    print_status "Preserving libxml2 cache directory: $CACHE_DIR"
+else
+    print_status "Cache directory will be created: $CACHE_DIR"
 fi
 
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
-print_success "Build directory created: $BUILD_DIR"
+print_success "Build directory ready: $BUILD_DIR"
 
 # 4. Configure with CMake
 print_status "Configuring project with CMake..."

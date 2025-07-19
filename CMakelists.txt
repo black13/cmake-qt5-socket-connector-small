@@ -51,26 +51,56 @@ find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test Qml)
 # Find or build libxml2 for cross-platform XML handling
 # ─────────────────────────────────────
 
-# Always use FetchContent for libxml2 to ensure consistency
-set(LIBXML2_FOUND FALSE)
+# Try to use system libxml2 first (Linux/Unix only), fallback to FetchContent
+set(USE_SYSTEM_LIBXML2 FALSE)
 
-if(NOT LIBXML2_FOUND)
-    # Use FetchContent with proper caching
+if(NOT WIN32)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(LIBXML2 QUIET libxml-2.0>=2.9.0)
+        if(LIBXML2_FOUND AND LIBXML2_INCLUDE_DIRS)
+            # Verify that we can actually find the headers
+            find_path(LIBXML2_HEADER_TEST libxml/tree.h PATHS ${LIBXML2_INCLUDE_DIRS} NO_DEFAULT_PATH)
+            if(LIBXML2_HEADER_TEST)
+                set(USE_SYSTEM_LIBXML2 TRUE)
+            endif()
+        endif()
+    endif()
+endif()
+
+if(USE_SYSTEM_LIBXML2)
+    message(STATUS "Using system libxml2: ${LIBXML2_VERSION}")
+    # Create an imported target for consistency
+    add_library(LibXml2::LibXml2 INTERFACE IMPORTED)
+    target_link_libraries(LibXml2::LibXml2 INTERFACE ${LIBXML2_LIBRARIES})
+    target_include_directories(LibXml2::LibXml2 INTERFACE ${LIBXML2_INCLUDE_DIRS})
+    target_compile_options(LibXml2::LibXml2 INTERFACE ${LIBXML2_CFLAGS_OTHER})
+else()
+    # Use FetchContent with persistent global cache
     include(FetchContent)
+    
+    # Set a global cache directory that persists across builds (separate for Debug/Release)
+    set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.cmake-cache/${CMAKE_BUILD_TYPE}" CACHE PATH "FetchContent cache directory")
     
     # Check if libxml2 is already populated to avoid rebuilding
     FetchContent_GetProperties(libxml2)
     if(NOT libxml2_POPULATED)
-        message(STATUS "libxml2 not found in cache - downloading and building...")
+        if(WIN32)
+            message(STATUS "Windows: Building libxml2 from source (cached) - downloading and building...")
+        else()
+            message(STATUS "libxml2 not found in persistent cache - downloading and building...")
+        endif()
         
         FetchContent_Declare(
             libxml2
             GIT_REPOSITORY https://github.com/GNOME/libxml2.git
             GIT_TAG        v2.12.5  # Stable version
             GIT_SHALLOW    TRUE
+            SOURCE_DIR     "${FETCHCONTENT_BASE_DIR}/libxml2-src"
+            BINARY_DIR     "${FETCHCONTENT_BASE_DIR}/libxml2-build"
         )
         
-        # Configure libxml2 build options - force cache to avoid rebuilds
+        # Configure libxml2 build options - minimal features for performance
         set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
         set(LIBXML2_WITH_ICONV OFF CACHE BOOL "Build with iconv support" FORCE)
         set(LIBXML2_WITH_LZMA OFF CACHE BOOL "Build with lzma support" FORCE) 
@@ -78,14 +108,14 @@ if(NOT LIBXML2_FOUND)
         set(LIBXML2_WITH_PYTHON OFF CACHE BOOL "Build Python bindings" FORCE)
         set(LIBXML2_WITH_TESTS OFF CACHE BOOL "Build tests" FORCE)
         set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Build programs" FORCE)
+        set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Build with HTTP support" FORCE)
+        set(LIBXML2_WITH_FTP OFF CACHE BOOL "Build with FTP support" FORCE)
         
         FetchContent_MakeAvailable(libxml2)
-        message(STATUS "libxml2 build complete - cached for future builds")
+        message(STATUS "libxml2 build complete - cached in ${FETCHCONTENT_BASE_DIR}")
     else()
-        message(STATUS "libxml2 found in cache - skipping rebuild")
+        message(STATUS "libxml2 found in persistent cache - skipping rebuild")
     endif()
-else()
-    message(STATUS "Using system libxml2: ${LIBXML2_VERSION}")
 endif()
 
 # ─────────────────────────────────────
@@ -266,13 +296,17 @@ message(STATUS "Qt5 version      : ${Qt5_VERSION}")
 message(STATUS "Qt5 location     : ${Qt5_DIR}")
 
 # Cache information
-if(LIBXML2_FOUND)
+if(USE_SYSTEM_LIBXML2)
     message(STATUS "libxml2 source   : System package")
 else()
     FetchContent_GetProperties(libxml2)
     if(libxml2_POPULATED)
         message(STATUS "libxml2 source   : FetchContent (cached)")
     else()
-        message(STATUS "libxml2 source   : FetchContent (will download)")
+        if(WIN32)
+            message(STATUS "libxml2 source   : FetchContent (will build for Windows)")
+        else()
+            message(STATUS "libxml2 source   : FetchContent (will download)")
+        endif()
     endif()
 endif()
