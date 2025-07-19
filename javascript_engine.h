@@ -51,6 +51,10 @@ public:
     QString getLastError() const;
     void clearErrors();
     
+    // Engine information
+    QString getEngineInfo() const;
+    void logEngineCapabilities() const;
+    
     // Script management
     void loadScriptModule(const QString& moduleName, const QString& scriptContent);
     QJSValue getModule(const QString& moduleName);

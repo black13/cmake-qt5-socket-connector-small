@@ -26,6 +26,32 @@ Scene::Scene(QObject* parent)
         // GraphController will be registered when GraphFactory is available
         
         qDebug() << "Scene: JavaScript engine integrated successfully";
+        
+        // Log comprehensive engine information
+        m_jsEngine->logEngineCapabilities();
+        
+        // Test if JavaScript engine is actually working and get version info
+        qDebug() << "JS_ENGINE: Testing JavaScript engine functionality";
+        
+        // Get JavaScript engine version and capabilities
+        QJSValue versionTest = m_jsEngine->evaluate("typeof navigator !== 'undefined' ? navigator.userAgent : 'QJSEngine'; JSON.stringify({ecmaVersion: 'ES5+', features: Object.keys(this).slice(0,5)})");
+        qDebug() << "JS_ENGINE: Version info:" << versionTest.toString();
+        
+        // Test basic JavaScript functionality
+        QJSValue testResult = m_jsEngine->evaluate("console.log('JavaScript engine is running!'); 2 + 2");
+        if (testResult.isError()) {
+            qDebug() << "JS_ENGINE: FAILED - JavaScript engine test failed:" << testResult.toString();
+        } else {
+            qDebug() << "JS_ENGINE: SUCCESS - JavaScript engine is working, test result:" << testResult.toString();
+        }
+        
+        // Test advanced JavaScript features
+        QJSValue advancedTest = m_jsEngine->evaluate("({test: 'object', array: [1,2,3], func: function(){return 'works';}}).func()");
+        if (advancedTest.isError()) {
+            qDebug() << "JS_ENGINE: Advanced features test failed:" << advancedTest.toString();
+        } else {
+            qDebug() << "JS_ENGINE: Advanced features working:" << advancedTest.toString();
+        }
     } else {
         qDebug() << "Scene: ERROR - Failed to create JavaScript engine";
     }

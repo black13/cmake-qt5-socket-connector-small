@@ -351,6 +351,49 @@ void JavaScriptEngine::clearErrors()
     m_lastError.clear();
 }
 
+QString JavaScriptEngine::getEngineInfo() const
+{
+    QJSValue info = m_engine->evaluate(R"(
+        JSON.stringify({
+            engine: 'QJSEngine',
+            qtVersion: ')" + QString(QT_VERSION_STR) + R"(',
+            ecmaScript: 'ES5+',
+            timestamp: new Date().toISOString(),
+            features: {
+                objects: typeof Object !== 'undefined',
+                arrays: typeof Array !== 'undefined',
+                functions: typeof Function !== 'undefined',
+                json: typeof JSON !== 'undefined',
+                console: typeof console !== 'undefined',
+                math: typeof Math !== 'undefined',
+                date: typeof Date !== 'undefined'
+            }
+        }, null, 2)
+    )");
+    
+    return info.isError() ? "Error getting engine info" : info.toString();
+}
+
+void JavaScriptEngine::logEngineCapabilities() const
+{
+    qDebug() << "=== JavaScript Engine Information ===";
+    qDebug() << "Engine Type: QJSEngine (Qt JavaScript Engine)";
+    qDebug() << "Qt Version:" << QT_VERSION_STR;
+    qDebug() << "ECMAScript Level: ES5+ (limited ES6 support)";
+    
+    QString info = getEngineInfo();
+    qDebug() << "Detailed Capabilities:" << info;
+    
+    // Test specific features
+    QJSValue testModernJS = m_engine->evaluate("const test = {a: 1, b: 2}; test.a + test.b");
+    qDebug() << "Modern JS (const) support:" << (testModernJS.isError() ? "NO" : "YES");
+    
+    QJSValue testArrowFunction = m_engine->evaluate("((x) => x * 2)(5)");
+    qDebug() << "Arrow function support:" << (testArrowFunction.isError() ? "NO" : "YES");
+    
+    qDebug() << "======================================";
+}
+
 void JavaScriptEngine::loadScriptModule(const QString& moduleName, const QString& scriptContent)
 {
     QString moduleScript = QString(R"(
@@ -428,9 +471,10 @@ void JavaScriptEngine::registerConsoleAPI()
     )");
     console.setProperty("error", consoleError);
     
-    // Register native console functions
-    m_engine->globalObject().setProperty("qt_console_log", m_engine->newQObject(this));
-    m_engine->globalObject().setProperty("qt_console_error", m_engine->newQObject(this));
+    // Register the entire JavaScriptEngine object so its public slots are accessible
+    QJSValue engineObject = m_engine->newQObject(this);
+    m_engine->globalObject().setProperty("qt_console_log", engineObject.property("qt_console_log"));
+    m_engine->globalObject().setProperty("qt_console_error", engineObject.property("qt_console_error"));
     
     m_engine->globalObject().setProperty("console", console);
 }

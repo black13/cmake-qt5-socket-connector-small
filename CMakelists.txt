@@ -149,6 +149,8 @@ set(CORE_SOURCES
     # JavaScript engine integration
     javascript_engine.h
     javascript_engine.cpp
+    # javascript_console.h
+    # javascript_console.cpp
     graph_controller.h
     graph_controller.cpp
     

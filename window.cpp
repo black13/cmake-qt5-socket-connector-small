@@ -988,6 +988,17 @@ void Window::loadAndExecuteScript()
             return;
         }
         
+        // Quick test to verify the engine is functional
+        qDebug() << "JS_TEST: Testing engine functionality before script execution";
+        QJSValue quickTest = jsEngine->evaluate("1 + 1");
+        if (quickTest.isError()) {
+            qDebug() << "JS_TEST: FAILED - Engine not functional:" << quickTest.toString();
+            QMessageBox::warning(this, "JavaScript Error", "JavaScript engine is not functional");
+            return;
+        } else {
+            qDebug() << "JS_TEST: SUCCESS - Engine is functional, test result:" << quickTest.toString();
+        }
+        
         // Register GraphController if not already done
         jsEngine->registerGraphController(m_scene, m_factory);
         qDebug() << "JS_EXECUTION: GraphController registered";
