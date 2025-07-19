@@ -29,6 +29,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     Q_UNUSED(fromSocketId)  // Legacy parameter, not used in clean design
     Q_UNUSED(toSocketId)    // Legacy parameter, not used in clean design
     setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemHasNoContents, false); // Ensure we control our own drawing
     setAcceptHoverEvents(true);  // Enable hover events for better interaction
     
     // Ensure edges are above nodes in z-order for easier selection
@@ -69,10 +70,16 @@ QRectF Edge::boundingRect() const
 
 void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
-    Q_UNUSED(option)
     Q_UNUSED(widget)
+    Q_UNUSED(option) // Don't use Qt's default drawing options
     
     painter->setRenderHint(QPainter::Antialiasing);
+    
+    // Save painter state to ensure no side effects
+    painter->save();
+    
+    // Make sure no brush is set (no fill)
+    painter->setBrush(Qt::NoBrush);
     
     // Enhanced edge styling with cable-like appearance
     QPen connectionPen;
@@ -101,6 +108,9 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     
     painter->setPen(connectionPen);
     painter->drawPath(m_path);
+    
+    // Restore painter state
+    painter->restore();
 }
 
 QPainterPath Edge::shape() const
