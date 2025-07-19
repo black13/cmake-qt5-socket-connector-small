@@ -328,6 +328,8 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     m_ghostEdge->setFlag(QGraphicsItem::ItemIsFocusable, false);
     m_ghostEdge->setFlag(QGraphicsItem::ItemSendsGeometryChanges, false);
     m_ghostEdge->setFlag(QGraphicsItem::ItemHasNoContents, false);
+    m_ghostEdge->setFlag(QGraphicsItem::ItemClipsToShape, true); // Clip to path only
+    m_ghostEdge->setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, false); // No extended drawing
     m_ghostEdge->setAcceptHoverEvents(false);
     m_ghostEdge->setAcceptedMouseButtons(Qt::NoButton);
     m_ghostEdge->setBrush(Qt::NoBrush); // Ensure no fill/bounding box
