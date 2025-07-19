@@ -214,7 +214,7 @@ void NodePaletteWidget::addNodeTemplate(const NodeTemplate& nodeTemplate)
     
     // Connect button to our slot
     qDebug() << "NodePalette: Connecting button signals for" << nodeTemplate.name;
-    connect(button, &QPushButton::clicked, this, &NodePaletteWidget::onNodeButtonClicked);
+    connect(button, &QToolButton::clicked, this, &NodePaletteWidget::onNodeButtonClicked);
     
     // Add to grid layout (2 columns) - proper grid arrangement
     int buttonIndex = m_nodeButtons.size() - 1; // Current button index (0-based)
@@ -254,7 +254,7 @@ void NodePaletteWidget::updateVisibility()
 // ============================================================================
 
 NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWidget* parent)
-    : QPushButton(parent)
+    : QToolButton(parent)
     , m_nodeTemplate(nodeTemplate)
 {
     qDebug() << "NodeButton: Creating button for" << nodeTemplate.name << "type:" << nodeTemplate.type;
@@ -275,6 +275,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     
     // Set text below icon
     setText(nodeTemplate.name);
+    setToolButtonStyle(Qt::ToolButtonTextUnderIcon); // Position text under the icon
     
     // Apply object name for external styling
     setObjectName("nodeButton");
@@ -405,20 +406,20 @@ void NodePaletteWidget::NodeButton::mousePressEvent(QMouseEvent* event)
         qDebug() << "NodeButton: Mouse press detected on" << m_nodeTemplate.name << "at position:" << event->pos();
         m_dragStartPosition = event->pos();
     }
-    QPushButton::mousePressEvent(event);
+    QToolButton::mousePressEvent(event);
 }
 
 void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
 {
     if (!(event->buttons() & Qt::LeftButton)) {
-        QPushButton::mouseMoveEvent(event);
+        QToolButton::mouseMoveEvent(event);
         return;
     }
     
     qreal distance = (event->pos() - m_dragStartPosition).manhattanLength();
     if (distance < QApplication::startDragDistance()) {
         qDebug() << "NodeButton: Mouse moved but distance" << distance << "< drag threshold" << QApplication::startDragDistance();
-        QPushButton::mouseMoveEvent(event);
+        QToolButton::mouseMoveEvent(event);
         return;
     }
     
