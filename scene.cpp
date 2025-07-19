@@ -321,15 +321,33 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     }
     
     m_ghostFromSocket = fromSocket;
-    m_ghostEdge = new QGraphicsPathItem();
+    
+    // Create a custom ghost edge class to completely control drawing
+    class GhostEdgeItem : public QGraphicsPathItem {
+    public:
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override {
+            Q_UNUSED(option)  // Ignore Qt's style options completely
+            Q_UNUSED(widget)
+            
+            // Only draw the path, nothing else
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->setPen(pen());
+            painter->setBrush(Qt::NoBrush);  // Absolutely no fill
+            painter->drawPath(path());
+        }
+        
+        QRectF boundingRect() const override {
+            // Return the exact path bounds with no padding
+            return path().boundingRect();
+        }
+    };
+    
+    m_ghostEdge = new GhostEdgeItem();
     m_ghostEdge->setZValue(-10); // Below all interactive items
     m_ghostEdge->setFlag(QGraphicsItem::ItemIsSelectable, false);
     m_ghostEdge->setFlag(QGraphicsItem::ItemIsMovable, false);
     m_ghostEdge->setFlag(QGraphicsItem::ItemIsFocusable, false);
     m_ghostEdge->setFlag(QGraphicsItem::ItemSendsGeometryChanges, false);
-    m_ghostEdge->setFlag(QGraphicsItem::ItemHasNoContents, false);
-    m_ghostEdge->setFlag(QGraphicsItem::ItemClipsToShape, true); // Clip to path only
-    m_ghostEdge->setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, false); // No extended drawing
     m_ghostEdge->setAcceptHoverEvents(false);
     m_ghostEdge->setAcceptedMouseButtons(Qt::NoButton);
     m_ghostEdge->setBrush(Qt::NoBrush); // Ensure no fill/bounding box
