@@ -8,6 +8,9 @@
 #include <QMouseEvent>
 #include <QToolButton>
 #include <QSize>
+#include <QDrag>
+#include <QMimeData>
+#include <QApplication>
 
 // ============================================================================
 // PaletteButton Implementation
@@ -220,7 +223,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     , m_nodeTemplate(nodeTemplate)
 {
     setFixedSize(80, 80);
-    setToolTip(QString("%1\n%2\nInputs: %3, Outputs: %4")
+    setToolTip(QString("%1\n%2\nInputs: %3, Outputs: %4\n\nDrag to create or double-click")
                .arg(nodeTemplate.name)
                .arg(nodeTemplate.description)
                .arg(nodeTemplate.inputSockets)
@@ -236,6 +239,9 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     
     // Apply object name for external styling
     setObjectName("nodeButton");
+    
+    // Enable drag support
+    setAcceptDrops(false); // This is a drag source, not a drop target
 }
 
 bool NodePaletteWidget::NodeButton::matchesFilter(const QString& filter) const
@@ -301,5 +307,71 @@ QIcon NodePaletteWidget::NodeButton::createNodeIcon(const NodeTemplate& nodeTemp
     }
     
     return QIcon(pixmap);
+}
+
+void NodePaletteWidget::NodeButton::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton) {
+        m_dragStartPosition = event->pos();
+    }
+    QPushButton::mousePressEvent(event);
+}
+
+void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
+{
+    if (!(event->buttons() & Qt::LeftButton)) {
+        QPushButton::mouseMoveEvent(event);
+        return;
+    }
+    
+    if ((event->pos() - m_dragStartPosition).manhattanLength() < QApplication::startDragDistance()) {
+        QPushButton::mouseMoveEvent(event);
+        return;
+    }
+    
+    // Start drag operation
+    QDrag* drag = new QDrag(this);
+    QMimeData* mimeData = new QMimeData;
+    
+    // Store node template data in mime data
+    mimeData->setData("application/x-node-template", 
+                     QString("%1|%2|%3|%4|%5")
+                     .arg(m_nodeTemplate.type)
+                     .arg(m_nodeTemplate.name)
+                     .arg(m_nodeTemplate.description)
+                     .arg(m_nodeTemplate.inputSockets)
+                     .arg(m_nodeTemplate.outputSockets)
+                     .toUtf8());
+    
+    // Create drag pixmap from the button's icon
+    QPixmap dragPixmap = icon().pixmap(48, 48);
+    if (dragPixmap.isNull()) {
+        // Fallback: create a simple drag pixmap
+        dragPixmap = QPixmap(48, 48);
+        dragPixmap.fill(Qt::gray);
+    }
+    
+    // Make it semi-transparent for visual feedback
+    QPixmap transparentPixmap(dragPixmap.size());
+    transparentPixmap.fill(Qt::transparent);
+    QPainter painter(&transparentPixmap);
+    painter.setOpacity(0.7);
+    painter.drawPixmap(0, 0, dragPixmap);
+    painter.end();
+    
+    drag->setMimeData(mimeData);
+    drag->setPixmap(transparentPixmap);
+    drag->setHotSpot(QPoint(24, 24)); // Center of the icon
+    
+    qDebug() << "NodeButton: Starting drag operation for" << m_nodeTemplate.name;
+    
+    // Execute the drag
+    Qt::DropAction dropAction = drag->exec(Qt::CopyAction);
+    
+    if (dropAction == Qt::CopyAction) {
+        qDebug() << "NodeButton: Drag completed successfully";
+    } else {
+        qDebug() << "NodeButton: Drag was cancelled";
+    }
 }
 

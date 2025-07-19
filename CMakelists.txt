@@ -140,11 +140,9 @@ set(CORE_SOURCES
     scene.h
     scene.cpp
     
-    # Professional drag-and-drop palette (disabled)
-    # node_palette_bar.h
-    # node_palette_bar.cpp
-    # node_tool_button.h
-    # node_tool_button.cpp
+    # Professional drag-and-drop palette
+    node_palette_widget.h
+    node_palette_widget.cpp
     
     # JavaScript engine integration
     javascript_engine.h

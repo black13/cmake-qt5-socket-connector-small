@@ -82,14 +82,21 @@ private:
     void addNodeTemplate(const NodeTemplate& nodeTemplate);
     void updateVisibility();
     
-    // Custom node button class
+    // Custom node button class with drag and drop support
     class NodeButton : public QPushButton {
     public:
         NodeButton(const NodeTemplate& nodeTemplate, QWidget* parent = nullptr);
         NodeTemplate getNodeTemplate() const { return m_nodeTemplate; }
         bool matchesFilter(const QString& filter) const;
+        
+    protected:
+        // Drag and drop support
+        void mousePressEvent(QMouseEvent* event) override;
+        void mouseMoveEvent(QMouseEvent* event) override;
+        
     private:
         NodeTemplate m_nodeTemplate;
+        QPoint m_dragStartPosition;
         static QIcon createNodeIcon(const NodeTemplate& nodeTemplate);
     };
     

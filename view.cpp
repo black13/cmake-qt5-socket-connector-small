@@ -2,6 +2,11 @@
 #include "scene.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QDebug>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -10,6 +15,9 @@ View::View(Scene* scene, QWidget* parent)
     setRenderHint(QPainter::Antialiasing);
     setDragMode(QGraphicsView::RubberBandDrag);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    
+    // Enable drag and drop
+    setAcceptDrops(true);
 }
 
 void View::mousePressEvent(QMouseEvent* event)
@@ -38,19 +46,58 @@ void View::wheelEvent(QWheelEvent* event)
     }
 }
 
-/* Drag-and-drop functionality disabled for now
 void View::dragEnterEvent(QDragEnterEvent* event)
 {
-    // Drag-and-drop disabled
+    // Check if the drag contains node template data
+    if (event->mimeData()->hasFormat("application/x-node-template")) {
+        event->acceptProposedAction();
+        qDebug() << "View: Drag enter accepted - node template detected";
+    } else {
+        event->ignore();
+        qDebug() << "View: Drag enter ignored - no node template data";
+    }
 }
 
 void View::dragMoveEvent(QDragMoveEvent* event)
 {
-    // Drag-and-drop disabled  
+    // Allow drag movement if it contains node template data
+    if (event->mimeData()->hasFormat("application/x-node-template")) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }  
 }
 
 void View::dropEvent(QDropEvent* event)
 {
-    // Drag-and-drop disabled
+    // Handle node template drop
+    if (event->mimeData()->hasFormat("application/x-node-template")) {
+        QByteArray nodeData = event->mimeData()->data("application/x-node-template");
+        QString nodeString = QString::fromUtf8(nodeData);
+        QStringList parts = nodeString.split("|");
+        
+        if (parts.size() >= 5) {
+            QString nodeType = parts[0];
+            QString name = parts[1];
+            QString description = parts[2];
+            int inputSockets = parts[3].toInt();
+            int outputSockets = parts[4].toInt();
+            
+            // Convert drop position to scene coordinates
+            QPointF scenePos = mapToScene(event->pos());
+            
+            qDebug() << "View: Dropping node" << name << "of type" << nodeType 
+                     << "at scene position:" << scenePos;
+            
+            // Emit signal to notify the window
+            emit nodeDropped(nodeType, name, inputSockets, outputSockets, scenePos);
+            
+            event->acceptProposedAction();
+        } else {
+            qWarning() << "View: Invalid node template data format";
+            event->ignore();
+        }
+    } else {
+        event->ignore();
+    }
 }
-*/
