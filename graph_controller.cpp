@@ -4,6 +4,7 @@
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
+#include "node_registry.h"
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -25,9 +26,17 @@ QString GraphController::createNode(const QString& type, qreal x, qreal y)
         return QString();
     }
     
+    // Log node type validation
+    QStringList validTypes = getValidNodeTypes();
+    qDebug() << "GraphController: Validating node type" << type;
+    qDebug() << "GraphController: Available types:" << validTypes;
+    
     if (!isValidNodeType(type)) {
+        qDebug() << "GraphController: ❌ INVALID node type:" << type;
         emit error(QString("GraphController: Invalid node type: %1").arg(type));
         return QString();
+    } else {
+        qDebug() << "GraphController: ✅ VALID node type:" << type;
     }
     
     qDebug() << "GraphController: Creating node" << type << "at" << x << "," << y;
@@ -36,14 +45,22 @@ QString GraphController::createNode(const QString& type, qreal x, qreal y)
         Node* node = m_factory->createNode(type, QPointF(x, y));
         if (node) {
             QString uuid = node->getId().toString();
+            qDebug() << "GraphController: ✅ Node created successfully!";
+            qDebug() << "GraphController: Node UUID:" << uuid;
+            qDebug() << "GraphController: Node type:" << node->getNodeType();
+            qDebug() << "GraphController: Node position:" << node->pos();
             emit nodeCreated(uuid);
-            qDebug() << "GraphController: Created node" << uuid;
             return uuid;
+        } else {
+            qDebug() << "GraphController: ❌ Factory returned null node";
+            emit error("GraphController: Factory failed to create node");
         }
     } catch (const std::exception& e) {
+        qDebug() << "GraphController: ❌ Exception during node creation:" << e.what();
         emit error(QString("GraphController: Error creating node: %1").arg(e.what()));
     }
     
+    qDebug() << "GraphController: ❌ Node creation failed - returning empty string";
     return QString();
 }
 
@@ -398,13 +415,17 @@ QVariantMap GraphController::getStats()
 
 bool GraphController::isValidNodeType(const QString& type)
 {
-    QStringList validTypes = {"Source", "Sink", "1-to-2", "2-to-1"};
-    return validTypes.contains(type);
+    QStringList registeredTypes = NodeRegistry::instance().getRegisteredTypes();
+    bool isValid = registeredTypes.contains(type);
+    qDebug() << "GraphController: Type validation:" << type << "→" << (isValid ? "VALID" : "INVALID");
+    return isValid;
 }
 
 QStringList GraphController::getValidNodeTypes()
 {
-    return {"Source", "Sink", "1-to-2", "2-to-1"};
+    QStringList types = NodeRegistry::instance().getRegisteredTypes();
+    qDebug() << "GraphController: Available node types:" << types;
+    return types;
 }
 
 Node* GraphController::findNode(const QString& uuid)
@@ -440,17 +461,48 @@ QVariantMap GraphController::nodeToVariant(Node* node)
     nodeData["x"] = node->pos().x();
     nodeData["y"] = node->pos().y();
     
-    // Add socket information
+    // Add node dimensions
+    QRectF bounds = node->boundingRect();
+    nodeData["width"] = bounds.width();
+    nodeData["height"] = bounds.height();
+    
+    // Add selection state
+    nodeData["selected"] = node->isSelected();
+    
+    // Add socket information with enhanced details
     QVariantList sockets;
+    int inputCount = 0;
+    int outputCount = 0;
+    
     for (QGraphicsItem* item : node->childItems()) {
         if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
             QVariantMap socketData;
             socketData["index"] = socket->getIndex();
             socketData["type"] = (socket->getRole() == Socket::Input) ? "input" : "output";
+            socketData["connected"] = socket->isConnected();
+            
+            // Add socket position relative to node
+            QPointF socketPos = socket->pos();
+            socketData["relativeX"] = socketPos.x();
+            socketData["relativeY"] = socketPos.y();
+            
             sockets.append(socketData);
+            
+            if (socket->getRole() == Socket::Input) {
+                inputCount++;
+            } else {
+                outputCount++;
+            }
         }
     }
+    
     nodeData["sockets"] = sockets;
+    nodeData["inputCount"] = inputCount;
+    nodeData["outputCount"] = outputCount;
+    nodeData["totalSockets"] = sockets.size();
+    
+    // Add edge connection information
+    nodeData["connectedEdges"] = node->getIncidentEdgeCount();
     
     return nodeData;
 }

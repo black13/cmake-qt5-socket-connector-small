@@ -114,76 +114,28 @@ int main(int argc, char *argv[])
     // Process command line arguments
     parser.process(app);
     
-    // Debug: Show what arguments were parsed
-    qDebug() << "=== Command Line Parsing ===";
-    qDebug() << "All arguments received:" << app.arguments();
-    qDebug() << "Working directory:" << QDir::currentPath();
-    qDebug() << "Load option (--load/-l) set:" << parser.isSet(loadFileOption);
-    if (parser.isSet(loadFileOption)) {
-        qDebug() << "Load option value:" << parser.value(loadFileOption);
-    }
-    qDebug() << "Positional arguments:" << parser.positionalArguments();
+    // Command line parsing
     
     // Create main window
     Window window;
     
-    // Test JavaScript engine at startup and log version info
-    qDebug() << "=== JavaScript Engine Initialization Test ===";
-    qDebug() << "Qt Version:" << QT_VERSION_STR;
-    qDebug() << "Qt Qml Module Available:" << true; // We're linking Qt5::Qml
-    
+    // Initialize JavaScript engine
     Scene* scene = window.getScene();
     if (scene) {
         auto* jsEngine = scene->getJavaScriptEngine();
-        if (jsEngine) {
-            // Get JavaScript engine capabilities
-            QJSValue engineInfo = jsEngine->evaluate(R"(
-                JSON.stringify({
-                    engine: 'QJSEngine',
-                    qtVersion: '5.15+',
-                    ecmaScript: 'ES5+',
-                    features: {
-                        objects: typeof Object !== 'undefined',
-                        arrays: typeof Array !== 'undefined',
-                        functions: typeof Function !== 'undefined',
-                        json: typeof JSON !== 'undefined',
-                        console: typeof console !== 'undefined',
-                        math: typeof Math !== 'undefined'
-                    }
-                }, null, 2)
-            )");
-            
-            if (!engineInfo.isError()) {
-                qDebug() << "JS_ENGINE: Capabilities:" << engineInfo.toString();
-            }
-            
-            // Test basic functionality
-            QJSValue startupTest = jsEngine->evaluate("console.log('Startup test'); 5 * 5");
-            if (startupTest.isError()) {
-                qDebug() << "JS_ENGINE: STARTUP FAILED - Engine not working:" << startupTest.toString();
-            } else {
-                qDebug() << "JS_ENGINE: STARTUP SUCCESS - Engine working, result:" << startupTest.toString();
-            }
-        } else {
-            qDebug() << "JS_ENGINE: STARTUP FAILED - JavaScript engine is null";
+        if (!jsEngine) {
+            qDebug() << "Warning: JavaScript engine initialization failed";
         }
-    } else {
-        qDebug() << "JS_ENGINE: STARTUP FAILED - Scene is null";
     }
     
-    // Handle file loading - Qt5 professional way
-    qDebug() << "\n=== File Loading Analysis ===";
+    // Handle file loading
     QString filename;
     if (parser.isSet(loadFileOption)) {
         filename = parser.value(loadFileOption);
-        qDebug() << "File specified via --load/-l flag:" << filename;
     } else {
         const QStringList positionalArgs = parser.positionalArguments();
         if (!positionalArgs.isEmpty()) {
             filename = positionalArgs.first();
-            qDebug() << "File specified as positional argument:" << filename;
-        } else {
-            qDebug() << "No file specified - will create default test nodes";
         }
     }
     
@@ -193,8 +145,6 @@ int main(int argc, char *argv[])
     
     xmlDocPtr xmlDoc = nullptr;
     if (!filename.isEmpty()) {
-        qDebug() << "Attempting to load file:" << filename;
-        qDebug() << "Looking in working directory:" << QDir::currentPath();
         
         QFileInfo fileInfo(filename);
         qDebug() << "File path analysis:";
@@ -306,7 +256,7 @@ int main(int argc, char *argv[])
     }
     
     GraphFactory factory(scene, xmlDoc);
-    qDebug() << "✓ GraphFactory initialized with scene and XML document";
+    qDebug() << "GraphFactory initialized";
     
     if (!filename.isEmpty()) {
         // Use GraphFactory's XML loading - single source of truth
