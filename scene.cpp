@@ -3,6 +3,7 @@
 #include "edge.h"
 #include "socket.h"
 #include "javascript_engine.h"
+#include "ghost_edge.h"
 #include <QDebug>
 #include <QTimer>
 #include <QGraphicsPathItem>
@@ -17,43 +18,11 @@ Scene::Scene(QObject* parent)
 {
     setSceneRect(-1000, -1000, 2000, 2000);
     
-    qDebug() << "Scene: Creating JavaScript engine, pointer:" << m_jsEngine;
-    
     // Initialize JavaScript engine with this scene
     if (m_jsEngine) {
         m_jsEngine->registerNodeAPI(this);
         m_jsEngine->registerGraphAPI();
         // GraphController will be registered when GraphFactory is available
-        
-        qDebug() << "Scene: JavaScript engine integrated successfully";
-        
-        // Log comprehensive engine information
-        m_jsEngine->logEngineCapabilities();
-        
-        // Test if JavaScript engine is actually working and get version info
-        qDebug() << "JS_ENGINE: Testing JavaScript engine functionality";
-        
-        // Get JavaScript engine version and capabilities
-        QJSValue versionTest = m_jsEngine->evaluate("typeof navigator !== 'undefined' ? navigator.userAgent : 'QJSEngine'; JSON.stringify({ecmaVersion: 'ES5+', features: Object.keys(this).slice(0,5)})");
-        qDebug() << "JS_ENGINE: Version info:" << versionTest.toString();
-        
-        // Test basic JavaScript functionality
-        QJSValue testResult = m_jsEngine->evaluate("console.log('JavaScript engine is running!'); 2 + 2");
-        if (testResult.isError()) {
-            qDebug() << "JS_ENGINE: FAILED - JavaScript engine test failed:" << testResult.toString();
-        } else {
-            qDebug() << "JS_ENGINE: SUCCESS - JavaScript engine is working, test result:" << testResult.toString();
-        }
-        
-        // Test advanced JavaScript features
-        QJSValue advancedTest = m_jsEngine->evaluate("({test: 'object', array: [1,2,3], func: function(){return 'works';}}).func()");
-        if (advancedTest.isError()) {
-            qDebug() << "JS_ENGINE: Advanced features test failed:" << advancedTest.toString();
-        } else {
-            qDebug() << "JS_ENGINE: Advanced features working:" << advancedTest.toString();
-        }
-    } else {
-        qDebug() << "Scene: ERROR - Failed to create JavaScript engine";
     }
 }
 
@@ -322,38 +291,9 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     
     m_ghostFromSocket = fromSocket;
     
-    // Create a custom ghost edge class to completely control drawing
-    class GhostEdgeItem : public QGraphicsPathItem {
-    public:
-        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override {
-            Q_UNUSED(option)  // Ignore Qt's style options completely
-            Q_UNUSED(widget)
-            
-            // Only draw the path, nothing else
-            painter->setRenderHint(QPainter::Antialiasing);
-            painter->setPen(pen());
-            painter->setBrush(Qt::NoBrush);  // Absolutely no fill
-            painter->drawPath(path());
-        }
-        
-        QRectF boundingRect() const override {
-            // Return the exact path bounds with no padding
-            return path().boundingRect();
-        }
-    };
-    
-    m_ghostEdge = new GhostEdgeItem();
-    m_ghostEdge->setZValue(-10); // Below all interactive items
-    m_ghostEdge->setFlag(QGraphicsItem::ItemIsSelectable, false);
-    m_ghostEdge->setFlag(QGraphicsItem::ItemIsMovable, false);
-    m_ghostEdge->setFlag(QGraphicsItem::ItemIsFocusable, false);
-    m_ghostEdge->setFlag(QGraphicsItem::ItemSendsGeometryChanges, false);
-    m_ghostEdge->setAcceptHoverEvents(false);
-    m_ghostEdge->setAcceptedMouseButtons(Qt::NoButton);
-    m_ghostEdge->setBrush(Qt::NoBrush); // Ensure no fill/bounding box
-    m_ghostEdge->setCacheMode(QGraphicsItem::NoCache); // Disable caching
+    m_ghostEdge = new GhostEdge();
     m_ghostEdge->setData(0, GHOST_EDGE_UUID); // IUnknown UUID marker
-    m_ghostEdge->setPen(ghostPen());
+    
     addItem(m_ghostEdge);
     m_ghostEdgeActive = true;
     
@@ -407,7 +347,6 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
         ghostPenCurrent.setColor(QColor(0, 255, 0, 150)); // Default green
     }
     
-    m_ghostEdge->setPen(ghostPenCurrent);
     m_ghostEdge->setPath(path);
 }
 
