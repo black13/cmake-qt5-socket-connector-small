@@ -6,13 +6,13 @@
 
 set -e
 
-TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-OUTPUT_DIR="code_compendium_${TIMESTAMP}"
+# Allow specifying output directory or use default
+OUTPUT_DIR="${1:-code_compendium}"
 OUTPUT_FILE="${OUTPUT_DIR}/complete_code_compendium.txt"
 
 echo "=== NodeGraph Code Compendium Generator ==="
-echo "Timestamp: ${TIMESTAMP}"
 echo "Output directory: ${OUTPUT_DIR}"
+echo "Note: Use './generate_code_compendium.sh [directory_name]' to specify custom directory"
 
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
