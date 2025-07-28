@@ -50,6 +50,10 @@ public:
     
     // Simple script execution
     void loadAndExecuteScript();
+    
+    // JavaScript test runners
+    void runSpecificScript(const QString& filePath);
+    void runAllTests();
 
 protected:
     // PHASE 3: Safe shutdown coordination
