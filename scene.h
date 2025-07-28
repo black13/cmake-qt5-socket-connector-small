@@ -8,8 +8,8 @@
 class Node;
 class Edge;
 class Socket;
-class QGraphicsPathItem;
 class JavaScriptEngine;
+class GhostEdge;
 
 /**
  * Scene - QElectroTech-style typed scene management
@@ -87,7 +87,7 @@ private:
     QHash<QUuid, Socket*> m_sockets;  // Deprecated - kept for compatibility
     
     // Ghost edge for visual feedback during right-click connection creation
-    QGraphicsPathItem* m_ghostEdge;
+    GhostEdge* m_ghostEdge;
     Socket* m_ghostFromSocket;
     bool m_ghostEdgeActive;
     

@@ -76,9 +76,7 @@ Window::Window(QWidget* parent)
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
     
     // Connect view signals for drag-and-drop
-    qDebug() << "Window: Connecting View::nodeDropped signal to Window::createNodeFromPalette slot";
     connect(m_view, &View::nodeDropped, this, &Window::createNodeFromPalette);
-    qDebug() << "✓ Window: Signal connection established for drag and drop";
     
     // Initial status update
     updateStatusBar();
@@ -590,6 +588,62 @@ void Window::createToolsMenu()
     jsScriptAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
     connect(jsScriptAction, &QAction::triggered, this, &Window::loadAndExecuteScript);
     m_toolsMenu->addAction(jsScriptAction);
+    
+    // Quick test script menu
+    QMenu* testScriptsMenu = m_toolsMenu->addMenu("⚡ Quick Tests");
+    testScriptsMenu->setStatusTip("Run predefined test scripts");
+    
+    QAction* paletteTestAction = new QAction("Palette System Test", this);
+    paletteTestAction->setStatusTip("Test all 5 palette node types");
+    connect(paletteTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_palette_system.js"); });
+    testScriptsMenu->addAction(paletteTestAction);
+    
+    QAction* dragDropTestAction = new QAction("Drag-Drop Simulation", this);
+    dragDropTestAction->setStatusTip("Test drag and drop from palette to scene");
+    connect(dragDropTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_drag_drop_simulation.js"); });
+    testScriptsMenu->addAction(dragDropTestAction);
+    
+    QAction* uiTestAction = new QAction("UI Interactions Test", this);
+    uiTestAction->setStatusTip("Test UI interaction simulations");
+    connect(uiTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_ui_interactions.js"); });
+    testScriptsMenu->addAction(uiTestAction);
+    
+    QAction* performanceTestAction = new QAction("Performance & Stress Test", this);
+    performanceTestAction->setStatusTip("Test system performance with large graphs");
+    connect(performanceTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_performance.js"); });
+    testScriptsMenu->addAction(performanceTestAction);
+    
+    testScriptsMenu->addSeparator();
+    QAction* destructorSafetyAction = new QAction("🛡️ Destructor Safety Test", this);
+    destructorSafetyAction->setStatusTip("Test crash prevention during object destruction");
+    connect(destructorSafetyAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_destructor_safety.js"); });
+    testScriptsMenu->addAction(destructorSafetyAction);
+    
+    QAction* debugApiAction = new QAction("🔍 Debug Graph API", this);
+    debugApiAction->setStatusTip("Debug Graph API availability and functionality");
+    connect(debugApiAction, &QAction::triggered, [this]() { runSpecificScript("scripts/debug_graph_api.js"); });
+    testScriptsMenu->addAction(debugApiAction);
+    
+    QAction* nodeTypesAction = new QAction("🏷️ Test Node Types", this);
+    nodeTypesAction->setStatusTip("Test all registered node types");
+    connect(nodeTypesAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_node_types.js"); });
+    testScriptsMenu->addAction(nodeTypesAction);
+    
+    QAction* simpleGraphAction = new QAction("🟢 Simple Graph Test", this);
+    simpleGraphAction->setStatusTip("Create a basic three-node connected graph");
+    connect(simpleGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_graph.js"); });
+    testScriptsMenu->addAction(simpleGraphAction);
+    
+    QAction* layoutDemoAction = new QAction("🎯 Node Layout Demo", this);
+    layoutDemoAction->setStatusTip("Demonstrate different node positioning strategies");
+    connect(layoutDemoAction, &QAction::triggered, [this]() { runSpecificScript("scripts/demo_node_layout.js"); });
+    testScriptsMenu->addAction(layoutDemoAction);
+    
+    testScriptsMenu->addSeparator();
+    QAction* runAllTestsAction = new QAction("🏃 Run All Tests", this);
+    runAllTestsAction->setStatusTip("Run all test scripts sequentially");
+    connect(runAllTestsAction, &QAction::triggered, this, &Window::runAllTests);
+    testScriptsMenu->addAction(runAllTestsAction);
 }
 
 void Window::createHelpMenu()
@@ -688,7 +742,6 @@ void Window::setupDockWidgets()
     connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested, 
             this, &Window::onNodeCreationRequested);
     
-    qDebug() << "✓ Node palette dock widget created and connected";
 }
 
 void Window::updateStatusBar()
@@ -1015,8 +1068,6 @@ void Window::runJavaScriptTests()
 
 void Window::loadAndExecuteScript()
 {
-    qDebug() << "JS_EXECUTION: User requested script loading";
-    
     QString fileName = QFileDialog::getOpenFileName(
         this, 
         "Load JavaScript File", 
@@ -1025,59 +1076,138 @@ void Window::loadAndExecuteScript()
     );
     
     if (!fileName.isEmpty()) {
-        qDebug() << "JS_EXECUTION: User selected file:" << fileName;
-        
-        qDebug() << "JS_EXECUTION: Getting JavaScript engine from scene";
-        qDebug() << "JS_EXECUTION: Scene pointer:" << m_scene;
-        
         auto* jsEngine = m_scene->getJavaScriptEngine();
-        qDebug() << "JS_EXECUTION: JavaScript engine pointer:" << jsEngine;
         
         if (!jsEngine) {
-            qDebug() << "JS_ERROR: JavaScript engine not initialized";
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
             return;
         }
         
-        // Quick test to verify the engine is functional
-        qDebug() << "JS_TEST: Testing engine functionality before script execution";
+        // Test engine functionality
         QJSValue quickTest = jsEngine->evaluate("1 + 1");
         if (quickTest.isError()) {
-            qDebug() << "JS_TEST: FAILED - Engine not functional:" << quickTest.toString();
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine is not functional");
             return;
-        } else {
-            qDebug() << "JS_TEST: SUCCESS - Engine is functional, test result:" << quickTest.toString();
         }
         
         // Register GraphController if not already done
         jsEngine->registerGraphController(m_scene, m_factory);
-        qDebug() << "JS_EXECUTION: GraphController registered";
-        
-        // Log current graph state before script execution
-        qDebug() << "JS_EXECUTION: Current graph state - nodes:" << m_scene->getNodes().size() << "edges:" << m_scene->getEdges().size();
         
         QJSValue result = jsEngine->evaluateFile(fileName);
         
         if (result.isError()) {
-            qDebug() << "JS_ERROR: Script execution failed, showing error dialog";
             QMessageBox::critical(this, "Script Error", 
                                  QString("Script execution failed: %1").arg(result.toString()));
         } else {
             QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
-            qDebug() << "JS_EXECUTION: Script completed, showing success dialog";
             QMessageBox::information(this, "Script Executed", 
                                    QString("Script completed: %1").arg(resultText));
         }
         
-        // Log graph state after script execution
-        qDebug() << "JS_EXECUTION: Post-execution graph state - nodes:" << m_scene->getNodes().size() << "edges:" << m_scene->getEdges().size();
-        
-        // Update status bar
         updateStatusBar();
-    } else {
-        qDebug() << "JS_EXECUTION: User cancelled script loading";
     }
+}
+
+void Window::runSpecificScript(const QString& filePath)
+{
+    auto* jsEngine = m_scene->getJavaScriptEngine();
+    
+    if (!jsEngine) {
+        QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
+        return;
+    }
+    
+    // Test engine functionality
+    QJSValue quickTest = jsEngine->evaluate("1 + 1");
+    if (quickTest.isError()) {
+        QMessageBox::warning(this, "JavaScript Error", "JavaScript engine is not functional");
+        return;
+    }
+    
+    // Register GraphController if not already done
+    qDebug() << "Registering GraphController with scene:" << m_scene << "factory:" << m_factory;
+    jsEngine->registerGraphController(m_scene, m_factory);
+    qDebug() << "GraphController registration completed";
+    
+    // Show which test is running
+    QFileInfo fileInfo(filePath);
+    statusBar()->showMessage(QString("Running %1...").arg(fileInfo.baseName()), 3000);
+    
+    QJSValue result = jsEngine->evaluateFile(filePath);
+    
+    if (result.isError()) {
+        QMessageBox::critical(this, "Script Error", 
+                             QString("Script execution failed: %1").arg(result.toString()));
+    } else {
+        QString resultText = result.isUndefined() ? "Test completed successfully" : result.toString();
+        QMessageBox::information(this, "Test Results", 
+                               QString("%1: %2").arg(fileInfo.baseName(), resultText));
+    }
+    
+    updateStatusBar();
+}
+
+void Window::runAllTests()
+{
+    QStringList testScripts = {
+        "scripts/test_palette_system.js",
+        "scripts/test_drag_drop_simulation.js", 
+        "scripts/test_ui_interactions.js",
+        "scripts/test_performance.js"
+    };
+    
+    auto* jsEngine = m_scene->getJavaScriptEngine();
+    
+    if (!jsEngine) {
+        QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
+        return;
+    }
+    
+    // Test engine functionality
+    QJSValue quickTest = jsEngine->evaluate("1 + 1");
+    if (quickTest.isError()) {
+        QMessageBox::warning(this, "JavaScript Error", "JavaScript engine is not functional");
+        return;
+    }
+    
+    // Register GraphController if not already done
+    jsEngine->registerGraphController(m_scene, m_factory);
+    
+    statusBar()->showMessage("Running all test scripts...", 5000);
+    
+    int passedTests = 0;
+    int totalTests = testScripts.size();
+    QStringList results;
+    
+    for (int i = 0; i < testScripts.size(); i++) {
+        const QString& scriptPath = testScripts[i];
+        QFileInfo fileInfo(scriptPath);
+        
+        statusBar()->showMessage(QString("Running test %1/%2: %3...").arg(i + 1).arg(totalTests).arg(fileInfo.baseName()), 2000);
+        
+        QJSValue result = jsEngine->evaluateFile(scriptPath);
+        
+        if (result.isError()) {
+            results.append(QString("❌ %1: FAILED - %2").arg(fileInfo.baseName(), result.toString()));
+        } else {
+            results.append(QString("✅ %1: PASSED").arg(fileInfo.baseName()));
+            passedTests++;
+        }
+        
+        // Clear graph between tests to prevent interference
+        QString clearScript = "Graph.clear();";
+        jsEngine->evaluate(clearScript);
+    }
+    
+    QString summary = QString("Test Results: %1/%2 passed\n\n%3")
+                     .arg(passedTests)
+                     .arg(totalTests)
+                     .arg(results.join("\n"));
+    
+    QMessageBox::information(this, "All Tests Complete", summary);
+    
+    statusBar()->showMessage(QString("Tests complete: %1/%2 passed").arg(passedTests).arg(totalTests), 3000);
+    updateStatusBar();
 }
 
 void Window::onNodeCreationRequested()
@@ -1089,7 +1219,6 @@ void Window::onNodeCreationRequested()
     QPointF centerPoint = m_view->mapToScene(m_view->rect().center());
     
     // We'll implement drag-and-drop separately - for now just handle the signal connection
-    qDebug() << "Node creation requested from palette - creating at center:" << centerPoint;
     
     // Create a default input node for testing
     createNodeFromPalette(centerPoint, "IN", "Input", 0, 2);

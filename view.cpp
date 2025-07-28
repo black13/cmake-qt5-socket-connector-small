@@ -13,8 +13,16 @@ View::View(Scene* scene, QWidget* parent)
     , m_scene(scene)
 {
     setRenderHint(QPainter::Antialiasing);
-    setDragMode(QGraphicsView::RubberBandDrag);
+    setRenderHint(QPainter::SmoothPixmapTransform);
+    setDragMode(QGraphicsView::NoDrag);  // Temporarily disable rubber band
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    
+    // Disable any debug drawing of item bounding rectangles
+    setRenderHint(QPainter::Qt4CompatiblePainting, false);
+    
+    // Additional optimizations to prevent bounding box artifacts
+    setOptimizationFlags(QGraphicsView::DontSavePainterState | 
+                        QGraphicsView::DontAdjustForAntialiasing);
     
     // Enable drag and drop
     setAcceptDrops(true);
