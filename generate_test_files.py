@@ -21,6 +21,7 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
     # Generate nodes with specified layout
     nodes = []  # Store node info for edge generation
     spacing = 100
+    grid_size = max(3, int(math.sqrt(num_nodes)) + 1)  # Calculate grid size based on number of nodes
     
     for i in range(num_nodes):
         # Grid position with some randomization
@@ -32,17 +33,20 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
         # Generate UUID in braces format like test.xml
         node_id = "{" + str(uuid.uuid4()) + "}"
         
-        # Random node type and socket counts
-        node_type = random.choice(["IN", "OUT"])
+        # Use actual node types supported by the application
+        node_types = [
+            ("SOURCE", 0, 1),    # Source: 0 inputs, 1 output
+            ("SINK", 1, 0),      # Sink: 1 input, 0 outputs  
+            ("TRANSFORM", 1, 1), # Transform: 1 input, 1 output
+            ("MERGE", 2, 1),     # Merge: 2 inputs, 1 output
+            ("SPLIT", 1, 2),     # Split: 1 input, 2 outputs
+            ("IN", 0, 2),        # Input: 0 inputs, 2 outputs (legacy)
+            ("OUT", 2, 0),       # Output: 2 inputs, 0 outputs (legacy)
+            ("PROC", 2, 2),      # Processor: 2 inputs, 2 outputs
+        ]
         
-        if node_type == "IN":
-            # IN nodes should have more inputs than outputs (consume data)
-            inputs = random.randint(1, 3)
-            outputs = random.randint(0, 2)
-        else:  # OUT
-            # OUT nodes should have more outputs than inputs (produce data)
-            inputs = random.randint(0, 2)
-            outputs = random.randint(1, 3)
+        # Choose a random node type with proper socket configuration
+        node_type, inputs, outputs = random.choice(node_types)
         
         # Store node info for edge generation
         nodes.append({
