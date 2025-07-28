@@ -252,48 +252,60 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
 void Node::positionAllSockets(int totalInputs, int totalOutputs)
 {
     // ✅ Parse-then-position architecture: Position all sockets with complete information
-    // Uses K/O formula: max((2*K + 1), (2*O + 1)) × socketSize
+    // Uses K/O formula: max((2*K + 1), (2*O + 1)) × socketSize with BALANCED CENTERING
     
     const qreal socketSize = 14.0;  // Socket bounding rect is 14x14
     const qreal socketOffset = 4.0; // Distance from node edge
+    const qreal socketSpacing = 32.0; // Match calculateNodeSize spacing
     
     QRectF nodeRect = boundingRect();
     int inputIndex = 0;
     int outputIndex = 0;
     
-    // Calculate socket positions using direct assignment (no calculations in Socket)
+    // BALANCING IMPROVEMENT: Calculate vertical centering for each socket group
+    qreal nodeHeight = nodeRect.height();
+    
+    // Calculate total height needed for each socket group
+    qreal inputGroupHeight = (totalInputs > 0) ? (totalInputs - 1) * socketSpacing + socketSize : 0;
+    qreal outputGroupHeight = (totalOutputs > 0) ? (totalOutputs - 1) * socketSpacing + socketSize : 0;
+    
+    // Calculate starting Y position to center each group within node height
+    qreal inputStartY = (nodeHeight - inputGroupHeight) / 2.0;
+    qreal outputStartY = (nodeHeight - outputGroupHeight) / 2.0;
+    
+    // Calculate socket positions using balanced centering
     for (Socket* socket : m_sockets) {
         if (!socket) continue;
         
         if (socket->getRole() == Socket::Input) {
-            // Input socket: K inputs, positioned with formula (2*K + 1) × socketSize
-            // Position: gap + index*(socket+gap) where gap = socket = socketSize
+            // Input socket: K inputs, BALANCED and CENTERED
             qreal x = -socketOffset;  // Left side of node
-            qreal y = socketSize + (inputIndex * 2 * socketSize); // Gap + index*(socket+gap)
+            qreal y = inputStartY + (inputIndex * socketSpacing);
             
             socket->setDirectPosition(x, y);
             inputIndex++;
             
-            qDebug() << "✅ INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
+            qDebug() << "🎯 BALANCED INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
         } else {
-            // Output socket: O outputs, positioned with formula (2*O + 1) × socketSize  
+            // Output socket: O outputs, BALANCED and CENTERED
             qreal x = nodeRect.width() + socketOffset;  // Right side of node
-            qreal y = socketSize + (outputIndex * 2 * socketSize); // Gap + index*(socket+gap)
+            qreal y = outputStartY + (outputIndex * socketSpacing);
             
             socket->setDirectPosition(x, y);
             outputIndex++;
             
-            qDebug() << "✅ OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
+            qDebug() << "🎯 BALANCED OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
         }
     }
     
-    // Verify formula: node should accommodate max((2*K + 1), (2*O + 1)) × socketSize
+    // Verify balanced positioning
     qreal requiredInputHeight = (totalInputs > 0) ? (2 * totalInputs + 1) * socketSize : 0;
     qreal requiredOutputHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
     qreal requiredHeight = qMax(requiredInputHeight, requiredOutputHeight);
     
-    qDebug() << "✅ Positioned K=" << totalInputs << "inputs, O=" << totalOutputs << "outputs"
-             << "| Required height:" << requiredHeight << "| Node height:" << nodeRect.height()
+    qDebug() << "🎯 BALANCED POSITIONING: K=" << totalInputs << "inputs (start:" << inputStartY 
+             << "), O=" << totalOutputs << "outputs (start:" << outputStartY << ")"
+             << "| Node height:" << nodeHeight << "| Required:" << requiredHeight
              << "for node" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
