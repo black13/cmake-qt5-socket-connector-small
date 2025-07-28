@@ -78,23 +78,8 @@ fi
 # 1. Check and install dependencies
 print_status "Checking dependencies..."
 
-# Check if libxml2-dev is available
-if ! pkg-config --exists libxml-2.0; then
-    print_warning "libxml2-dev not found. Installing dependencies..."
-    echo "Please run the following commands in another terminal:"
-    echo "sudo apt update"
-    echo "sudo apt install -y libxml2-dev build-essential"
-    echo ""
-    read -p "Press Enter after installing dependencies..."
-    
-    # Verify installation
-    if ! pkg-config --exists libxml-2.0; then
-        print_error "libxml2-dev still not found. Please install manually."
-        exit 1
-    fi
-fi
-
-print_success "libxml2-dev found: $(pkg-config --modversion libxml-2.0)"
+# Using FetchContent for libxml2 - no system dependencies required
+print_success "Using FetchContent for libxml2 (no system dependencies needed)"
 
 # Check build tools
 for tool in cmake gcc g++ make; do
@@ -109,20 +94,27 @@ print_success "Build tools available"
 # 2. Check Qt5 installation
 print_status "Checking Qt5 installation..."
 
-QT_CMAKE_PATH="/usr/local/lib/cmake/Qt5"
-if [ ! -f "$QT_CMAKE_PATH/Qt5Config.cmake" ]; then
-    print_error "Qt5 not found in /usr/local. Please check Qt5 installation."
+# Check for Qt5 in the actual installation directory
+QT_DEBUG_PATH="/usr/local/qt-5.15.17-debug"
+QT_RELEASE_PATH="/usr/local/qt-5.15.17-release"
+
+if [ "$BUILD_TYPE" = "Debug" ] && [ -d "$QT_DEBUG_PATH" ]; then
+    QT_PATH="$QT_DEBUG_PATH"
+    print_success "Qt5 Debug found in $QT_PATH"
+elif [ -d "$QT_RELEASE_PATH" ]; then
+    QT_PATH="$QT_RELEASE_PATH"
+    print_success "Qt5 Release found in $QT_PATH"
+else
+    print_error "Qt5 not found. Expected in /usr/local/qt-5.15.17-debug or /usr/local/qt-5.15.17-release"
     exit 1
 fi
-
-print_success "Qt5 found in /usr/local"
 
 # 3. Set up build environment
 print_status "Setting up build environment..."
 
 # Set Qt5 path for CMake
-export CMAKE_PREFIX_PATH="/usr/local:$CMAKE_PREFIX_PATH"
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+export CMAKE_PREFIX_PATH="$QT_PATH:$CMAKE_PREFIX_PATH"  
+export PKG_CONFIG_PATH="$QT_PATH/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 # Create build directory with smart cache preservation
 BUILD_DIR="build_linux"
@@ -151,7 +143,7 @@ print_success "Build directory ready: $BUILD_DIR"
 print_status "Configuring project with CMake..."
 
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DCMAKE_PREFIX_PATH="/usr/local" \
+      -DCMAKE_PREFIX_PATH="$QT_PATH" \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
       .. || {
     print_error "CMake configuration failed!"
@@ -192,9 +184,9 @@ fi
 print_status "Build Summary"
 echo "=============="
 echo "Executable: $(pwd)/NodeGraph"
-echo "Build type: Debug"
+echo "Build type: $BUILD_TYPE"
 echo "Qt5 version: $(qmake -version | grep Qt | cut -d' ' -f4)"
-echo "libxml2 version: $(pkg-config --modversion libxml-2.0)"
+echo "libxml2 source: FetchContent (built from source)"
 echo ""
 
 if [ -f "NodeGraph" ]; then

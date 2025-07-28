@@ -83,8 +83,8 @@ public:
         setConnectionState(m_connectedEdge ? Connected : Disconnected); 
     }
     
-    // Socket positioning (automatic based on index and role)
-    void updatePosition();
+    // ✅ Direct position assignment - no calculations, just assignment
+    void setDirectPosition(qreal x, qreal y) { setPos(x, y); }
     
     // Visual state for drag-and-drop feedback (disabled)
     // VisualState getVisualState() const { return m_visualState; }
@@ -103,6 +103,4 @@ private:
     // Performance optimization: cache index string (created once, not every frame)
     mutable QString m_cachedIndexString;
     
-    // Positioning helpers
-    QPointF calculatePosition() const;
 };

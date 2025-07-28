@@ -21,7 +21,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
-    updatePosition();
+    // ✅ NO positioning in constructor - will be positioned later with complete information
     
     // Register with parent node for O(1) lookups
     if (parentNode) {
@@ -203,45 +203,6 @@ void Socket::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
     update();
 }
 
-void Socket::updatePosition()
-{
-    Node* parent = getParentNode();
-    if (!parent) return;
-    
-    QRectF nodeRect = parent->boundingRect();
-    const qreal socketSpacing = 32.0;  // Increased spacing for better appearance
-    const qreal socketOffset = 4.0;    // Closer offset for smaller sockets
-    const qreal topPadding = 14.0;     // Padding from top of node (socket width)
-    
-    // Count input and output sockets to calculate proper vertical positioning
-    int inputCount = 0;
-    int outputCount = 0;
-    int myInputIndex = -1;
-    int myOutputIndex = -1;
-    
-    // Find socket counts and my position within role
-    for (QGraphicsItem* child : parent->childItems()) {
-        if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-            if (socket->getRole() == Socket::Input) {
-                if (socket == this) myInputIndex = inputCount;
-                inputCount++;
-            } else {
-                if (socket == this) myOutputIndex = outputCount;
-                outputCount++;
-            }
-        }
-    }
-    
-    if (m_role == Input) {
-        // Input sockets on left side, starting from top with padding
-        qreal startY = nodeRect.top() + topPadding;
-        setPos(-socketOffset, startY + (myInputIndex * socketSpacing));
-    } else {
-        // Output sockets on right side, starting from top with padding
-        qreal startY = nodeRect.top() + topPadding;
-        setPos(nodeRect.width() + socketOffset, startY + (myOutputIndex * socketSpacing));
-    }
-}
 
 xmlNodePtr Socket::write(xmlDocPtr doc, xmlNodePtr repr) const
 {
@@ -255,43 +216,7 @@ void Socket::read(xmlNodePtr node)
 {
     Q_UNUSED(node)
     // Socket properties read from parent node's socket definitions
-    updatePosition();
+    // Position is set by parent node's positionAllSockets() method
 }
 
 
-QPointF Socket::calculatePosition() const
-{
-    Node* parent = getParentNode();
-    if (!parent) return QPointF(0, 0);
-    
-    QRectF nodeRect = parent->boundingRect();
-    const qreal socketSpacing = 32.0;  // Increased spacing for better appearance
-    const qreal socketOffset = 4.0;    // Closer offset for smaller sockets
-    const qreal topPadding = 14.0;     // Padding from top of node (socket width)
-    
-    // Count input and output sockets for proper centering
-    int inputCount = 0;
-    int outputCount = 0;
-    int myInputIndex = -1;
-    int myOutputIndex = -1;
-    
-    for (QGraphicsItem* child : parent->childItems()) {
-        if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-            if (socket->getRole() == Socket::Input) {
-                if (socket == this) myInputIndex = inputCount;
-                inputCount++;
-            } else {
-                if (socket == this) myOutputIndex = outputCount;
-                outputCount++;
-            }
-        }
-    }
-    
-    if (m_role == Input) {
-        qreal startY = nodeRect.top() + topPadding;
-        return QPointF(-socketOffset, startY + (myInputIndex * socketSpacing));
-    } else {
-        qreal startY = nodeRect.top() + topPadding;
-        return QPointF(nodeRect.width() + socketOffset, startY + (myOutputIndex * socketSpacing));
-    }
-}

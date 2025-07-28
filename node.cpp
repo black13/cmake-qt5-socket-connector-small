@@ -216,6 +216,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Calculate dynamic node size based on socket count
     calculateNodeSize(inputCount, outputCount);
     
+    // ✅ Phase 1: Create all socket objects (no positioning yet)
     int socketIndex = 0;
     
     // Create input sockets (indexes 0, 1, 2, ...)
@@ -242,7 +243,58 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
         }
     }
     
+    // ✅ Phase 2: Position all sockets with complete information
+    positionAllSockets(inputCount, outputCount);
+    
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << inputCount << "IN" << outputCount << "OUT";
+}
+
+void Node::positionAllSockets(int totalInputs, int totalOutputs)
+{
+    // ✅ Parse-then-position architecture: Position all sockets with complete information
+    // Uses K/O formula: max((2*K + 1), (2*O + 1)) × socketSize
+    
+    const qreal socketSize = 14.0;  // Socket bounding rect is 14x14
+    const qreal socketOffset = 4.0; // Distance from node edge
+    
+    QRectF nodeRect = boundingRect();
+    int inputIndex = 0;
+    int outputIndex = 0;
+    
+    // Calculate socket positions using direct assignment (no calculations in Socket)
+    for (Socket* socket : m_sockets) {
+        if (!socket) continue;
+        
+        if (socket->getRole() == Socket::Input) {
+            // Input socket: K inputs, positioned with formula (2*K + 1) × socketSize
+            // Position: gap + index*(socket+gap) where gap = socket = socketSize
+            qreal x = -socketOffset;  // Left side of node
+            qreal y = socketSize + (inputIndex * 2 * socketSize); // Gap + index*(socket+gap)
+            
+            socket->setDirectPosition(x, y);
+            inputIndex++;
+            
+            qDebug() << "✅ INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
+        } else {
+            // Output socket: O outputs, positioned with formula (2*O + 1) × socketSize  
+            qreal x = nodeRect.width() + socketOffset;  // Right side of node
+            qreal y = socketSize + (outputIndex * 2 * socketSize); // Gap + index*(socket+gap)
+            
+            socket->setDirectPosition(x, y);
+            outputIndex++;
+            
+            qDebug() << "✅ OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
+        }
+    }
+    
+    // Verify formula: node should accommodate max((2*K + 1), (2*O + 1)) × socketSize
+    qreal requiredInputHeight = (totalInputs > 0) ? (2 * totalInputs + 1) * socketSize : 0;
+    qreal requiredOutputHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
+    qreal requiredHeight = qMax(requiredInputHeight, requiredOutputHeight);
+    
+    qDebug() << "✅ Positioned K=" << totalInputs << "inputs, O=" << totalOutputs << "outputs"
+             << "| Required height:" << requiredHeight << "| Node height:" << nodeRect.height()
+             << "for node" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
 Socket* Node::getSocketByIndex(int index) const
