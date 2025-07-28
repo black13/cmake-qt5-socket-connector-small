@@ -149,6 +149,8 @@ set(CORE_SOURCES
     socket.cpp
     edge.h
     edge.cpp
+    ghost_edge.h
+    ghost_edge.cpp
     
     # Node registry system
     node_registry.h

@@ -28,14 +28,22 @@ XmlAutosaveObserver::XmlAutosaveObserver(Scene* scene, const QString& filename)
         performAutosave();
     });
     
-    qDebug().noquote() << "[AUTOSAVE] Observer created. Subject:" << m_scene;
 }
 
 XmlAutosaveObserver::~XmlAutosaveObserver()
 {
-    if (m_pendingChanges && m_enabled) {
-        saveNow(); // Save any pending changes before destruction
+    try {
+        if (m_pendingChanges && m_enabled) {
+            saveNow(); // Save any pending changes before destruction
+        }
+    } catch (const std::exception& e) {
+        qWarning() << "XmlAutosaveObserver: Failed to save during cleanup:" << e.what();
+        qWarning() << "Pending changes may be lost but application will continue safely";
+    } catch (...) {
+        qWarning() << "XmlAutosaveObserver: Unknown error during cleanup - data may be lost";
+        qWarning() << "Application continues to prevent crash";
     }
+    
     delete m_saveTimer;
 }
 
@@ -48,7 +56,7 @@ void XmlAutosaveObserver::setFilename(const QString& filename)
 void XmlAutosaveObserver::setDelay(int milliseconds)
 {
     m_saveTimer->setInterval(milliseconds);
-    qDebug() << "XmlAutosaveObserver: Delay changed to" << milliseconds << "ms";
+    qDebug() << "Autosave:" << milliseconds << "ms";
 }
 
 void XmlAutosaveObserver::setEnabled(bool enabled)
@@ -57,7 +65,7 @@ void XmlAutosaveObserver::setEnabled(bool enabled)
     if (!enabled) {
         m_saveTimer->stop();
     }
-    qDebug() << "XmlAutosaveObserver: Enabled =" << m_enabled;
+    qDebug() << "Autosave enabled:" << m_enabled;
 }
 
 void XmlAutosaveObserver::saveNow()
