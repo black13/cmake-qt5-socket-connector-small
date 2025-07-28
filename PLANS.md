@@ -2,8 +2,84 @@
 
 ## Current Status
 ✅ **Completed**: Phase 3 XML serialization fixes - save/load working with actual graph data  
+✅ **Completed**: Phase 3.5 JavaScript Integration - QJSEngine with comprehensive API  
+✅ **Completed**: Socket balancing improvements - vertical centering within nodes  
 🔄 **Next**: Implement Inkscape-style live XML synchronization system  
 📍 **Branch**: Ready to merge `feature/inkscape-xml-system` to main, then start new work
+
+## Phase 3.5: JavaScript Integration System ✅
+
+### Overview & Achievement
+Successfully integrated QJSEngine to provide comprehensive JavaScript scripting capabilities for the NodeGraph system, enabling scriptable node behaviors, graph algorithms, and automated testing.
+
+### Implementation Components
+
+#### 3.5.1 JavaScript Engine Core (`javascript_engine.h/cpp`)
+**Files:** `javascript_engine.h`, `javascript_engine.cpp`
+
+```cpp
+class JavaScriptEngine : public QObject {
+    // QJSEngine integration for node scripting
+    QJSValue evaluate(const QString& script);
+    QJSValue evaluateFile(const QString& filePath);
+    
+    // API registration with scene access
+    void registerNodeAPI(Scene* scene);
+    void registerGraphController(Scene* scene, GraphFactory* factory);
+    
+    // Node scripting and graph processing
+    bool executeNodeScript(Node* node, const QString& script);
+    QJSValue processGraph(const QString& algorithm);
+    
+    // Script module management
+    void loadScriptModule(const QString& moduleName, const QString& scriptContent);
+    QJSValue getModule(const QString& moduleName);
+};
+```
+
+#### 3.5.2 Comprehensive JavaScript API
+**Capabilities implemented:**
+- **Node Operations**: Creation, deletion, property modification via JavaScript
+- **Graph Processing**: Algorithm execution, traversal, analysis
+- **Scene Integration**: Direct access to Qt5 graphics scene from scripts
+- **Console API**: `console.log()`, `console.error()` with Qt integration
+- **Error Handling**: Exception capture and JavaScript error reporting
+- **Module System**: Script loading and reusable module management
+
+#### 3.5.3 JavaScript Test Suite (`scripts/`)
+**Test Files:**
+- `test_javascript.js` - Comprehensive engine functionality testing
+- `test_graph_creation.js` - Graph operations via JavaScript API
+- `test_roundtrip.js` - Data serialization and consistency testing  
+- `node_algorithms.js` - Graph processing algorithms in JavaScript
+- `custom_nodes.js` - Custom node type definitions and behaviors
+- `test_destructor_safety.js` - Safety testing for memory management
+
+#### 3.5.4 Safety Integration
+**Safety Features:**
+- Destructor exception safety testing via JavaScript automation
+- Memory leak detection through script-driven object lifecycle testing
+- Crash prevention verification for edge cases
+- JavaScript-driven stress testing of Qt5 graphics system
+
+### Key Benefits Achieved
+
+✅ **Scriptable Behaviors**: Nodes can now execute custom JavaScript logic  
+✅ **Graph Algorithms**: Complex graph processing implemented in JavaScript  
+✅ **Automated Testing**: Comprehensive test suite runs via JavaScript engine  
+✅ **Rapid Development**: New node types and behaviors without C++ compilation  
+✅ **Safety Validation**: JavaScript-driven safety and crash prevention testing  
+✅ **API Extensibility**: Clean separation between core C++ and script logic  
+
+### Success Criteria Met
+
+- ✅ QJSEngine fully integrated with Qt5 graphics system
+- ✅ JavaScript API provides full access to node and graph operations  
+- ✅ Comprehensive test suite validates engine functionality
+- ✅ Script module system enables code reuse and organization
+- ✅ Error handling and debugging support implemented
+- ✅ Safety testing automation via JavaScript scripts
+- ✅ Performance acceptable for real-time graph operations
 
 ## Phase 4: Live XML Synchronization System
 
