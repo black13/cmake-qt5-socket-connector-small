@@ -216,7 +216,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Calculate dynamic node size based on socket count
     calculateNodeSize(inputCount, outputCount);
     
-    // ✅ Phase 1: Create all socket objects (no positioning yet)
+    // Phase 1: Create all socket objects (no positioning yet)
     int socketIndex = 0;
     
     // Create input sockets (indexes 0, 1, 2, ...)
@@ -243,7 +243,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
         }
     }
     
-    // ✅ Phase 2: Position all sockets with complete information
+    // Phase 2: Position all sockets with complete information
     positionAllSockets(inputCount, outputCount);
     
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << inputCount << "IN" << outputCount << "OUT";
@@ -251,7 +251,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
 
 void Node::positionAllSockets(int totalInputs, int totalOutputs)
 {
-    // ✅ Parse-then-position architecture: Position all sockets with complete information
+    // Parse-then-position architecture: Position all sockets with complete information
     // Uses K/O formula: max((2*K + 1), (2*O + 1)) × socketSize with BALANCED CENTERING
     
     const qreal socketSize = 14.0;  // Socket bounding rect is 14x14
@@ -262,39 +262,42 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     int inputIndex = 0;
     int outputIndex = 0;
     
-    // BALANCING IMPROVEMENT: Calculate vertical centering for each socket group
+    // VIRTUAL BOUNDING BOX APPROACH: Create centered virtual boxes for socket placement
     qreal nodeHeight = nodeRect.height();
+    qreal nodeCenterY = nodeHeight * 0.6; // Visual center, moved down from geometric center
     
-    // Calculate total height needed for each socket group
-    qreal inputGroupHeight = (totalInputs > 0) ? (totalInputs - 1) * socketSpacing + socketSize : 0;
-    qreal outputGroupHeight = (totalOutputs > 0) ? (totalOutputs - 1) * socketSpacing + socketSize : 0;
+    // Create virtual bounding boxes for each socket group using (2*n + 1) * socketSize formula
+    qreal inputBoxHeight = (totalInputs > 0) ? (2 * totalInputs + 1) * socketSize : 0;
+    qreal outputBoxHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
     
-    // Calculate starting Y position to center each group within node height
-    qreal inputStartY = (nodeHeight - inputGroupHeight) / 2.0;
-    qreal outputStartY = (nodeHeight - outputGroupHeight) / 2.0;
+    // Align the horizontal center lines: socket box center = node center
+    qreal inputBoxCenterY = nodeCenterY;
+    qreal outputBoxCenterY = nodeCenterY;
+    qreal inputBoxStartY = inputBoxCenterY - (inputBoxHeight / 2.0);
+    qreal outputBoxStartY = outputBoxCenterY - (outputBoxHeight / 2.0);
     
     // Calculate socket positions using balanced centering
     for (Socket* socket : m_sockets) {
         if (!socket) continue;
         
         if (socket->getRole() == Socket::Input) {
-            // Input socket: K inputs, BALANCED and CENTERED
+            // Place socket within the centered virtual input bounding box
             qreal x = -socketOffset;  // Left side of node
-            qreal y = inputStartY + (inputIndex * socketSpacing);
+            qreal y = inputBoxStartY + socketSize * (2 * inputIndex + 1); // Position at center of each slot
             
             socket->setDirectPosition(x, y);
             inputIndex++;
             
-            qDebug() << "🎯 BALANCED INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
+            qDebug() << "VIRTUAL BOX INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
         } else {
-            // Output socket: O outputs, BALANCED and CENTERED
+            // Place socket within the centered virtual output bounding box  
             qreal x = nodeRect.width() + socketOffset;  // Right side of node
-            qreal y = outputStartY + (outputIndex * socketSpacing);
+            qreal y = outputBoxStartY + socketSize * (2 * outputIndex + 1); // Position at center of each slot
             
             socket->setDirectPosition(x, y);
             outputIndex++;
             
-            qDebug() << "🎯 BALANCED OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
+            qDebug() << "VIRTUAL BOX OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
         }
     }
     
@@ -303,8 +306,8 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     qreal requiredOutputHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
     qreal requiredHeight = qMax(requiredInputHeight, requiredOutputHeight);
     
-    qDebug() << "🎯 BALANCED POSITIONING: K=" << totalInputs << "inputs (start:" << inputStartY 
-             << "), O=" << totalOutputs << "outputs (start:" << outputStartY << ")"
+    qDebug() << "VIRTUAL BOX POSITIONING: K=" << totalInputs << "inputs (box start:" << inputBoxStartY 
+             << "), O=" << totalOutputs << "outputs (box start:" << outputBoxStartY << ")"
              << "| Node height:" << nodeHeight << "| Required:" << requiredHeight
              << "for node" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
