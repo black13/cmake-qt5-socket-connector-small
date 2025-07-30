@@ -386,3 +386,323 @@ case Qt::Key_O:
 - Plugin architecture for custom XML elements
 - Export/import to other formats
 - Template system for common graph patterns
+
+---
+
+## Phase 9: XML-Based Computation Engine
+
+### Overview & Vision
+Transform the NodeGraph system into an XML-driven computation engine that can either interpret computational graphs on-the-fly or generate and compile native code for high-performance execution.
+
+### Core Concept
+Create a visual programming environment where:
+- Computational logic is stored as XML in the scene graph
+- Nodes can contain embedded scripts or computational specifications  
+- The system can switch between interpreted execution (fast iteration) and compiled execution (high performance)
+- All computation remains serializable and version-controllable through XML
+
+### Implementation Phases
+
+#### Phase 9.1: Scriptable Compute Nodes (2-4 weeks)
+**Goal**: Add nodes that can execute embedded JavaScript for computation
+
+**XML Schema Extension:**
+```xml
+<node id="calc1" type="Compute" x="100" y="100">
+    <script lang="javascript"><![CDATA[
+        function compute(inputs) {
+            return inputs.a + inputs.b * Math.sin(inputs.c);
+        }
+    ]]></script>
+    <inputs>
+        <input name="a" type="number" socket="0"/>
+        <input name="b" type="number" socket="1"/>
+        <input name="c" type="number" socket="2"/>
+    </inputs>
+    <output name="result" type="number" socket="0"/>
+</node>
+```
+
+**ComputeNode Implementation:**
+```cpp
+class ComputeNode : public Node {
+private:
+    QString m_scriptSource;
+    QJSValue m_compiledFunction;
+    QVariantMap m_inputValues;
+    QVariant m_outputValue;
+    
+public:
+    void setScript(const QString& source);
+    void execute();
+    QVariant getOutput() const;
+    
+    // XML serialization integration
+    xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr) const override;
+    void read(xmlNodePtr node) override;
+};
+```
+
+**Data Flow Integration:**
+- Connect compute nodes via existing socket system
+- When input sockets receive data → trigger `execute()`
+- Cache results until inputs change
+- Propagate outputs to connected nodes
+
+#### Phase 9.2: Advanced Computation Features (Month 2)
+**Goal**: Enhanced computational capabilities and debugging
+
+**Multi-Language Support:**
+- JavaScript (current QJSEngine)
+- Lua integration (`lua.hpp`)
+- Python embedding (`python.h`)
+
+**Standard Library Functions:**
+```javascript
+// Math operations
+Math.matrix([[1,2],[3,4]])
+Math.fft([1,2,3,4])
+Math.interpolate(points, method)
+
+// Data processing  
+Data.filter(array, predicate)
+Data.reduce(array, operation)
+Data.transform(data, mapping)
+
+// Visualization helpers
+Plot.line(data)
+Plot.histogram(values)
+Chart.bar(categories, values)
+```
+
+**Live Computation Console:**
+- REPL environment integrated with existing JavaScript engine
+- Real-time graph inspection
+- Interactive debugging capabilities
+- Script testing sandbox
+
+#### Phase 9.3: Code Generation Engine (Month 3-4)
+**Goal**: Generate and compile native code from XML computation graphs
+
+**XML Computation Schema:**
+```xml
+<computation id="pipeline1">
+    <const id="pi" type="double" value="3.14159"/>
+    <var id="x" type="double" socket="input_0"/>
+    <op id="mult1" fn="multiply" inputs="pi x"/>
+    <op id="sin1" fn="sin" inputs="mult1"/>
+    <output id="result" from="sin1" socket="output_0"/>
+</computation>
+```
+
+**Code Generation Pipeline:**
+```cpp
+class ComputationIR {
+    struct Operation {
+        QString id;
+        QString function;
+        QStringList inputs;
+        QString output;
+        QVariantMap parameters;
+    };
+    
+    QList<Operation> operations;
+    QStringList dependencies;
+    
+public:
+    static ComputationIR fromXml(xmlNodePtr computeGraph);
+    QString generateCpp() const;
+    QString generateLLVMIR() const;
+};
+```
+
+**JIT Compilation System:**
+```cpp
+class JITCompiler {
+private:
+    QTemporaryDir m_tempDir;
+    QHash<QString, QLibrary*> m_loadedLibraries;
+    
+public:
+    QString compile(const ComputationIR& ir);
+    void* loadFunction(const QString& libPath, const QString& funcName);
+    void unloadLibrary(const QString& libPath);
+};
+```
+
+**Generated Code Example:**
+From XML computation → generates:
+```cpp
+extern "C" double pipeline1(double x) {
+    const double pi = 3.14159;
+    double mult1 = pi * x;
+    return std::sin(mult1);
+}
+```
+
+#### Phase 9.4: Advanced Features (Month 5-6)
+**Goal**: Production-ready computational environment
+
+**Hot-Reload Infrastructure:**
+- Content-based caching (hash XML → compiled .so)
+- Async compilation pipeline
+- Fallback to interpreter during compilation
+- Memory-mapped function loading
+
+**Performance Optimizations:**
+- Automatic vectorization detection
+- Loop fusion and optimization
+- Dead code elimination
+- Common subexpression elimination
+
+**Plugin Architecture:**
+```cpp
+class ComputationPlugin {
+public:
+    virtual QString name() const = 0;
+    virtual QStringList supportedOperations() const = 0;
+    virtual QJSValue execute(const QString& op, const QJSValueList& args) = 0;
+    virtual QString generateCode(const QString& op, const QStringList& inputs) const = 0;
+};
+```
+
+### Integration with Existing System
+
+**Scene Integration:**
+- ComputeNode inherits from existing Node class
+- Uses current socket system for I/O connections
+- Integrates with XML serialization via `write()/read()`
+- Participates in observer pattern for change notifications
+
+**JavaScript API Extension:**
+```javascript  
+// Enhanced Graph API building on existing javascript_engine.cpp
+Graph.createComputeNode(x, y, script)
+Graph.setNodeScript(nodeId, script)
+Graph.executeNode(nodeId)
+Graph.getNodeOutput(nodeId)
+
+// New Compilation API
+Compiler.generateCode(nodeId)
+Compiler.compile(nodeId)
+Compiler.switchToCompiled(nodeId)
+Compiler.switchToInterpreted(nodeId)
+```
+
+**Memory Management Integration:**
+- Smart pointer integration with existing Qt object system
+- Reference counting for shared computational data
+- Automatic cleanup of compiled libraries
+- Memory pool for frequent allocations during computation
+
+### Performance Targets
+
+**Interpreter Path (Development):**
+- QJSEngine execution: ~1-10ms per operation
+- Suitable for prototyping and debugging
+- Immediate feedback for script changes
+- No compilation overhead
+
+**Compiled Path (Production):**
+- Native execution: ~0.01-0.1ms per operation  
+- 10-100x performance improvement over interpreted
+- Startup cost: 100-1000ms compilation time
+- Suitable for intensive computational workloads
+
+**Hybrid Approach:**
+- Start with interpreter for immediate feedback
+- Async compile in background while user continues editing
+- Hot-swap to compiled version when ready
+- Fallback to interpreter on compilation failure
+
+### Security & Sandboxing
+
+**Script Execution Limits:**
+- Execution time limits to prevent infinite loops
+- Memory usage caps for computational workloads
+- Function whitelist/blacklist for allowed operations
+- File system access restrictions
+
+**Compilation Security:**
+- Compiler process sandboxing
+- Code injection prevention during IR generation
+- Signed library verification for loaded .so files
+- Resource usage monitoring during compilation
+
+### Development Milestones
+
+**Milestone 9.1: Basic Scriptable Nodes (Week 1-2)**
+- [ ] ComputeNode class implementation
+- [ ] XML schema for embedded scripts
+- [ ] Basic JavaScript execution via existing engine
+- [ ] Socket integration for data flow
+- [ ] Simple UI for script editing
+
+**Milestone 9.2: Enhanced Scripting (Week 3-4)**
+- [ ] Error handling and reporting integration
+- [ ] Standard library functions in JavaScript
+- [ ] Live output display in nodes
+- [ ] Script validation and syntax checking
+- [ ] Performance monitoring dashboard
+
+**Milestone 9.3: Code Generation Foundation (Week 5-8)**
+- [ ] IR generation from XML computation graphs
+- [ ] Basic C++ code generation templates
+- [ ] Simple compilation pipeline using system compiler
+- [ ] Function loading and execution testing
+- [ ] Performance comparison tools (interpreted vs compiled)
+
+**Milestone 9.4: Production Features (Week 9-12)**
+- [ ] Hot-reload and content-based caching system
+- [ ] Advanced optimizations (vectorization, fusion)
+- [ ] GPU support investigation (CUDA/OpenCL)
+- [ ] Plugin architecture implementation
+- [ ] Comprehensive documentation and examples
+
+### Integration Benefits
+
+**Leverages Existing Infrastructure:**
+- ✅ XML serialization system already handles complex node data
+- ✅ JavaScript engine provides immediate execution environment
+- ✅ Socket system handles data flow between computational nodes
+- ✅ Observer pattern enables reactive computation updates
+- ✅ Qt5 graphics system supports real-time visualization
+
+**Extends Current Capabilities:**
+- ✅ Visual programming becomes true computational platform
+- ✅ Rapid prototyping with interpreted scripts
+- ✅ Production deployment with compiled performance
+- ✅ All computation remains version-controllable via XML
+- ✅ Seamless integration with existing node-based workflow
+
+### Success Criteria
+
+**Technical Metrics:**
+- **Performance**: 10-100x speedup for compiled vs interpreted execution
+- **Memory Usage**: <10% overhead for computation framework
+- **Compilation Time**: <1 second for typical computation graphs
+- **Accuracy**: Identical results between interpreted and compiled modes
+
+**User Experience Metrics:**
+- **Learning Curve**: New users productive with compute nodes within 30 minutes
+- **Debugging Experience**: Easy to locate and fix script errors
+- **Visual Feedback**: Real-time computation results displayed in nodes
+- **Workflow Integration**: Seamless with existing node editing and XML persistence
+
+### Long-term Vision
+
+**Year 1: Foundation**
+- Complete XML computation engine with JavaScript and C++ paths
+- Visual debugging environment integrated with existing tools
+- Basic optimization pipeline for common computation patterns
+
+**Year 2: Expansion**  
+- Multi-language support (Python, Lua, Rust integration)
+- GPU computation integration with automatic CPU/GPU dispatch
+- Distributed execution capabilities for large computational graphs
+
+**Year 3: Ecosystem**
+- Plugin marketplace for computational modules
+- Standard library ecosystem for domain-specific computation
+- Cloud execution platform integration
+- Industry-specific templates and computational building blocks
