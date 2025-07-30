@@ -81,33 +81,57 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     // Make sure no brush is set (no fill)
     painter->setBrush(Qt::NoBrush);
     
-    // Enhanced edge styling with cable-like appearance
-    QPen connectionPen;
-    
+    // IMPROVED: Multi-layer cable-like rendering with depth
     if (isSelected()) {
-        connectionPen = QPen(QColor(255, 69, 0), 6); // Thick bright orange for selection
-        connectionPen.setStyle(Qt::SolidLine); // Solid line for better visibility
-        connectionPen.setCapStyle(Qt::RoundCap); // Round caps like a cable
+        // Selection: bright orange with glow effect
+        QPen glowPen(QColor(255, 69, 0, 100), 12);
+        glowPen.setCapStyle(Qt::RoundCap);
+        painter->setPen(glowPen);
+        painter->drawPath(m_path);
+        
+        QPen selectionPen(QColor(255, 69, 0), 6);
+        selectionPen.setCapStyle(Qt::RoundCap);
+        painter->setPen(selectionPen);
+        painter->drawPath(m_path);
     } else if (m_hovered) {
-        connectionPen = QPen(QColor(100, 150, 255), 4); // Blue and thicker when hovered
-        connectionPen.setStyle(Qt::SolidLine);
-        connectionPen.setCapStyle(Qt::RoundCap);
+        // Hover: blue with subtle glow
+        QPen hoverGlowPen(QColor(100, 150, 255, 80), 8);
+        hoverGlowPen.setCapStyle(Qt::RoundCap);
+        painter->setPen(hoverGlowPen);
+        painter->drawPath(m_path);
+        
+        QPen hoverPen(QColor(100, 150, 255), 4);
+        hoverPen.setCapStyle(Qt::RoundCap);
+        painter->setPen(hoverPen);
+        painter->drawPath(m_path);
     } else {
-        connectionPen = QPen(QColor(70, 70, 70), 3); // Slightly thicker for cable appearance
-        connectionPen.setCapStyle(Qt::RoundCap);
-    }
-    
-    // Add subtle gradient effect by drawing shadow first
-    if (!isSelected()) {
-        QPen shadowPen(QColor(0, 0, 0, 50), 3);
+        // Normal: layered cable appearance with depth
+        // Layer 1: Shadow for depth
+        QPen shadowPen(QColor(0, 0, 0, 60), 5);
+        shadowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(shadowPen);
         QPainterPath shadowPath = m_path;
-        shadowPath.translate(1, 1);
+        shadowPath.translate(1.5, 1.5);
         painter->drawPath(shadowPath);
+        
+        // Layer 2: Dark outline for definition
+        QPen outlinePen(QColor(40, 40, 40), 4);
+        outlinePen.setCapStyle(Qt::RoundCap);
+        painter->setPen(outlinePen);
+        painter->drawPath(m_path);
+        
+        // Layer 3: Main cable body with subtle gradient effect
+        QPen mainPen(QColor(85, 85, 85), 3);
+        mainPen.setCapStyle(Qt::RoundCap);
+        painter->setPen(mainPen);
+        painter->drawPath(m_path);
+        
+        // Layer 4: Highlight for 3D cable effect
+        QPen highlightPen(QColor(120, 120, 120), 1);
+        highlightPen.setCapStyle(Qt::RoundCap);
+        painter->setPen(highlightPen);
+        painter->drawPath(m_path);
     }
-    
-    painter->setPen(connectionPen);
-    painter->drawPath(m_path);
     
     // Restore painter state
     painter->restore();
@@ -215,34 +239,62 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Clear and rebuild path safely
     m_path.clear();
     
-    // Create "plugged-in" appearance by adjusting connection points
-    // Move connection points toward center of sockets for better visual integration
+    // Enhanced connection appearance with better visual integration
     QPointF adjustedStart = start;
     QPointF adjustedEnd = end;
     
-    // Adjust start point (output socket) - extend slightly toward the target
-    if (end.x() > start.x()) {
-        adjustedStart.setX(start.x() + 6); // Move 6 pixels toward target (smaller sockets)
-    } else {
-        adjustedStart.setX(start.x() - 6);
-    }
+    // Improved socket connection points for better "plugged-in" look
+    const qreal socketRadius = 7.0; // Match socket visual size
+    QPointF diff = adjustedEnd - adjustedStart;
+    qreal length = std::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
+    QPointF direction = length > 0 ? QPointF(diff.x() / length, diff.y() / length) : QPointF(0, 0);
     
-    // Adjust end point (input socket) - extend slightly toward the source
-    if (end.x() > start.x()) {
-        adjustedEnd.setX(end.x() - 6); // Move 6 pixels toward source (smaller sockets)
-    } else {
-        adjustedEnd.setX(end.x() + 6);
-    }
+    // Move connection points to socket edges for cleaner appearance
+    adjustedStart += direction * socketRadius;
+    adjustedEnd -= direction * socketRadius;
     
     m_path.moveTo(adjustedStart);
     
-    // Create a curved connection with bounds checking
+    // IMPROVED: Dynamic curve calculation based on distance and orientation
     qreal dx = adjustedEnd.x() - adjustedStart.x();
-    qreal controlOffset = qMin(qAbs(dx) * 0.5, 100.0); // Limit control point distance
+    qreal dy = adjustedEnd.y() - adjustedStart.y();
+    qreal distance = std::sqrt(dx * dx + dy * dy);
     
-    QPointF control1 = adjustedStart + QPointF(controlOffset, 0);
-    QPointF control2 = adjustedEnd - QPointF(controlOffset, 0);
+    // Adaptive control point calculation for better curves
+    qreal horizontalFactor = qAbs(dx) / qMax(distance, 1.0);
+    qreal verticalFactor = qAbs(dy) / qMax(distance, 1.0);
+    
+    // Dynamic control offset based on distance and direction
+    qreal controlOffset;
+    if (horizontalFactor > 0.8) {
+        // Mostly horizontal: use classic Bezier with distance-based offset
+        controlOffset = qMax(qAbs(dx) * 0.4, qMin(distance * 0.3, 150.0));
+    } else {
+        // More vertical: tighter curves for better routing
+        controlOffset = qMax(40.0, qMin(distance * 0.2, 80.0));
+    }
+    
+    // Enhanced control point positioning for natural cable-like curves
+    QPointF control1, control2;
+    
+    if (dx >= 0) {
+        // Left-to-right: standard horizontal Bezier
+        control1 = adjustedStart + QPointF(controlOffset, 0);
+        control2 = adjustedEnd - QPointF(controlOffset, 0);
+    } else {
+        // Right-to-left: S-curve for better visual routing
+        qreal verticalOffset = qAbs(dy) * 0.3;
+        control1 = adjustedStart + QPointF(controlOffset * 0.6, dy > 0 ? verticalOffset : -verticalOffset);
+        control2 = adjustedEnd - QPointF(controlOffset * 0.6, dy > 0 ? verticalOffset : -verticalOffset);
+    }
+    
+    // Create smooth cubic Bezier curve
     m_path.cubicTo(control1, control2, adjustedEnd);
+    
+    // ENHANCEMENT: Add subtle arrowhead for directional clarity
+    if (distance > 30.0) { // Only draw arrow for longer connections
+        addArrowHead(adjustedEnd, direction);
+    }
     
     // Notify Qt's BSP cache before changing bounding rectangle
     prepareGeometryChange();
@@ -256,6 +308,29 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
         m_boundingRect = QRectF(start, end).normalized().adjusted(-10, -10, 10, 10);
     }
+}
+
+void Edge::addArrowHead(const QPointF& tipPoint, const QPointF& direction)
+{
+    // Create subtle arrowhead for directional indication
+    const qreal arrowLength = 8.0;
+    const qreal arrowWidth = 4.0;
+    
+    // Calculate arrow base point
+    QPointF arrowBase = tipPoint - direction * arrowLength;
+    
+    // Calculate perpendicular vector for arrow wings
+    QPointF perpendicular(-direction.y(), direction.x());
+    
+    // Create arrow wings
+    QPointF wing1 = arrowBase + perpendicular * arrowWidth;
+    QPointF wing2 = arrowBase - perpendicular * arrowWidth;
+    
+    // Add arrowhead to path as a small triangle
+    m_path.moveTo(tipPoint);
+    m_path.lineTo(wing1);
+    m_path.lineTo(wing2);
+    m_path.lineTo(tipPoint);
 }
 
 xmlNodePtr Edge::write(xmlDocPtr doc, xmlNodePtr repr) const
