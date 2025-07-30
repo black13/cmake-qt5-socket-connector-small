@@ -2845,3 +2845,175 @@ User: ok commit our work and only our work
 User: ok let merge this to main
 
 #### Merging to Main Branch
+
+---
+
+## 2025-07-30: Socket Positioning Improvements & Computation Engine Planning
+
+### Socket Positioning Fixes
+
+#### Virtual Bounding Box Approach
+**Problem**: Sockets were positioned incorrectly, appearing too low on nodes and not properly centered.
+
+**Solution Implemented**: 
+- Created virtual bounding boxes for socket groups using `(2*n + 1) * socketSize` formula
+- Centered socket virtual boxes at 60% node height for better visual alignment
+- Position sockets at center of each slot within virtual bounding boxes
+
+**Key Changes in node.cpp**:
+```cpp
+// Virtual bounding box positioning
+qreal inputBoxHeight = (totalInputs > 0) ? (2 * totalInputs + 1) * socketSize : 0;
+qreal outputBoxHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
+
+// Align horizontal center lines: socket box center = node center  
+qreal nodeCenterY = nodeHeight * 0.6; // Visual center, not geometric center
+qreal inputBoxStartY = nodeCenterY - (inputBoxHeight / 2.0);
+qreal outputBoxStartY = nodeCenterY - (outputBoxHeight / 2.0);
+
+// Position sockets at center of each slot
+qreal y = inputBoxStartY + socketSize * (2 * inputIndex + 1);
+```
+
+**Debug Visualization**: Added red dashed bounding boxes to visualize socket placement during development, later removed.
+
+**Result**: Much better socket positioning with proper vertical centering and even spacing.
+
+### Code Cleanup
+
+#### Emoji Removal and Logging Simplification
+**Branch**: `cleanup-logging-emojis`
+
+**Files Cleaned**:
+- `socket.cpp`, `socket.h`, `node.h`, `node.cpp` - Removed emoji characters from comments
+- `window.cpp` - Cleaned menu items, debug output, JavaScript test messages
+- `graph_controller.cpp`, `xml_autosave_observer.cpp`, `test_js_integration.cpp` - Emoji removal
+- Simplified verbose debug logging for cleaner output
+
+**Commit**: `280cf4e` - "Remove emojis and simplify debug logging"
+
+### Computation Engine Design Discussion
+
+User asked about implementing ChatGPT's suggested rubber_types pattern for XML-based computation engine.
+
+#### Rubber Types Integration Plan
+
+**Core Challenge**: How to serialize type-erased objects and integrate with JavaScript
+
+**Serialization Strategy**:
+```cpp
+struct SerializableSpec {
+    struct Concept {
+        virtual QString getTypeName() const = 0;  // Runtime type info
+        virtual QJsonObject toJson() const = 0;   // For JS conversion
+        virtual xmlNodePtr write(xmlDocPtr doc, xmlNodePtr parent) const = 0;
+    };
+    
+    template<class Holder>
+    struct Model : Holder, virtual Concept {
+        QString getTypeName() const override {
+            return QString(typeid(rubber_types::model_get(this)).name());
+        }
+        
+        xmlNodePtr write(xmlDocPtr doc, xmlNodePtr parent) const override {
+            xmlNodePtr node = rubber_types::model_get(this).write(doc, parent);
+            // Add type information for deserialization
+            xmlSetProp(node, BAD_CAST "rubber_type", 
+                      BAD_CAST getTypeName().toUtf8().constData());
+            return node;
+        }
+    };
+};
+```
+
+**JavaScript Integration**:
+```cpp
+class JSRubberWrapper {
+private:
+    GraphNodeFacade m_facade;  // Type-erased wrapper
+    
+public:
+    Q_INVOKABLE QString getId() const { return m_facade.id().toString(); }
+    Q_INVOKABLE QJsonObject getProperties() const { return m_facade.toJson(); }
+    Q_INVOKABLE void setProperty(const QString& key, const QVariant& value);
+    Q_INVOKABLE void compute();
+};
+```
+
+**XML Schema with Type Information**:
+```xml
+<node id="node1" type="Compute" rubber_type="ComputeNode" x="100" y="100">
+    <sockets>
+        <input socket="0" type="number"/>
+        <output socket="0" type="number"/>  
+    </sockets>
+    <rubber_data>
+        <script><![CDATA[
+            function compute(inputs) {
+                return inputs.a * 2 + inputs.b;
+            }
+        ]]></script>
+        <cache_enabled>true</cache_enabled>
+    </rubber_data>
+</node>
+```
+
+#### The Wrapping Process Explained
+
+**Key Insight**: Rubber types don't copy your existing Node objects - they create zero-allocation wrappers that hold references.
+
+**Example Wrapping**:
+```cpp
+// Your existing Node (concrete type)
+Node* concreteNode = new Node();
+concreteNode->setNodeType("Compute");
+concreteNode->setPos(QPointF(100, 100));
+
+// Wrap it in rubber type (zero-allocation)
+NodeFacade wrappedNode{*concreteNode};
+
+// Use through uniform interface - all calls delegate to original Node
+QUuid id = wrappedNode.id();                    // → concreteNode->getId()
+wrappedNode.setPosition(QPointF(200, 200));     // → concreteNode->setPos()
+QPointF pos = wrappedNode.getPosition();        // → concreteNode->pos()
+```
+
+**Memory Layout**:
+- `concreteNode`: [Node object with all your data]
+- `wrappedNode`: [small rubber_types object with pointer to concreteNode]
+
+**Benefits**:
+- ✅ No copying of existing objects
+- ✅ Zero runtime cost (virtual dispatch same as inheritance)
+- ✅ Existing Node code doesn't change
+- ✅ Uniform interface for JavaScript
+- ✅ Type safety at compile time
+
+#### Phase 9 Implementation Plan Added
+
+**Document**: Added comprehensive Phase 9 plan to PLANS.md covering XML-Based Computation Engine
+
+**4-Phase Roadmap**:
+1. **Phase 9.1**: Scriptable Compute Nodes (2-4 weeks)
+2. **Phase 9.2**: Advanced Computation Features (Month 2) 
+3. **Phase 9.3**: Code Generation Engine (Month 3-4)
+4. **Phase 9.4**: Advanced Features (Month 5-6)
+
+**Target Performance**: 10-100x speedup from interpreted to compiled execution paths
+
+**Integration Strategy**: Build on existing Node/Socket/XML/JavaScript infrastructure
+
+**Commit**: `eeff05b` - "Add Phase 9: XML-Based Computation Engine plan"
+
+### Branch Management
+
+**Branches Created**:
+- `fix-socket-placement` - Socket positioning improvements (merged to main)
+- `cleanup-logging-emojis` - Code cleanup (pushed but not merged)
+
+**Main Branch Updates**:
+- Socket positioning fixes
+- Updated PLANS.md with computation engine roadmap
+- Ready for Phase 9 implementation
+
+User: please add this conversation to the log ok and push the log to remote main
