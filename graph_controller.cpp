@@ -32,11 +32,11 @@ QString GraphController::createNode(const QString& type, qreal x, qreal y)
     qDebug() << "GraphController: Available types:" << validTypes;
     
     if (!isValidNodeType(type)) {
-        qDebug() << "GraphController: ❌ INVALID node type:" << type;
+        qDebug() << "GraphController: INVALID node type:" << type;
         emit error(QString("GraphController: Invalid node type: %1").arg(type));
         return QString();
     } else {
-        qDebug() << "GraphController: ✅ VALID node type:" << type;
+        qDebug() << "GraphController: VALID node type:" << type;
     }
     
     qDebug() << "GraphController: Creating node" << type << "at" << x << "," << y;
@@ -45,7 +45,7 @@ QString GraphController::createNode(const QString& type, qreal x, qreal y)
         Node* node = m_factory->createNode(type, QPointF(x, y));
         if (node) {
             QString uuid = node->getId().toString();
-            qDebug() << "GraphController: ✅ Node created successfully!";
+            qDebug() << "GraphController: Node created successfully!";
             qDebug() << "GraphController: Node UUID:" << uuid;
             qDebug() << "GraphController: Node type:" << node->getNodeType();
             qDebug() << "GraphController: Node position:" << node->pos();

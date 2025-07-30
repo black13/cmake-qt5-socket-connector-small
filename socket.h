@@ -83,7 +83,7 @@ public:
         setConnectionState(m_connectedEdge ? Connected : Disconnected); 
     }
     
-    // ✅ Direct position assignment - no calculations, just assignment
+    // Direct position assignment - no calculations, just assignment
     void setDirectPosition(qreal x, qreal y) { setPos(x, y); }
     
     // Visual state for drag-and-drop feedback (disabled)

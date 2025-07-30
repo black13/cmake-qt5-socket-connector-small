@@ -21,7 +21,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
-    // ✅ NO positioning in constructor - will be positioned later with complete information
+    // NO positioning in constructor - will be positioned later with complete information
     
     // Register with parent node for O(1) lookups
     if (parentNode) {

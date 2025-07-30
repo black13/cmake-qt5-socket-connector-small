@@ -288,7 +288,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
             socket->setDirectPosition(x, y);
             inputIndex++;
             
-            qDebug() << "VIRTUAL BOX INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
+            qDebug() << "Input socket" << inputIndex-1 << "at" << QPointF(x, y);
         } else {
             // Place socket within the centered virtual output bounding box  
             qreal x = nodeRect.width() + socketOffset;  // Right side of node
@@ -297,7 +297,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
             socket->setDirectPosition(x, y);
             outputIndex++;
             
-            qDebug() << "VIRTUAL BOX OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
+            qDebug() << "Output socket" << outputIndex-1 << "at" << QPointF(x, y);
         }
     }
     
@@ -306,10 +306,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     qreal requiredOutputHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
     qreal requiredHeight = qMax(requiredInputHeight, requiredOutputHeight);
     
-    qDebug() << "VIRTUAL BOX POSITIONING: K=" << totalInputs << "inputs (box start:" << inputBoxStartY 
-             << "), O=" << totalOutputs << "outputs (box start:" << outputBoxStartY << ")"
-             << "| Node height:" << nodeHeight << "| Required:" << requiredHeight
-             << "for node" << m_id.toString(QUuid::WithoutBraces).left(8);
+    qDebug() << "Socket positioning:" << totalInputs << "inputs," << totalOutputs << "outputs";
 }
 
 Socket* Node::getSocketByIndex(int index) const

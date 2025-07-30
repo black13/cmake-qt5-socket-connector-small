@@ -158,11 +158,11 @@ void XmlAutosaveObserver::performAutosave()
         qint64 fileSize = fileInfo.size();
         
         qDebug().noquote() << "[AUTOSAVE] writeAutosave() SUCCESS! File written to disk.";
-        qDebug() << "✅ AUTOSAVE COMPLETE:";
-        qDebug() << "   📁 File:" << fileInfo.fileName();
-        qDebug() << "   ⏱️  Time:" << elapsed << "ms";
-        qDebug() << "   📊 Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   🔢 XML length:" << xmlContent.length() << "characters";
+        qDebug() << "AUTOSAVE COMPLETE:";
+        qDebug() << "   File:" << fileInfo.fileName();
+        qDebug() << "   Time:" << elapsed << "ms";
+        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
+        qDebug() << "   XML length:" << xmlContent.length() << "characters";
         
         m_pendingChanges = false;
     } else {

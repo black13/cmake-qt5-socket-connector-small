@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
         console.log("Graph stats:", JSON.stringify(stats));
         
         // Test success
-        console.log("✅ JavaScript integration test PASSED");
+        console.log("JavaScript integration test PASSED");
         
         return "test_complete";
     )";
@@ -54,10 +54,10 @@ int main(int argc, char *argv[])
     QJSValue result = jsEngine->evaluate(testScript);
     
     if (result.isError()) {
-        qDebug() << "❌ JavaScript test FAILED:" << result.toString();
+        qDebug() << "JavaScript test FAILED:" << result.toString();
         return 1;
     } else {
-        qDebug() << "✅ JavaScript test result:" << result.toString();
+        qDebug() << "JavaScript test result:" << result.toString();
     }
     
     // Cleanup

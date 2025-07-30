@@ -187,7 +187,7 @@ void Window::keyPressEvent(QKeyEvent* event)
         }
     } else if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         // Delete selected items
-        qDebug() << "🗑️ Delete key pressed - deleting selected items";
+        qDebug() << "Delete key pressed - deleting selected items";
         m_scene->deleteSelected();
     }
     QMainWindow::keyPressEvent(event);
@@ -242,15 +242,15 @@ bool Window::saveGraph(const QString& filename)
         int nodeCount = m_scene->getNodes().size();
         int edgeCount = m_scene->getEdges().size();
         
-        qDebug() << "✅ MANUAL SAVE COMPLETE:";
-        qDebug() << "   📁 File:" << fileInfo.fileName();
-        qDebug() << "   ⏱️  Time:" << elapsed << "ms";
-        qDebug() << "   📊 Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   🔵 Nodes:" << nodeCount;
-        qDebug() << "   🔗 Edges:" << edgeCount;
+        qDebug() << "MANUAL SAVE COMPLETE:";
+        qDebug() << "   File:" << fileInfo.fileName();
+        qDebug() << "   Time:" << elapsed << "ms";
+        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
+        qDebug() << "   Nodes:" << nodeCount;
+        qDebug() << "   Edges:" << edgeCount;
         
         QMessageBox::information(this, "Save Complete", 
-            QString("Graph saved successfully!\n\n📁 File: %1\n🔵 Nodes: %2\n🔗 Edges: %3\n⏱️ Time: %4ms\n📊 Size: %5 KB")
+            QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
             .arg(fileInfo.fileName())
             .arg(nodeCount)
             .arg(edgeCount)
@@ -583,14 +583,14 @@ void Window::createToolsMenu()
     m_toolsMenu->addAction(jsTestAction);
     
     // Simple script execution
-    QAction* jsScriptAction = new QAction("📝 Load &Script", this);
+    QAction* jsScriptAction = new QAction("Load &Script", this);
     jsScriptAction->setStatusTip("Load and execute JavaScript script");
     jsScriptAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
     connect(jsScriptAction, &QAction::triggered, this, &Window::loadAndExecuteScript);
     m_toolsMenu->addAction(jsScriptAction);
     
     // Quick test script menu
-    QMenu* testScriptsMenu = m_toolsMenu->addMenu("⚡ Quick Tests");
+    QMenu* testScriptsMenu = m_toolsMenu->addMenu("Quick Tests");
     testScriptsMenu->setStatusTip("Run predefined test scripts");
     
     QAction* paletteTestAction = new QAction("Palette System Test", this);
@@ -614,27 +614,27 @@ void Window::createToolsMenu()
     testScriptsMenu->addAction(performanceTestAction);
     
     testScriptsMenu->addSeparator();
-    QAction* destructorSafetyAction = new QAction("🛡️ Destructor Safety Test", this);
+    QAction* destructorSafetyAction = new QAction("Destructor Safety Test", this);
     destructorSafetyAction->setStatusTip("Test crash prevention during object destruction");
     connect(destructorSafetyAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_destructor_safety.js"); });
     testScriptsMenu->addAction(destructorSafetyAction);
     
-    QAction* debugApiAction = new QAction("🔍 Debug Graph API", this);
+    QAction* debugApiAction = new QAction("Debug Graph API", this);
     debugApiAction->setStatusTip("Debug Graph API availability and functionality");
     connect(debugApiAction, &QAction::triggered, [this]() { runSpecificScript("scripts/debug_graph_api.js"); });
     testScriptsMenu->addAction(debugApiAction);
     
-    QAction* nodeTypesAction = new QAction("🏷️ Test Node Types", this);
+    QAction* nodeTypesAction = new QAction("Test Node Types", this);
     nodeTypesAction->setStatusTip("Test all registered node types");
     connect(nodeTypesAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_node_types.js"); });
     testScriptsMenu->addAction(nodeTypesAction);
     
-    QAction* simpleGraphAction = new QAction("🟢 Simple Graph Test", this);
+    QAction* simpleGraphAction = new QAction("Simple Graph Test", this);
     simpleGraphAction->setStatusTip("Create a basic three-node connected graph");
     connect(simpleGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_graph.js"); });
     testScriptsMenu->addAction(simpleGraphAction);
     
-    QAction* layoutDemoAction = new QAction("🎯 Node Layout Demo", this);
+    QAction* layoutDemoAction = new QAction("Node Layout Demo", this);
     layoutDemoAction->setStatusTip("Demonstrate different node positioning strategies");
     connect(layoutDemoAction, &QAction::triggered, [this]() { runSpecificScript("scripts/demo_node_layout.js"); });
     testScriptsMenu->addAction(layoutDemoAction);
@@ -980,12 +980,12 @@ void Window::runJavaScriptTests()
             console.log("Created graph with " + stats.nodes + " nodes and " + stats.edges + " edges");
             
             if (stats.nodes === 2 && stats.edges === 1) {
-                console.log("✅ Test 1 PASSED");
+                console.log("Test 1 PASSED");
             } else {
-                console.log("❌ Test 1 FAILED");
+                console.log("Test 1 FAILED");
             }
         } catch (e) {
-            console.log("❌ Test 1 ERROR: " + e.toString());
+            console.log("Test 1 ERROR: " + e.toString());
         }
         
         // Test 2: Node deletion
@@ -996,12 +996,12 @@ void Window::runJavaScriptTests()
             let afterStats = Graph.getStats();
             
             if (afterStats.nodes === 1 && afterStats.edges === 0) {
-                console.log("✅ Test 2 PASSED");
+                console.log("Test 2 PASSED");
             } else {
-                console.log("❌ Test 2 FAILED");
+                console.log("Test 2 FAILED");
             }
         } catch (e) {
-            console.log("❌ Test 2 ERROR: " + e.toString());
+            console.log("Test 2 ERROR: " + e.toString());
         }
         
         // Test 3: XML operations
@@ -1014,12 +1014,12 @@ void Window::runJavaScriptTests()
             let xmlString = Graph.getXmlString();
             
             if (xmlString.length > 0 && xmlString.includes('<graph')) {
-                console.log("✅ Test 3 PASSED");
+                console.log("Test 3 PASSED");
             } else {
-                console.log("❌ Test 3 FAILED");
+                console.log("Test 3 FAILED");
             }
         } catch (e) {
-            console.log("❌ Test 3 ERROR: " + e.toString());
+            console.log("Test 3 ERROR: " + e.toString());
         }
         
         // Test 4: Complex graph
@@ -1039,13 +1039,13 @@ void Window::runJavaScriptTests()
             let complexStats = Graph.getStats();
             
             if (complexStats.nodes === 4 && complexStats.edges === 3) {
-                console.log("✅ Test 4 PASSED");
+                console.log("Test 4 PASSED");
             } else {
-                console.log("❌ Test 4 FAILED - Expected 4 nodes, 3 edges, got " + 
+                console.log("Test 4 FAILED - Expected 4 nodes, 3 edges, got " + 
                            complexStats.nodes + " nodes, " + complexStats.edges + " edges");
             }
         } catch (e) {
-            console.log("❌ Test 4 ERROR: " + e.toString());
+            console.log("Test 4 ERROR: " + e.toString());
         }
         
         console.log("=== JavaScript Test Suite Complete ===");
@@ -1188,9 +1188,9 @@ void Window::runAllTests()
         QJSValue result = jsEngine->evaluateFile(scriptPath);
         
         if (result.isError()) {
-            results.append(QString("❌ %1: FAILED - %2").arg(fileInfo.baseName(), result.toString()));
+            results.append(QString("%1: FAILED - %2").arg(fileInfo.baseName(), result.toString()));
         } else {
-            results.append(QString("✅ %1: PASSED").arg(fileInfo.baseName()));
+            results.append(QString("%1: PASSED").arg(fileInfo.baseName()));
             passedTests++;
         }
         
