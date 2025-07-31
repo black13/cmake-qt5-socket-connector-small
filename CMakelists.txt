@@ -40,6 +40,42 @@ if(WIN32)
         "C:/Qt/5.15.2/msvc2019"
         "C:/Qt/5.12.12/msvc2017_64"
     )
+else()
+    # Linux/WSL: Auto-detect Qt installations in /usr/local/qt-*
+    file(GLOB QT_INSTALL_DIRS "/usr/local/qt*")
+    
+    # Sort directories to prefer newer versions (reverse alphabetical)
+    list(SORT QT_INSTALL_DIRS)
+    list(REVERSE QT_INSTALL_DIRS)
+    
+    # Add found Qt installations to search path
+    foreach(QT_DIR ${QT_INSTALL_DIRS})
+        if(IS_DIRECTORY "${QT_DIR}")
+            # Check for common Qt directory structures
+            if(EXISTS "${QT_DIR}/lib/cmake/Qt5")
+                list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
+                message(STATUS "Found Qt installation: ${QT_DIR}")
+            endif()
+            
+            # Check for debug/release subdirectories
+            if(EXISTS "${QT_DIR}/debug" AND EXISTS "${QT_DIR}/debug/lib/cmake/Qt5")
+                list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}/debug")
+                message(STATUS "Found Qt Debug build: ${QT_DIR}/debug")
+            endif()
+            
+            if(EXISTS "${QT_DIR}/release" AND EXISTS "${QT_DIR}/release/lib/cmake/Qt5")
+                list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}/release")
+                message(STATUS "Found Qt Release build: ${QT_DIR}/release")
+            endif()
+        endif()
+    endforeach()
+    
+    # Prefer debug builds for Debug configuration, release builds for Release
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(STATUS "Debug build: Preferring Qt debug libraries")
+    else()
+        message(STATUS "Release build: Preferring Qt release libraries")
+    endif()
 endif()
 
 # ─────────────────────────────────────
@@ -152,6 +188,10 @@ set(CORE_SOURCES
     ghost_edge.h
     ghost_edge.cpp
     
+    # Phase 11: Type-erasure facade system
+    node_facade.h
+    edge_facade.h
+    
     # Node registry system
     node_registry.h
     node_registry.cpp
@@ -207,6 +247,11 @@ set(TEST_SOURCES
     tst_main.cpp
 )
 
+# Facade test sources (Phase 11 experimental)
+set(FACADE_TEST_SOURCES
+    test_facade_core.cpp
+)
+
 # ─────────────────────────────────────
 # 8.  Shared core library - compile once, use twice
 # ─────────────────────────────────────
@@ -224,6 +269,16 @@ target_link_libraries(NodeGraph NodeGraphCore)
 add_executable(NodeGraphTests ${TEST_SOURCES})
 target_link_libraries(NodeGraphTests NodeGraphCore)
 
+# ─────────────────────────────────────
+# 11. Phase 11 Facade Test executable (optional)
+# ─────────────────────────────────────
+option(BUILD_FACADE_TESTS "Build Phase 11 facade tests" OFF)
+if(BUILD_FACADE_TESTS)
+    add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
+    target_link_libraries(TestFacadeCore NodeGraphCore)
+    message(STATUS "Building Phase 11 facade tests")
+endif()
+
 # Always use FetchContent libxml2 - Core library (shared by both main and test)
 target_link_libraries(NodeGraphCore
     Qt5::Core
@@ -235,7 +290,7 @@ target_link_libraries(NodeGraphCore
 )
 
 # ─────────────────────────────────────
-# 11. VS / Windows extras
+# 12. VS / Windows extras
 # ─────────────────────────────────────
 if(WIN32)
     # Main application settings
@@ -275,7 +330,7 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 12. Install rules (optional on Win)
+# 13. Install rules (optional on Win)
 # ─────────────────────────────────────
 if(WIN32)
     install(TARGETS NodeGraph NodeGraphTests RUNTIME DESTINATION .)
@@ -288,7 +343,7 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 13. Info
+# 14. Info
 # ─────────────────────────────────────
 message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Qt5 found        : ${Qt5_FOUND}")

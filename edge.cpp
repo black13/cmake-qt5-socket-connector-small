@@ -291,11 +291,6 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Create smooth cubic Bezier curve
     m_path.cubicTo(control1, control2, adjustedEnd);
     
-    // ENHANCEMENT: Add subtle arrowhead for directional clarity
-    if (distance > 30.0) { // Only draw arrow for longer connections
-        addArrowHead(adjustedEnd, direction);
-    }
-    
     // Notify Qt's BSP cache before changing bounding rectangle
     prepareGeometryChange();
     
@@ -310,28 +305,6 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     }
 }
 
-void Edge::addArrowHead(const QPointF& tipPoint, const QPointF& direction)
-{
-    // Create subtle arrowhead for directional indication
-    const qreal arrowLength = 8.0;
-    const qreal arrowWidth = 4.0;
-    
-    // Calculate arrow base point
-    QPointF arrowBase = tipPoint - direction * arrowLength;
-    
-    // Calculate perpendicular vector for arrow wings
-    QPointF perpendicular(-direction.y(), direction.x());
-    
-    // Create arrow wings
-    QPointF wing1 = arrowBase + perpendicular * arrowWidth;
-    QPointF wing2 = arrowBase - perpendicular * arrowWidth;
-    
-    // Add arrowhead to path as a small triangle
-    m_path.moveTo(tipPoint);
-    m_path.lineTo(wing1);
-    m_path.lineTo(wing2);
-    m_path.lineTo(tipPoint);
-}
 
 xmlNodePtr Edge::write(xmlDocPtr doc, xmlNodePtr repr) const
 {
