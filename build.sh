@@ -94,18 +94,57 @@ print_success "Build tools available"
 # 2. Check Qt5 installation
 print_status "Checking Qt5 installation..."
 
-# Check for Qt5 in the actual installation directory
-QT_DEBUG_PATH="/usr/local/qt-5.15.17-debug"
-QT_RELEASE_PATH="/usr/local/qt-5.15.17-release"
+# Auto-detect Qt installations in /usr/local/qt-*
+QT_INSTALLS=($(find /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
 
-if [ "$BUILD_TYPE" = "Debug" ] && [ -d "$QT_DEBUG_PATH" ]; then
-    QT_PATH="$QT_DEBUG_PATH"
-    print_success "Qt5 Debug found in $QT_PATH"
-elif [ -d "$QT_RELEASE_PATH" ]; then
-    QT_PATH="$QT_RELEASE_PATH"
-    print_success "Qt5 Release found in $QT_PATH"
+if [ ${#QT_INSTALLS[@]} -eq 0 ]; then
+    print_error "No Qt installations found in /usr/local/qt-*"
+    print_error "Please install Qt5 to /usr/local/qt-VERSION or /usr/local/qt-VERSION-{debug,release}"
+    exit 1
+fi
+
+print_status "Found Qt installations:"
+for qt_dir in "${QT_INSTALLS[@]}"; do
+    echo "  - $qt_dir"
+done
+
+# Select best Qt installation based on build type
+QT_PATH=""
+
+# First try to find debug/release specific builds
+if [ "$BUILD_TYPE" = "Debug" ]; then
+    for qt_dir in "${QT_INSTALLS[@]}"; do
+        if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+            QT_PATH="$qt_dir"
+            print_success "Selected Qt5 Debug build: $QT_PATH"
+            break
+        fi
+    done
 else
-    print_error "Qt5 not found. Expected in /usr/local/qt-5.15.17-debug or /usr/local/qt-5.15.17-release"
+    for qt_dir in "${QT_INSTALLS[@]}"; do
+        if [[ "$qt_dir" == *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+            QT_PATH="$qt_dir"
+            print_success "Selected Qt5 Release build: $QT_PATH"
+            break
+        fi
+    done
+fi
+
+# Fallback to first available Qt installation
+if [ -z "$QT_PATH" ]; then
+    for qt_dir in "${QT_INSTALLS[@]}"; do
+        if [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+            QT_PATH="$qt_dir"
+            print_success "Selected Qt5 installation: $QT_PATH"
+            break
+        fi
+    done
+fi
+
+# Final check
+if [ -z "$QT_PATH" ] || [ ! -d "$QT_PATH/lib/cmake/Qt5" ]; then
+    print_error "No valid Qt5 installation found with CMake support"
+    print_error "Make sure Qt5 is installed with development files"
     exit 1
 fi
 
