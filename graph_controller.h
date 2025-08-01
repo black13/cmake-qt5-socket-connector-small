@@ -21,6 +21,13 @@ class Edge;
  * - Trigger XML synchronization
  * 
  * This class is exposed to QJSEngine as the "Graph" global object
+ * 
+ * ARCHITECTURAL RATIONALE: 
+ * This class uses QObject inheritance specifically for JavaScript integration.
+ * This does NOT contradict the "no QObject" rule for Node/Edge classes, which
+ * must remain lightweight QGraphicsItems for performance. GraphController serves
+ * as a bridge layer that provides Q_INVOKABLE methods to JavaScript while
+ * keeping core graphics objects efficient.
  */
 class GraphController : public QObject
 {

@@ -28,6 +28,8 @@ class Node;
 class Edge : public QGraphicsItem
 {
 public:
+    enum { Type = UserType + 2 }; // Custom type for qgraphicsitem_cast
+    
     Edge(const QUuid& id = QUuid::createUuid(),
          const QUuid& fromSocketId = QUuid(),
          const QUuid& toSocketId = QUuid());
@@ -45,6 +47,7 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
     QPainterPath shape() const override;
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    int type() const override { return Type; } // Enable qgraphicsitem_cast
     
     // Connection management - clean design uses node+index only
     // No socket UUIDs - edges resolved via resolveConnections() method
@@ -73,6 +76,10 @@ public:
                           int fromSocketIndex, int toSocketIndex);
     void setResolvedSockets(Socket* fromSocket, Socket* toSocket);
     
+    // Convenience methods for tests and facades
+    void setFromNode(const QUuid& nodeId, int socketIndex);
+    void setToNode(const QUuid& nodeId, int socketIndex);
+    
     // Manual weak pointer system for safe destruction
     void invalidateNode(const Node* node);
     
@@ -81,6 +88,12 @@ public:
     Node* getToNode() const { return m_toNode; }
     Socket* getFromSocket() const { return m_fromSocket; }
     Socket* getToSocket() const { return m_toSocket; }
+    
+    // API getters required by facades and tests
+    const QUuid& fromNodeId() const { return m_fromNodeUuid; }
+    const QUuid& toNodeId() const { return m_toNodeUuid; }
+    int fromSocketIndex() const { return m_fromSocketIndex; }
+    int toSocketIndex() const { return m_toSocketIndex; }
 
 private:
     QUuid m_id;

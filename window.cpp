@@ -374,35 +374,28 @@ void Window::createProcessorNode()
 void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
                                   const QString& name, int inputSockets, int outputSockets)
 {
-    qDebug() << "========================================";
-    qDebug() << "Window: RECEIVED nodeDropped signal";
-    qDebug() << "Window: Creating node from palette:";
-    qDebug() << "  - Name:" << name;
-    qDebug() << "  - Type:" << nodeType;
-    qDebug() << "  - Position:" << scenePos;
-    qDebug() << "  - Input sockets:" << inputSockets;
-    qDebug() << "  - Output sockets:" << outputSockets;
-    qDebug() << "Window: Calling factory->createNode()";
+    qDebug() << "Creating" << name << "node at" << scenePos;
     
     // Create node using factory with the exact specifications from the palette
     Node* node = m_factory->createNode(nodeType, scenePos, inputSockets, outputSockets);
     
     if (node) {
-        qDebug() << "✓ Window: Factory successfully created" << name << "node";
-        qDebug() << "Window: Node created at scene position:" << scenePos;
-        qDebug() << "Window: Updating status bar";
+        qDebug() << "✓ Window: Factory successfully created" << name << "node at" << scenePos;
+        
+        // UX Polish: Focus view on new node and select it
+        m_view->centerOn(node);
+        m_view->setFocus();
+        node->setSelected(true);
+        m_scene->clearSelection();  // Clear any previous selection
+        node->setSelected(true);    // Select the new node
         
         // Update status bar to reflect the new node
         updateStatusBar();
         statusBar()->showMessage(QString("Created %1 node").arg(name), 2000);
-        
-        qDebug() << "✓ Window: Node creation process completed successfully";
     } else {
-        qDebug() << "✗ Window: Factory FAILED to create" << name << "node";
-        qDebug() << "Window: This may indicate factory or scene issues";
+        qDebug() << "✗ Failed to create" << name << "node";
         statusBar()->showMessage(QString("Failed to create %1 node").arg(name), 3000);
     }
-    qDebug() << "========================================";
 }
 
 // ============================================================================

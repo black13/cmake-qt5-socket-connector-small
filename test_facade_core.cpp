@@ -2,8 +2,7 @@
 #include <QCoreApplication>
 #include "node.h"
 #include "edge.h"
-#include "node_facade.h"
-#include "edge_facade.h"
+#include "graph_facades.h"
 #include <libxml/tree.h>
 
 int main(int argc, char *argv[]) {

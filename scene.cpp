@@ -174,21 +174,27 @@ void Scene::deleteEdge(const QUuid& edgeId)
         return;
     }
     
-    qDebug() << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
+    qDebug() << "🔗 EDGE DELETE: Starting deletion of edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
     
     // Remove from collection and scene
+    qDebug() << "   📦 Removing from m_edges collection (size before:" << m_edges.size() << ")";
     m_edges.remove(edgeId);
+    qDebug() << "   📦 Collection size after removal:" << m_edges.size();
+    
+    qDebug() << "   🎬 Removing from Qt scene";
     removeItem(edge);
     
     // Notify observers BEFORE deleting the edge
+    qDebug() << "   📢 Notifying observers of edge removal";
     notifyEdgeRemoved(edgeId);
     
+    qDebug() << "   🗑️ Deleting edge object";
     delete edge;
     
     // Emit signal for UI updates
     emit sceneChanged();
     
-    qDebug() << "Edge deleted - Observer notified";
+    qDebug() << "✅ EDGE DELETE: Complete - Observer notified, scene updated";
 }
 
 void Scene::deleteSelected()
@@ -199,7 +205,7 @@ void Scene::deleteSelected()
         return;
     }
     
-    qDebug() << "DELETE KEY: Deleting" << selectedItems.size() << "selected items";
+    qDebug() << "🗑️ DELETE KEY: Deleting" << selectedItems.size() << "selected items";
     
     // Separate nodes and edges for proper deletion order
     QList<Node*> selectedNodes;
@@ -208,13 +214,17 @@ void Scene::deleteSelected()
     for (QGraphicsItem* item : selectedItems) {
         if (Node* node = qgraphicsitem_cast<Node*>(item)) {
             selectedNodes.append(node);
+            qDebug() << "   📦 Selected node:" << node->getId().toString(QUuid::WithoutBraces).left(8);
         } else if (Edge* edge = qgraphicsitem_cast<Edge*>(item)) {
             selectedEdges.append(edge);
+            qDebug() << "   🔗 Selected edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
         }
     }
     
+    qDebug() << "🔗 EDGE DELETION: Processing" << selectedEdges.size() << "selected edges";
     // Delete selected edges first
     for (Edge* edge : selectedEdges) {
+        qDebug() << "   ❌ Deleting edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
         deleteEdge(edge->getId());
     }
     
@@ -226,7 +236,7 @@ void Scene::deleteSelected()
     // Emit signal for UI updates
     emit sceneChanged();
     
-    qDebug() << "DELETE COMPLETE: Deleted" << selectedEdges.size() << "edges and" << selectedNodes.size() << "nodes - Observers notified";
+    qDebug() << "✅ DELETE COMPLETE: Deleted" << selectedEdges.size() << "edges and" << selectedNodes.size() << "nodes - Observers notified";
 }
 
 void Scene::clearGraph()
@@ -448,13 +458,25 @@ void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 
 void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
-    if (m_ghostEdgeActive && event->button() == Qt::RightButton) {
-        // Find socket under mouse
-        QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
-        Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
-        finishGhostEdge(targetSocket);
-        event->accept();
-        return;
+    if (m_ghostEdgeActive) {
+        if (event->button() == Qt::RightButton) {
+            // Find socket under mouse
+            QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
+            Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
+            finishGhostEdge(targetSocket);
+            event->accept();
+            return;
+        } else if (event->button() == Qt::LeftButton) {
+            // Check if clicking on a socket (handled by socket itself) or elsewhere (cancel)
+            QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
+            Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
+            if (!targetSocket) {
+                // Clicked elsewhere - cancel ghost edge
+                cancelGhostEdge();
+            }
+            event->accept();
+            return;
+        }
     }
     QGraphicsScene::mouseReleaseEvent(event);
 }

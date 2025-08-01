@@ -35,7 +35,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     // Ensure edges are above nodes in z-order for easier selection
     setZValue(1);  // Nodes default to z=0, edges at z=1
     
-    qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    qDebug() << "🔗 +Edge created:" << m_id.toString(QUuid::WithoutBraces).left(8) << "- flags set for selection";
     // Don't call updatePath() here - sockets not resolved yet
 }
 
@@ -49,7 +49,7 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
     
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    qDebug() << "🔗 ~Edge destroyed:" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
 void Edge::invalidateNode(const Node* node)
@@ -72,6 +72,16 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
 {
     Q_UNUSED(widget)
     Q_UNUSED(option) // Don't use Qt's default drawing options
+    
+#ifdef QT_DEBUG
+    // DEBUG: Log when edge is actually being painted
+    static int paintCount = 0;
+    if (++paintCount % 100 == 0) {  // Throttled logging to avoid spam
+        qDebug() << "🎨 Edge paint called:" << m_id.toString(QUuid::WithoutBraces).left(8) 
+                 << "selected:" << isSelected() << "hovered:" << m_hovered 
+                 << "path empty:" << m_path.isEmpty();
+    }
+#endif
     
     painter->setRenderHint(QPainter::Antialiasing);
     
@@ -210,15 +220,26 @@ void Edge::updatePath()
     // Simple and clean: use direct socket pointers
     if (!m_fromSocket || !m_toSocket) {
         // Edge not resolved yet - notify BSP cache before clearing
+        qDebug() << "🔗 Edge updatePath FAILED:" << m_id.toString(QUuid::WithoutBraces).left(8) 
+                 << "- sockets not resolved (from:" << (m_fromSocket ? "OK" : "NULL") 
+                 << "to:" << (m_toSocket ? "OK" : "NULL") << ")";
         prepareGeometryChange();
         m_path = QPainterPath();
         m_boundingRect = QRectF();
+        
+        // Clear selection/hover state to avoid misleading visuals in edge cases
+        if (isSelected()) {
+            setSelected(false);
+        }
+        m_hovered = false;
         return;
     }
     
     QPointF start = m_fromSocket->scenePos();
     QPointF end = m_toSocket->scenePos();
     
+    qDebug() << "🔗 Edge updatePath SUCCESS:" << m_id.toString(QUuid::WithoutBraces).left(8) 
+             << "- drawing from" << start << "to" << end;
     buildPath(start, end);
 }
 
@@ -468,8 +489,8 @@ bool Edge::resolveConnections(Scene* scene)
     fromNode->registerEdge(this);
     toNode->registerEdge(this);
     
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved" 
-             << m_fromSocketIndex << "->" << m_toSocketIndex;
+    qDebug() << "✅ Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "RESOLVED successfully - " 
+             << "from socket" << m_fromSocketIndex << "to socket" << m_toSocketIndex;
     
     updatePath();
     return true;
@@ -525,4 +546,18 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     qDebug() << "✓ Edge: Set resolved sockets directly (optimization)";
     updatePath();
+}
+
+void Edge::setFromNode(const QUuid& nodeId, int socketIndex)
+{
+    m_fromNodeId = nodeId.toString(QUuid::WithoutBraces);
+    m_fromNodeUuid = nodeId;
+    m_fromSocketIndex = socketIndex;
+}
+
+void Edge::setToNode(const QUuid& nodeId, int socketIndex)
+{
+    m_toNodeId = nodeId.toString(QUuid::WithoutBraces);
+    m_toNodeUuid = nodeId;
+    m_toSocketIndex = socketIndex;
 }

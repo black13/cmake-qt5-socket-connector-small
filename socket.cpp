@@ -160,7 +160,21 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
     
     if (event->button() == Qt::LeftButton) {
         qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
-        // TODO: Start edge creation drag
+        
+        Scene* scene = qobject_cast<Scene*>(this->scene());
+        if (!scene) {
+            event->accept();
+            return;
+        }
+        
+        // Left-click logic for ghost edge interaction
+        if (m_role == Output && !scene->ghostEdgeActive()) {
+            // Start ghost edge from output socket
+            scene->startGhostEdge(this, event->scenePos());
+        } else if (m_role == Input && scene->ghostEdgeActive()) {
+            // Finish ghost edge at input socket
+            scene->finishGhostEdge(this);
+        }
         event->accept();
     } else if (event->button() == Qt::RightButton && m_role == Output) {
         qDebug() << "Socket right-clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");

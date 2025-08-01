@@ -189,8 +189,7 @@ set(CORE_SOURCES
     ghost_edge.cpp
     
     # Phase 11: Type-erasure facade system
-    node_facade.h
-    edge_facade.h
+    graph_facades.h
     
     # Node registry system
     node_registry.h
