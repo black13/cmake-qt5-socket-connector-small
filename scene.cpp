@@ -89,7 +89,7 @@ void Scene::removeNode(const QUuid& nodeId)
     
     // Clean up edges first (they may reference sockets)
     for (const QUuid& edgeId : edgesToRemove) {
-        removeEdge(edgeId);
+        deleteEdge(edgeId);  // Use unified deletion API
     }
     
     // Clean design: sockets cleaned up automatically as node children
@@ -100,15 +100,16 @@ void Scene::removeNode(const QUuid& nodeId)
     delete node;
 }
 
-void Scene::removeEdge(const QUuid& edgeId)
+void Scene::removeEdge_INTERNAL(const QUuid& edgeId)
 {
+    Q_ASSERT_X(false, "removeEdge_INTERNAL", 
+               "DEPRECATED: Use Scene::deleteEdge() instead for proper observer notification");
+    
+    // This method is kept only for emergency fallback - should never be called
     Edge* edge = m_edges.value(edgeId, nullptr);
     if (!edge) return;
     
-    // Clean design: edges manage their own socket disconnection via direct pointers
-    // Socket cleanup handled automatically when edge is destroyed
-    
-    // Remove from scene and registry
+    // Basic removal without observer notification (INCOMPLETE - use deleteEdge!)
     removeItem(edge);
     m_edges.remove(edgeId);
     delete edge;
@@ -168,44 +169,52 @@ void Scene::deleteNode(const QUuid& nodeId)
 
 void Scene::deleteEdge(const QUuid& edgeId)
 {
+    // 1. Lookup edge by ID; if missing, return
     Edge* edge = getEdge(edgeId);
     if (!edge) {
         qWarning() << "Scene::deleteEdge - edge not found:" << edgeId.toString(QUuid::WithoutBraces).left(8);
         return;
     }
     
+#ifdef QT_DEBUG
     qDebug() << "🔗 EDGE DELETE: Starting deletion of edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
+#endif
     
-    // Remove from collection and scene
-    qDebug() << "   📦 Removing from m_edges collection (size before:" << m_edges.size() << ")";
+    // 2. Remove from edge registry/map FIRST
     m_edges.remove(edgeId);
-    qDebug() << "   📦 Collection size after removal:" << m_edges.size();
     
-    qDebug() << "   🎬 Removing from Qt scene";
-    removeItem(edge);
+    // 3. Remove from QGraphicsScene
+    if (edge->scene() == this) {
+        removeItem(edge);
+    }
     
-    // Notify observers BEFORE deleting the edge
-    qDebug() << "   📢 Notifying observers of edge removal";
+    // 4. Notify observers (onEdgeRemoved(id)) BEFORE deletion
     notifyEdgeRemoved(edgeId);
     
-    qDebug() << "   🗑️ Deleting edge object";
+    // 5. Delete edge object
     delete edge;
     
     // Emit signal for UI updates
     emit sceneChanged();
     
+#ifdef QT_DEBUG
     qDebug() << "✅ EDGE DELETE: Complete - Observer notified, scene updated";
+#endif
 }
 
 void Scene::deleteSelected()
 {
     QList<QGraphicsItem*> selectedItems = this->selectedItems();
     if (selectedItems.isEmpty()) {
+#ifdef QT_DEBUG
         qDebug() << "No items selected for deletion";
+#endif
         return;
     }
     
+#ifdef QT_DEBUG
     qDebug() << "🗑️ DELETE KEY: Deleting" << selectedItems.size() << "selected items";
+#endif
     
     // Separate nodes and edges for proper deletion order
     QList<Node*> selectedNodes;
@@ -214,17 +223,22 @@ void Scene::deleteSelected()
     for (QGraphicsItem* item : selectedItems) {
         if (Node* node = qgraphicsitem_cast<Node*>(item)) {
             selectedNodes.append(node);
+#ifdef QT_DEBUG
             qDebug() << "   📦 Selected node:" << node->getId().toString(QUuid::WithoutBraces).left(8);
+#endif
         } else if (Edge* edge = qgraphicsitem_cast<Edge*>(item)) {
             selectedEdges.append(edge);
+#ifdef QT_DEBUG
             qDebug() << "   🔗 Selected edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+#endif
         }
     }
     
-    qDebug() << "🔗 EDGE DELETION: Processing" << selectedEdges.size() << "selected edges";
     // Delete selected edges first
     for (Edge* edge : selectedEdges) {
+#ifdef QT_DEBUG
         qDebug() << "   ❌ Deleting edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+#endif
         deleteEdge(edge->getId());
     }
     
@@ -432,7 +446,9 @@ void Scene::cancelGhostEdge()
     m_ghostFromSocket = nullptr;
     m_ghostEdgeActive = false;
     
+#ifdef QT_DEBUG
     qDebug() << "GHOST: Cancelled";
+#endif
 }
 
 QPen Scene::ghostPen() const

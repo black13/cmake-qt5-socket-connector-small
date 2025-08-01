@@ -32,6 +32,8 @@ class Edge;
 class Node : public QGraphicsItem
 {
 public:
+    enum { Type = UserType + 1 }; // Custom type for qgraphicsitem_cast
+    
     Node(const QUuid& id = QUuid::createUuid(), 
          const QPointF& position = QPointF(100, 100));
     ~Node(); // Destructor for safe edge invalidation
@@ -46,6 +48,7 @@ public:
     // QGraphicsItem interface
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    int type() const override { return Type; } // Enable qgraphicsitem_cast
     
     // Movement tracking for live XML updates
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;

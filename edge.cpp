@@ -41,7 +41,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
-    // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
+    // SAFETY: Primary path - use cached node pointers if still valid
     if (m_fromNode) {
         m_fromNode->unregisterEdge(this);
     }
@@ -49,7 +49,26 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
     
+    // FALLBACK: If pointers were invalidated, resolve nodes by ID and unregister
+    // This prevents stale edge pointers in node incident sets
+    if (!m_fromNode || !m_toNode) {
+        if (auto sc = qobject_cast<Scene*>(scene())) {
+            if (!m_fromNode && !m_fromNodeUuid.isNull()) {
+                if (auto node = sc->getNode(m_fromNodeUuid)) {
+                    node->unregisterEdge(this);
+                }
+            }
+            if (!m_toNode && !m_toNodeUuid.isNull()) {
+                if (auto node = sc->getNode(m_toNodeUuid)) {
+                    node->unregisterEdge(this);
+                }
+            }
+        }
+    }
+    
+#ifdef QT_DEBUG
     qDebug() << "🔗 ~Edge destroyed:" << m_id.toString(QUuid::WithoutBraces).left(8);
+#endif
 }
 
 void Edge::invalidateNode(const Node* node)

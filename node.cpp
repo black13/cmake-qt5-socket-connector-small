@@ -122,7 +122,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
             
             // Notify observers of node movement via scene
             if (Scene* typedScene = static_cast<Scene*>(scene())) {
-                typedScene->notifyNodeMoved(m_id, oldPos, currentPos);
+                typedScene->nodeMovedNotification(m_id, oldPos, currentPos);
             }
         }
         

@@ -34,7 +34,6 @@ public:
     void addSocket(Socket* socket);  // Deprecated - sockets managed by nodes
     
     void removeNode(const QUuid& nodeId);
-    void removeEdge(const QUuid& edgeId);
     
     // Fast UUID-based lookups O(1) - no searching, no casting
     Node* getNode(const QUuid& nodeId) const;
@@ -50,17 +49,10 @@ public:
     void deleteEdge(const QUuid& edgeId);
     void deleteSelected();  // Delete all selected items
     
-    // Clear both graphics items AND registries - prevents dangling pointers
+    // Clear both graphics items AND registries - prevents dangling pointers  
     void clearGraph();
     
-    // PHASE 1.2: Safe shutdown preparation
-    void prepareForShutdown();
-    bool isShutdownInProgress() const { return m_shutdownInProgress; }
-    
-    // Public observer notifications (for Node movement)
-    using GraphSubject::notifyNodeMoved;
-    
-    // Ghost edge for visual connection feedback (right-click and drag)
+    // Ghost edge for visual connection feedback
     void startGhostEdge(Socket* fromSocket, const QPointF& startPos);
     void updateGhostEdge(const QPointF& currentPos);
     void finishGhostEdge(Socket* toSocket = nullptr);
@@ -69,6 +61,22 @@ public:
     
     // JavaScript engine access
     JavaScriptEngine* getJavaScriptEngine() const { return m_jsEngine; }
+    
+    // Observer notification helpers (public for Node to call)
+    void nodeMovedNotification(const QUuid& nodeId, QPointF oldPos, QPointF newPos) {
+        notifyNodeMoved(nodeId, oldPos, newPos);
+    }
+    
+    // Shutdown preparation (public for Window to call)
+    void prepareForShutdown();
+
+private:
+    // DEPRECATED: Use deleteEdge() instead
+    void removeEdge_INTERNAL(const QUuid& edgeId);
+    
+    // PHASE 1.2: Safe shutdown preparation  
+    bool isShutdownInProgress() const { return m_shutdownInProgress; }
+    
     QString executeJavaScript(const QString& script);
     void loadJavaScriptFile(const QString& filePath);
     
