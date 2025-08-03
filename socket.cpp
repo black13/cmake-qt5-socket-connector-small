@@ -101,11 +101,11 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
                 painter->setPen(QPen(borderColor, 2));
                 painter->drawRoundedRect(rect, 3.0, 3.0);
                 
-                // ✅ Draw prominent connection dot in center
+                // ✅ Draw prominent BLACK connection dot in center
                 QRectF dotRect = rect.adjusted(3, 3, -3, -3); // Larger dot for visibility
-                painter->setBrush(QBrush(Qt::white));
-                painter->setPen(QPen(borderColor.darker(150), 1));
-                painter->drawEllipse(dotRect); // Circular dot
+                painter->setBrush(QBrush(Qt::black));
+                painter->setPen(QPen(Qt::black, 1));
+                painter->drawEllipse(dotRect); // Black circular dot
                 
                 // Optional: Add subtle glow around socket
                 if (m_hovered) {
