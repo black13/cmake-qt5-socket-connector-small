@@ -86,6 +86,10 @@ public:
     // ✅ Direct position assignment - no calculations, just assignment
     void setDirectPosition(qreal x, qreal y) { setPos(x, y); }
     
+    // Size properties for edge connection calculations
+    qreal getRadius() const { return m_radius; }
+    QSizeF getSocketSize() const { return boundingRect().size(); }
+    
     // Visual state for drag-and-drop feedback (disabled)
     // VisualState getVisualState() const { return m_visualState; }
     // void setVisualState(VisualState state) { m_visualState = state; update(); }
