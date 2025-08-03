@@ -21,6 +21,10 @@ Socket::Socket(Role role, Node* parentNode, int index)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
+    
+    // ✅ Set socket z-order: above nodes (0) but below edges (2)
+    setZValue(1);
+    
     // ✅ NO positioning in constructor - will be positioned later with complete information
     
     // Register with parent node for O(1) lookups
@@ -89,20 +93,27 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
     // Add connection state visual feedback
     switch (m_connectionState) {
         case Connected:
-            // Draw outer glow for connected sockets
-            painter->setBrush(QBrush(socketColor.lighter(120)));
-            painter->setPen(QPen(borderColor.lighter(150), 1));
-            painter->drawRoundedRect(rect.adjusted(-2, -2, 2, 2), 4.0, 4.0);
-            
-            // Draw inner highlight
-            painter->setBrush(socketColor.lighter(140));
-            painter->setPen(QPen(borderColor, 3));
-            painter->drawRoundedRect(rect, 3.0, 3.0);
-            
-            // Draw connection indicator (small center square)
-            painter->setBrush(QBrush(Qt::white));
-            painter->setPen(Qt::NoPen);
-            painter->drawRoundedRect(rect.adjusted(4, 4, -4, -4), 1.0, 1.0);
+            {
+                // ✅ ENHANCED: Clear visual feedback for connected sockets
+                
+                // Draw socket body (slightly dimmed to show "occupied" state)
+                painter->setBrush(socketColor.darker(110));
+                painter->setPen(QPen(borderColor, 2));
+                painter->drawRoundedRect(rect, 3.0, 3.0);
+                
+                // ✅ Draw prominent connection dot in center
+                QRectF dotRect = rect.adjusted(3, 3, -3, -3); // Larger dot for visibility
+                painter->setBrush(QBrush(Qt::white));
+                painter->setPen(QPen(borderColor.darker(150), 1));
+                painter->drawEllipse(dotRect); // Circular dot
+                
+                // Optional: Add subtle glow around socket
+                if (m_hovered) {
+                    painter->setBrush(Qt::NoBrush);
+                    painter->setPen(QPen(borderColor.lighter(150), 1));
+                    painter->drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 4.0, 4.0);
+                }
+            }
             break;
             
         case Highlighted:
@@ -157,6 +168,13 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     m_pressed = true;
     update(); // Show pressed state immediately
+    
+    // ✅ DISABLE dragging from connected sockets
+    if (isConnected()) {
+        qDebug() << "Socket" << m_index << "is connected - dragging disabled";
+        event->ignore(); // Don't start drag operations on connected sockets
+        return;
+    }
     
     if (event->button() == Qt::LeftButton) {
         qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");

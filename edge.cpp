@@ -32,8 +32,9 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     setFlag(QGraphicsItem::ItemHasNoContents, false); // Ensure we control our own drawing
     setAcceptHoverEvents(true);  // Enable hover events for better interaction
     
-    // Ensure edges are above nodes in z-order for easier selection
-    setZValue(1);  // Nodes default to z=0, edges at z=1
+    // ✅ Z-order hierarchy: Nodes(0) < Sockets(1) < Edges(2)
+    // Edges appear on top of sockets for "plugged-in" visual effect
+    setZValue(2);
     
     qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
     // Don't call updatePath() here - sockets not resolved yet
@@ -216,8 +217,14 @@ void Edge::updatePath()
         return;
     }
     
-    QPointF start = m_fromSocket->scenePos();
-    QPointF end = m_toSocket->scenePos();
+    // ✅ FIXED: Connect to exact socket centers in scene coordinates
+    // Use mapToScene to get the socket's center point in scene coordinates
+    QRectF fromRect = m_fromSocket->boundingRect();
+    QRectF toRect = m_toSocket->boundingRect();
+    
+    // Get the center of each socket in its local coordinates, then map to scene
+    QPointF start = m_fromSocket->mapToScene(fromRect.center());
+    QPointF end = m_toSocket->mapToScene(toRect.center());
     
     buildPath(start, end);
 }
@@ -239,19 +246,10 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Clear and rebuild path safely
     m_path.clear();
     
-    // Enhanced connection appearance with better visual integration
+    // ✅ ENHANCED: Connect directly to socket centers (no adjustment needed)
+    // Since updatePath() now provides socket centers, use them directly
     QPointF adjustedStart = start;
     QPointF adjustedEnd = end;
-    
-    // Improved socket connection points for better "plugged-in" look
-    const qreal socketRadius = 7.0; // Match socket visual size
-    QPointF diff = adjustedEnd - adjustedStart;
-    qreal length = std::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
-    QPointF direction = length > 0 ? QPointF(diff.x() / length, diff.y() / length) : QPointF(0, 0);
-    
-    // Move connection points to socket edges for cleaner appearance
-    adjustedStart += direction * socketRadius;
-    adjustedEnd -= direction * socketRadius;
     
     m_path.moveTo(adjustedStart);
     
