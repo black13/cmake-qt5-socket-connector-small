@@ -247,6 +247,7 @@ set(TEST_SOURCES
     tst_main.cpp
 )
 
+
 # Facade test sources (Phase 11 experimental)
 set(FACADE_TEST_SOURCES
     test_facade_core.cpp
@@ -277,6 +278,25 @@ if(BUILD_FACADE_TESTS)
     add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
     target_link_libraries(TestFacadeCore NodeGraphCore)
     message(STATUS "Building Phase 11 facade tests")
+endif()
+
+# ─────────────────────────────────────
+# 12. Automatic Testing Setup
+# ─────────────────────────────────────
+option(ENABLE_AUTOMATIC_TESTS "Enable automatic test execution" ON)
+if(ENABLE_AUTOMATIC_TESTS)
+    enable_testing()
+    
+    # Add main test suite (now includes JavaScript engine tests)
+    add_test(NAME MainTests COMMAND NodeGraphTests)
+    
+    # Add facade tests if enabled
+    if(BUILD_FACADE_TESTS)
+        add_test(NAME FacadeTests COMMAND TestFacadeCore)
+    endif()
+    
+    message(STATUS "Automatic testing enabled - run 'ctest' to execute all tests")
+    message(STATUS "JavaScript engine tests integrated into MainTests")
 endif()
 
 # Always use FetchContent libxml2 - Core library (shared by both main and test)

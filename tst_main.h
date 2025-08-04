@@ -10,6 +10,7 @@
 #include "node.h"
 #include "edge.h"
 #include "node_registry.h"
+#include "javascript_engine.h"
 
 /**
  * tst_Main - Main Qt Test suite that grows with the application
@@ -39,6 +40,13 @@ private slots:
     // XML Dynamic updates
     void testNodePositionToXml();
     void testEdgeModificationToXml();
+    
+    // JavaScript Engine Tests
+    void testJavaScriptEngineBasics();
+    void testJavaScriptES6Features();
+    void testJavaScriptSceneIntegration();
+    void testJavaScriptNodeScripting();
+    void testJavaScriptErrorHandling();
 
 private:
     // Helper methods
@@ -51,6 +59,11 @@ private:
     void performXmlLoadTest(const QString& filename, const QString& testName);
     qint64 measureXmlLoadTime(const QString& filename);
     void validateLoadedGraph(int expectedNodes, int expectedEdges);
+    
+    // JavaScript test helpers
+    void verifyJSValue(const QJSValue& value, const QString& testName);
+    QString createTestScript(const QString& scriptContent);
+    void logJSTestResult(const QString& testName, bool passed, const QString& details = "");
     
     // Test infrastructure
     QApplication* m_app;
