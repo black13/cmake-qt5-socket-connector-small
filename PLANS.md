@@ -1456,3 +1456,216 @@ This branching strategy ensures that your stable, working Node/Edge/Socket syste
 - Clean abstraction layer over existing Node/Edge classes
 - Safe experimentation environment maintained
 - Path forward to JavaScript integration clear
+
+---
+
+## Phase 12: Execution Orchestrator & Capability Architecture 🎯
+
+### 📍 Current Status
+**Branch**: `feature/execution-orchestrator` (created August 1, 2025)  
+**Base**: `main` branch with latest visual socket improvements  
+**Status**: 🔄 **In Progress** - Design and initial implementation
+
+### 🎯 Architectural Vision
+
+Transform the current per-node JavaScript execution into a graph-theoretic computation pipeline with capability-based architecture, lazy evaluation, and multi-language code generation.
+
+#### Current State (Building Upon)
+- ✅ **Solid UI Layer**: Ghost edge flow, Qt painting, observer pattern
+- ✅ **Graph Representation**: Scene, Node, Edge with UUID-based lookups  
+- ✅ **JavaScript Engine**: Per-node script execution via `JavaScriptEngine`
+- ✅ **Unified Facade System**: `graph_facades.h` with type-erasure patterns
+- ✅ **Edge Deletion Hardening**: Single deletion path with UUID fallback
+- ✅ **Observer Pattern**: `GraphSubject` with change notifications
+
+#### Target Architecture (What We're Building)
+- 🎯 **ExecutionOrchestrator**: Graph-level computation scheduling with topological ordering
+- 🎯 **Capability-Based Design**: ExecutableSpec + CodegenSpec as rubber types capabilities
+- 🎯 **Lazy Evaluation**: Memoized computation with dependency tracking (`node_id, input_hash`)
+- 🎯 **Code Generation Pipeline**: Graph → JSON IR → Python/C++/JS backends
+- 🎯 **Legacy Integration**: Seamless adapters for existing JavaScript engine
+
+### 🏗️ Implementation Phases
+
+#### Phase 12.1: Core Execution Infrastructure (High Priority)
+**Goal**: Graph-level execution orchestration with existing JavaScript integration
+
+**Components:**
+1. **ExecutableSpec Interface**
+   ```cpp
+   struct ExecutableSpec {
+     virtual QVariantMap execute(const QVariantMap& inputs) = 0;
+   };
+   ```
+   - Rubber types capability for node execution
+   - Delegate to existing `JavaScriptEngine::executeNodeScript`
+   - Qt-native I/O via `QVariantMap`
+
+2. **ExecutionOrchestrator**
+   ```cpp
+   class ExecutionOrchestrator {
+     void scheduleRecompute(const QSet<QUuid>& affectedNodes);
+     void invalidateDownstream(const QUuid& changedNodeId);  
+     QVariantMap executeNode(const QUuid& nodeId, const QVariantMap& inputs);
+   };
+   ```
+   - Topological ordering for DAG execution
+   - Lazy evaluation with memoization
+   - Integration with existing observer pattern
+
+3. **Observer Integration**
+   ```cpp
+   // Hook into existing pattern:
+   GraphSubject::notifyEdgeCreated(edgeId) 
+   → ExecutionOrchestrator::scheduleRecompute(affectedSubgraph)
+   
+   Scene::finishGhostEdge() 
+   → ExecutionOrchestrator::invalidateDownstream(newEdge)
+   ```
+
+**Files:**
+- `execution_orchestrator.h/cpp` - Core orchestration logic
+- `executable_spec.h` - Rubber types capability interface
+- `legacy_javascript_adapter.h/cpp` - Integration with existing engine
+- `test_execution_orchestrator.cpp` - Comprehensive test suite
+
+#### Phase 12.2: Code Generation Pipeline (Medium Priority)
+**Goal**: Multi-language code emission from visual graphs
+
+**Components:**
+1. **CodegenSpec Interface**
+   ```cpp
+   struct CodegenSpec {
+     virtual CodeChunk emit(CodeTarget target) const = 0;
+   };
+   ```
+   - Per-node code chunk emission
+   - JSON IR as first backend target
+   - Foundation for language-specific backends
+
+2. **Code Assembly Pipeline**
+   ```cpp
+   class CodegenPipeline {
+     QString emitWholeGraph(CodeTarget target);
+     void assembleCodeChunks(const QList<CodeChunk>& chunks);
+   };
+   ```
+   - Topological traversal for code generation
+   - Import/Definition/Body assembly policies
+   - Multiple language target support
+
+**Files:**
+- `codegen_spec.h` - Code generation capability interface
+- `codegen_pipeline.h/cpp` - Whole-graph code assembly
+- `json_ir_backend.h/cpp` - JSON intermediate representation
+- `test_codegen_pipeline.cpp` - Code generation testing
+
+#### Phase 12.3: Advanced Features (Lower Priority)
+**Goal**: Performance optimization and multi-language backends
+
+**Components:**
+1. **Memoization System**
+   - Cache keyed by `(node_id, input_hash)`
+   - Invalidation on script/connection changes
+   - Performance optimization for UI interactions
+
+2. **Multi-Language Backends**
+   - Python code generation with dependency management
+   - C++ code generation with compilation integration
+   - Whole-graph assembly with proper imports/exports
+
+**Files:**
+- `memoization_cache.h/cpp` - Smart caching system
+- `python_backend.h/cpp` - Python code generation
+- `cpp_backend.h/cpp` - C++ code generation
+
+### 🔧 Integration Strategy
+
+#### Minimal Disruption Approach
+- **UI Code**: Unchanged (ghost edges, Qt painting preserved)
+- **Edge Validation**: Unchanged (`Edge::resolveConnections` preserved)
+- **Existing JavaScript**: Wrapped, not replaced
+- **Observer Pattern**: Extended, not modified
+
+#### Legacy Adapters
+```cpp
+class LegacyNodeExecutableAdapter {
+  // Wraps existing JavaScriptEngine::executeNodeScript
+  QVariantMap execute(const QVariantMap& inputs) override;
+};
+
+class LegacyNodeCodegenAdapter {  
+  // Basic IR generation until native backends exist
+  CodeChunk emit(CodeTarget target) const override;
+};
+```
+
+### 🎯 Success Criteria
+
+#### Phase 12.1 Complete When:
+- [ ] ExecutableSpec can execute JavaScript nodes via existing engine
+- [ ] ExecutionOrchestrator schedules DAG execution topologically  
+- [ ] Observer pattern triggers orchestrator recomputation correctly
+- [ ] All existing functionality preserved (zero regressions)
+- [ ] Comprehensive test coverage validates orchestration logic
+
+#### Phase 12.2 Complete When:
+- [ ] CodegenSpec emits JSON IR for simple nodes
+- [ ] Legacy adapters provide seamless JavaScript integration
+- [ ] Basic whole-graph code generation pipeline operational
+- [ ] At least one language backend (Python/C++) generates working code
+
+#### Full Phase 12 Complete When:
+- [ ] Graph changes trigger appropriate execution updates automatically
+- [ ] Memoization improves performance during UI interactions measurably
+- [ ] Multiple language backends generate production-ready code
+- [ ] Execution orchestrator handles complex DAGs and cyclic graphs
+- [ ] Documentation and migration guides complete
+
+### 🔍 Technical Design Principles
+
+#### 1. Capability-Based Architecture
+- Single rubber entity with optional ExecutableSpec/CodegenSpec
+- No class proliferation or inheritance explosion
+- Mix/match capabilities per node type
+
+#### 2. Graph-Theoretic Foundation  
+- Topological ordering for deterministic execution
+- Lazy evaluation for UI responsiveness
+- Explicit dependency tracking and invalidation
+
+#### 3. Performance Optimization
+- Memoization keyed by content hash
+- O(affected_nodes) invalidation, not O(total_nodes)
+- Background computation with UI thread safety
+
+#### 4. Future-Proof Extension
+- Clean separation: Graph logic ↔ Code generation
+- JSON IR enables unlimited language targets
+- Modular backend system for extensibility
+
+### 📊 Risk Mitigation
+
+#### Complexity Management
+- **Phased Implementation**: Core → Generation → Advanced
+- **Legacy Adapters**: Gradual migration, no breaking changes
+- **Comprehensive Testing**: Each phase validated independently
+
+#### Performance Safeguards
+- **Lazy Evaluation**: Prevent unnecessary computation
+- **Smart Invalidation**: Only recompute affected subgraphs
+- **UI Thread Safety**: Orchestrator operations off main thread
+
+#### Integration Safety
+- **Observer Hooks**: Build on existing infrastructure
+- **Qt-Native Types**: `QVariantMap` for seamless integration
+- **Backward Compatibility**: All existing APIs preserved
+
+### 📁 Implementation Tracking
+
+**Todo System**: All work tracked via TodoWrite tool
+**Branch Management**: `feature/execution-orchestrator` for all development
+**Regular Checkpoints**: Progress documented in PLANS.md updates
+**Testing Strategy**: Test-driven development with comprehensive coverage
+
+This phase represents the natural evolution from static graph representation to dynamic computation pipeline, building upon all previous phases while maintaining architectural integrity and system stability.
