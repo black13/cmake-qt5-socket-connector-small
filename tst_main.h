@@ -47,6 +47,7 @@ private slots:
     void testJavaScriptSceneIntegration();
     void testJavaScriptNodeScripting();
     void testJavaScriptErrorHandling();
+    void testJavaScriptFileOperations();
 
 private:
     // Helper methods
