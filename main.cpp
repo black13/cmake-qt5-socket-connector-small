@@ -117,14 +117,22 @@ int main(int argc, char *argv[])
     // Command line parsing
     
     // Create main window
+    qDebug() << "=== STEP 1: Creating Window (BEFORE node registration) ===";
+    qDebug() << "NodeRegistry types at window creation:" << NodeRegistry::instance().getRegisteredTypes().size();
     Window window;
+    qDebug() << "Window created successfully";
     
     // Initialize JavaScript engine
+    qDebug() << "=== STEP 2: Initializing JavaScript Engine (BEFORE node registration) ===";
+    qDebug() << "NodeRegistry types before JS engine:" << NodeRegistry::instance().getRegisteredTypes().size();
     Scene* scene = window.getScene();
     if (scene) {
         auto* jsEngine = scene->getJavaScriptEngine();
         if (!jsEngine) {
             qDebug() << "Warning: JavaScript engine initialization failed";
+        } else {
+            qDebug() << "JavaScript engine initialized successfully";
+            qDebug() << "NodeRegistry types after JS engine init:" << NodeRegistry::instance().getRegisteredTypes().size();
         }
     }
     
@@ -191,7 +199,9 @@ int main(int argc, char *argv[])
     }
     
     // Register all supported node types
-    qDebug() << "=== Registering Node Types ===";
+    qDebug() << "=== STEP 3: Registering Node Types (AFTER window/JS engine creation) ===";
+    qDebug() << "NodeRegistry types BEFORE registration:" << NodeRegistry::instance().getRegisteredTypes().size();
+    qDebug() << "Starting node type registration process...";
     
     // Core node types
     NodeRegistry::instance().registerNode("IN", []() { 
@@ -199,16 +209,21 @@ int main(int argc, char *argv[])
         node->setNodeType("IN"); 
         return node; 
     });
+    qDebug() << "Registered: IN (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    
     NodeRegistry::instance().registerNode("OUT", []() { 
         Node* node = new Node(); 
         node->setNodeType("OUT"); 
         return node; 
     });
+    qDebug() << "Registered: OUT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    
     NodeRegistry::instance().registerNode("PROC", []() { 
         Node* node = new Node(); 
         node->setNodeType("PROC"); 
         return node; 
     });
+    qDebug() << "Registered: PROC (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
     
     // Palette node types - each with proper type designation
     NodeRegistry::instance().registerNode("SOURCE", []() { 
@@ -216,26 +231,35 @@ int main(int argc, char *argv[])
         node->setNodeType("SOURCE"); 
         return node; 
     });
+    qDebug() << "Registered: SOURCE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    
     NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
         node->setNodeType("SINK"); 
         return node; 
     });
+    qDebug() << "Registered: SINK (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    
     NodeRegistry::instance().registerNode("TRANSFORM", []() { 
         Node* node = new Node(); 
         node->setNodeType("TRANSFORM"); 
         return node; 
     });
+    qDebug() << "Registered: TRANSFORM (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    
     NodeRegistry::instance().registerNode("MERGE", []() { 
         Node* node = new Node(); 
         node->setNodeType("MERGE"); 
         return node; 
     });
+    qDebug() << "Registered: MERGE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    
     NodeRegistry::instance().registerNode("SPLIT", []() { 
         Node* node = new Node(); 
         node->setNodeType("SPLIT"); 
         return node; 
     });
+    qDebug() << "Registered: SPLIT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
     
     // Legacy compatibility for older tests
     NodeRegistry::instance().registerNode("PROCESSOR", []() { 
@@ -243,10 +267,19 @@ int main(int argc, char *argv[])
         node->setNodeType("PROCESSOR"); 
         return node; 
     });
+    qDebug() << "Registered: PROCESSOR (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
     
+    QStringList registeredTypes = NodeRegistry::instance().getRegisteredTypes();
+
     // Test the NodeRegistry to verify nodes are registered
     qDebug() << "=== NodeGraph Application Starting ===";
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
+    qDebug() << "Total registered types:" << registeredTypes.size();
+    qDebug() << "=== Logging each registered type ===";
+    for (int i = 0; i < registeredTypes.size(); ++i) {
+        qDebug() << QString("  [%1] \"%2\"").arg(i + 1).arg(registeredTypes[i]);
+    }
+    qDebug() << "======================================";
     
     // Initialize GraphFactory with scene and XML document
     // Scene* scene = window.getScene(); // Already declared above

@@ -4,8 +4,10 @@
 ✅ **Completed**: Phase 3 XML serialization fixes - save/load working with actual graph data  
 ✅ **Completed**: Phase 3.5 JavaScript Integration - QJSEngine with comprehensive API  
 ✅ **Completed**: Socket balancing improvements - vertical centering within nodes  
-🔄 **Next**: Implement Inkscape-style live XML synchronization system  
-📍 **Branch**: Ready to merge `feature/inkscape-xml-system` to main, then start new work
+✅ **Completed**: Phase 11 Facade System - Type-erasure patterns for unified interfaces
+✅ **Completed**: Phase 12 ExecutionOrchestrator - Graph-level computation scheduling
+🔄 **Next**: Plan 11 Runtime Extensibility - Rubber types and scripting system
+📍 **Branch**: Working on `fix/edge-drawing-and-delete` with new orchestrator system
 
 ## Phase 3.5: JavaScript Integration System ✅
 
@@ -1456,3 +1458,403 @@ This branching strategy ensures that your stable, working Node/Edge/Socket syste
 - Clean abstraction layer over existing Node/Edge classes
 - Safe experimentation environment maintained
 - Path forward to JavaScript integration clear
+
+---
+
+## Phase 12: Execution Orchestrator & Capability Architecture 🎯
+
+### 📍 Current Status
+**Branch**: `feature/execution-orchestrator` (created August 1, 2025)  
+**Base**: `main` branch with latest visual socket improvements  
+**Status**: 🔄 **In Progress** - Design and initial implementation
+
+### 🎯 Architectural Vision
+
+Transform the current per-node JavaScript execution into a graph-theoretic computation pipeline with capability-based architecture, lazy evaluation, and multi-language code generation.
+
+#### Current State (Building Upon)
+- ✅ **Solid UI Layer**: Ghost edge flow, Qt painting, observer pattern
+- ✅ **Graph Representation**: Scene, Node, Edge with UUID-based lookups  
+- ✅ **JavaScript Engine**: Per-node script execution via `JavaScriptEngine`
+- ✅ **Unified Facade System**: `graph_facades.h` with type-erasure patterns
+- ✅ **Edge Deletion Hardening**: Single deletion path with UUID fallback
+- ✅ **Observer Pattern**: `GraphSubject` with change notifications
+
+#### Target Architecture (What We're Building)
+- 🎯 **ExecutionOrchestrator**: Graph-level computation scheduling with topological ordering
+- 🎯 **Capability-Based Design**: ExecutableSpec + CodegenSpec as rubber types capabilities
+- 🎯 **Lazy Evaluation**: Memoized computation with dependency tracking (`node_id, input_hash`)
+- 🎯 **Code Generation Pipeline**: Graph → JSON IR → Python/C++/JS backends
+- 🎯 **Legacy Integration**: Seamless adapters for existing JavaScript engine
+
+### 🏗️ Implementation Phases
+
+#### Phase 12.1: Core Execution Infrastructure (High Priority)
+**Goal**: Graph-level execution orchestration with existing JavaScript integration
+
+**Components:**
+1. **ExecutableSpec Interface**
+   ```cpp
+   struct ExecutableSpec {
+     virtual QVariantMap execute(const QVariantMap& inputs) = 0;
+   };
+   ```
+   - Rubber types capability for node execution
+   - Delegate to existing `JavaScriptEngine::executeNodeScript`
+   - Qt-native I/O via `QVariantMap`
+
+2. **ExecutionOrchestrator**
+   ```cpp
+   class ExecutionOrchestrator {
+     void scheduleRecompute(const QSet<QUuid>& affectedNodes);
+     void invalidateDownstream(const QUuid& changedNodeId);  
+     QVariantMap executeNode(const QUuid& nodeId, const QVariantMap& inputs);
+   };
+   ```
+   - Topological ordering for DAG execution
+   - Lazy evaluation with memoization
+   - Integration with existing observer pattern
+
+3. **Observer Integration**
+   ```cpp
+   // Hook into existing pattern:
+   GraphSubject::notifyEdgeCreated(edgeId) 
+   → ExecutionOrchestrator::scheduleRecompute(affectedSubgraph)
+   
+   Scene::finishGhostEdge() 
+   → ExecutionOrchestrator::invalidateDownstream(newEdge)
+   ```
+
+**Files:**
+- `execution_orchestrator.h/cpp` - Core orchestration logic
+- `executable_spec.h` - Rubber types capability interface
+- `legacy_javascript_adapter.h/cpp` - Integration with existing engine
+- `test_execution_orchestrator.cpp` - Comprehensive test suite
+
+#### Phase 12.2: Code Generation Pipeline (Medium Priority)
+**Goal**: Multi-language code emission from visual graphs
+
+**Components:**
+1. **CodegenSpec Interface**
+   ```cpp
+   struct CodegenSpec {
+     virtual CodeChunk emit(CodeTarget target) const = 0;
+   };
+   ```
+   - Per-node code chunk emission
+   - JSON IR as first backend target
+   - Foundation for language-specific backends
+
+2. **Code Assembly Pipeline**
+   ```cpp
+   class CodegenPipeline {
+     QString emitWholeGraph(CodeTarget target);
+     void assembleCodeChunks(const QList<CodeChunk>& chunks);
+   };
+   ```
+   - Topological traversal for code generation
+   - Import/Definition/Body assembly policies
+   - Multiple language target support
+
+**Files:**
+- `codegen_spec.h` - Code generation capability interface
+- `codegen_pipeline.h/cpp` - Whole-graph code assembly
+- `json_ir_backend.h/cpp` - JSON intermediate representation
+- `test_codegen_pipeline.cpp` - Code generation testing
+
+#### Phase 12.3: Advanced Features (Lower Priority)
+**Goal**: Performance optimization and multi-language backends
+
+**Components:**
+1. **Memoization System**
+   - Cache keyed by `(node_id, input_hash)`
+   - Invalidation on script/connection changes
+   - Performance optimization for UI interactions
+
+2. **Multi-Language Backends**
+   - Python code generation with dependency management
+   - C++ code generation with compilation integration
+   - Whole-graph assembly with proper imports/exports
+
+**Files:**
+- `memoization_cache.h/cpp` - Smart caching system
+- `python_backend.h/cpp` - Python code generation
+- `cpp_backend.h/cpp` - C++ code generation
+
+### 🔧 Integration Strategy
+
+#### Minimal Disruption Approach
+- **UI Code**: Unchanged (ghost edges, Qt painting preserved)
+- **Edge Validation**: Unchanged (`Edge::resolveConnections` preserved)
+- **Existing JavaScript**: Wrapped, not replaced
+- **Observer Pattern**: Extended, not modified
+
+#### Legacy Adapters
+```cpp
+class LegacyNodeExecutableAdapter {
+  // Wraps existing JavaScriptEngine::executeNodeScript
+  QVariantMap execute(const QVariantMap& inputs) override;
+};
+
+class LegacyNodeCodegenAdapter {  
+  // Basic IR generation until native backends exist
+  CodeChunk emit(CodeTarget target) const override;
+};
+```
+
+### 🎯 Success Criteria
+
+#### Phase 12.1 Complete When:
+- [ ] ExecutableSpec can execute JavaScript nodes via existing engine
+- [ ] ExecutionOrchestrator schedules DAG execution topologically  
+- [ ] Observer pattern triggers orchestrator recomputation correctly
+- [ ] All existing functionality preserved (zero regressions)
+- [ ] Comprehensive test coverage validates orchestration logic
+
+#### Phase 12.2 Complete When:
+- [ ] CodegenSpec emits JSON IR for simple nodes
+- [ ] Legacy adapters provide seamless JavaScript integration
+- [ ] Basic whole-graph code generation pipeline operational
+- [ ] At least one language backend (Python/C++) generates working code
+
+#### Full Phase 12 Complete When:
+- [ ] Graph changes trigger appropriate execution updates automatically
+- [ ] Memoization improves performance during UI interactions measurably
+- [ ] Multiple language backends generate production-ready code
+- [ ] Execution orchestrator handles complex DAGs and cyclic graphs
+- [ ] Documentation and migration guides complete
+
+### 🔍 Technical Design Principles
+
+#### 1. Capability-Based Architecture
+- Single rubber entity with optional ExecutableSpec/CodegenSpec
+- No class proliferation or inheritance explosion
+- Mix/match capabilities per node type
+
+#### 2. Graph-Theoretic Foundation  
+- Topological ordering for deterministic execution
+- Lazy evaluation for UI responsiveness
+- Explicit dependency tracking and invalidation
+
+#### 3. Performance Optimization
+- Memoization keyed by content hash
+- O(affected_nodes) invalidation, not O(total_nodes)
+- Background computation with UI thread safety
+
+#### 4. Future-Proof Extension
+- Clean separation: Graph logic ↔ Code generation
+- JSON IR enables unlimited language targets
+- Modular backend system for extensibility
+
+### 📊 Risk Mitigation
+
+#### Complexity Management
+- **Phased Implementation**: Core → Generation → Advanced
+- **Legacy Adapters**: Gradual migration, no breaking changes
+- **Comprehensive Testing**: Each phase validated independently
+
+#### Performance Safeguards
+- **Lazy Evaluation**: Prevent unnecessary computation
+- **Smart Invalidation**: Only recompute affected subgraphs
+- **UI Thread Safety**: Orchestrator operations off main thread
+
+#### Integration Safety
+- **Observer Hooks**: Build on existing infrastructure
+- **Qt-Native Types**: `QVariantMap` for seamless integration
+- **Backward Compatibility**: All existing APIs preserved
+
+### 📁 Implementation Tracking
+
+**Todo System**: All work tracked via TodoWrite tool
+**Branch Management**: `feature/execution-orchestrator` for all development
+**Regular Checkpoints**: Progress documented in PLANS.md updates
+**Testing Strategy**: Test-driven development with comprehensive coverage
+
+This phase represents the natural evolution from static graph representation to dynamic computation pipeline, building upon all previous phases while maintaining architectural integrity and system stability.
+
+---
+
+## Plan 11: Runtime Extensibility via Rubber Types and Scripting 🛠️
+
+### 🎯 Goal
+Add a minimal and robust runtime behavior system that enables runtime-extensible node behaviors without class inheritance, using type-erased actions and JavaScript integration.
+
+### 🏗️ Architecture Overview
+
+**Core Components:**
+- **RubberAction Interface**: Type-erased behavior system for nodes
+- **ActionRegistry**: Thread-safe singleton for action storage/retrieval
+- **Context**: Runtime execution environment with input/output access
+- **JavaScript Integration**: Script-driven action registration and execution
+
+### 📁 Implementation Files
+
+| Component | Files | Status |
+|-----------|-------|--------|
+| Rubber Types | `rubber_action.h/.cpp` | ✅ Implemented |
+| Action Registry | `action_registry.h/.cpp` | ✅ Implemented |  
+| JavaScript Actions | `scripts/plan11_proc.js` | ✅ Implemented |
+| Documentation | `plan11.md` | ✅ Complete |
+| Node Integration | `node.h/.cpp` (minimal changes) | 🟡 Pending |
+| JS Engine Integration | `javascript_engine.cpp` | 🟡 Pending |
+
+### 🔧 Key Features
+
+#### Type-Erased Action System
+```cpp
+class RubberAction {
+public:
+    virtual void run(Node& node, Context& ctx) = 0;
+    virtual QString getDescription() const = 0;
+    virtual bool isApplicableTo(const QString& nodeType) const = 0;
+};
+
+template <typename Callable>
+class LambdaRubberAction : public RubberAction {
+    // Wraps any C++ callable as an action
+};
+```
+
+#### Thread-Safe Action Registry
+```cpp
+class ActionRegistry {
+public:
+    static ActionRegistry& instance();
+    bool registerAction(const QString& nodeType, const QString& actionName, ActionPtr action);
+    ActionPtr getAction(const QString& nodeType, const QString& actionName) const;
+    QHash<QString, ActionPtr> getActionsForType(const QString& nodeType) const;
+};
+```
+
+#### JavaScript Action Registration
+```javascript
+// Register JavaScript functions as node actions
+registerNodeAction("PROC", "uppercase_payload", function(node, ctx) {
+    let input = ctx.getInput("text");
+    ctx.setOutput("result", input.toUpperCase());
+});
+```
+
+### 🧪 Example Actions (plan11_proc.js)
+
+1. **uppercase_payload**: Converts input text to uppercase
+2. **concat_inputs**: Concatenates multiple inputs with separator
+3. **hash_input**: Generates hash of input data for integrity checks
+4. **json_transform**: Transforms JSON with various operations (extract, flatten, etc.)
+
+### 🔌 Integration Strategy
+
+#### Minimal Node Changes
+```cpp
+// Add to Node class (only these additions needed)
+class Node {
+    std::map<QString, ActionPtr> m_actions;  // NEW
+public:
+    void addAction(const QString& name, ActionPtr action);      // NEW
+    void executeAction(const QString& name, Context& ctx);      // NEW
+    // ... existing methods unchanged
+};
+```
+
+#### ExecutionOrchestrator Integration
+```cpp
+// Enhanced execution with actions
+QVariantMap executeNodeWithActions(const QUuid& nodeId, const QVariantMap& inputs) {
+    // 1. Execute normal node logic (existing)
+    QVariantMap outputs = executeNodeInternal(nodeId, inputs);
+    
+    // 2. Execute registered actions (NEW)
+    Node* node = m_scene->getNode(nodeId);
+    if (node) {
+        NodeExecutionContext ctx(node, inputs, outputs);
+        QStringList actions = ActionRegistry::instance().getActionNames(node->getNodeType());
+        for (const QString& actionName : actions) {
+            ActionPtr action = ActionRegistry::instance().getAction(node->getNodeType(), actionName);
+            if (action) {
+                action->run(*node, ctx);
+            }
+        }
+        outputs = ctx.getAllOutputs();
+    }
+    return outputs;
+}
+```
+
+### 🎛️ Usage Patterns
+
+#### C++ Lambda Actions
+```cpp
+REGISTER_LAMBDA_ACTION("PROC", "multiply_by_two", [](Node& node, Context& ctx) {
+    if (ctx.hasInput("value")) {
+        double input = ctx.getInput("value").toDouble();
+        ctx.setOutput("result", input * 2.0);
+    }
+});
+```
+
+#### JavaScript Actions
+```javascript
+registerNodeAction("SINK", "log_input", function(node, ctx) {
+    let value = ctx.getInput("input_0");
+    console.log("SINK node " + ctx.getNodeId() + " received: " + value);
+});
+```
+
+#### Action Discovery
+```cpp
+// Runtime action discovery
+QHash<QString, ActionPtr> actions = ActionRegistry::instance().getActionsForType("PROC");
+bool hasAction = ActionRegistry::instance().hasAction("PROC", "uppercase_payload");
+```
+
+### 📊 Design Principles
+
+- **No Class Explosion**: Single rubber interface, no inheritance hierarchy
+- **Non-Invasive**: Minimal changes to existing Node/Edge/Socket classes
+- **Runtime Extensible**: Actions registered dynamically via scripts
+- **Type Safe**: Strong typing through templates and interfaces  
+- **Thread Safe**: Registry supports concurrent access
+- **Testable**: Actions testable in isolation with mock contexts
+
+### 🚀 Future Enhancements
+
+| Feature | Priority | Complexity | Description |
+|---------|----------|------------|-------------|
+| Enhanced Context | 🟢 High | ✅ Easy | Data flow control, action chaining |
+| JS Validation | 🟢 High | ✅ Easy | Pre-connection validation actions |  
+| Auto-bind Properties | 🟡 Med | ✅ Easy | Automatic property exposure to JS |
+| Action Dependencies | 🟡 Med | 🟡 Medium | Actions depending on other actions |
+| Plugin System | 🔴 Later | ❌ Complex | External plugin loading |
+
+### 📋 Implementation Status
+
+**Phase 1: Core System** ✅
+- [x] RubberAction interface and implementations
+- [x] ActionRegistry singleton with thread safety
+- [x] Context interface and execution environment
+- [x] JavaScript action examples and documentation
+
+**Phase 2: Integration** 🟡
+- [ ] Add action storage to Node class
+- [ ] Implement NodeExecutionContext  
+- [ ] Integrate with JavaScriptEngine
+- [ ] Update ExecutionOrchestrator workflow
+
+**Phase 3: Testing** ⏳
+- [ ] Unit tests for ActionRegistry and RubberAction
+- [ ] Integration tests with Node execution
+- [ ] JavaScript action execution tests
+- [ ] Performance and thread safety validation
+
+### 💡 Summary
+
+Plan 11 provides a **minimal, non-invasive runtime extensibility system** that enables script-driven node behaviors without architectural changes. The rubber types pattern ensures maximum flexibility while maintaining strong typing and excellent performance - perfectly suited for professional node graph applications.
+
+**Key Benefits:**
+- ✅ Preserves existing architecture completely
+- ✅ Enables runtime behavior customization
+- ✅ Supports both C++ and JavaScript actions
+- ✅ Thread-safe and performance-optimized
+- ✅ Comprehensive testing and documentation
+
+This system bridges the gap between static node definitions and dynamic runtime behaviors, providing engineers with the tools needed for truly extensible node graph applications.

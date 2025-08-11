@@ -590,7 +590,7 @@ void Window::createToolsMenu()
     m_toolsMenu->addAction(jsScriptAction);
     
     // Quick test script menu
-    QMenu* testScriptsMenu = m_toolsMenu->addMenu("⚡ Quick Tests");
+    QMenu* testScriptsMenu = m_toolsMenu->addMenu("Quick Tests");
     testScriptsMenu->setStatusTip("Run predefined test scripts");
     
     QAction* paletteTestAction = new QAction("Palette System Test", this);
@@ -614,33 +614,33 @@ void Window::createToolsMenu()
     testScriptsMenu->addAction(performanceTestAction);
     
     testScriptsMenu->addSeparator();
-    QAction* destructorSafetyAction = new QAction("🛡️ Destructor Safety Test", this);
+    QAction* destructorSafetyAction = new QAction("Destructor Safety Test", this);
     destructorSafetyAction->setStatusTip("Test crash prevention during object destruction");
     connect(destructorSafetyAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_destructor_safety.js"); });
     testScriptsMenu->addAction(destructorSafetyAction);
     
-    QAction* debugApiAction = new QAction("🔍 Debug Graph API", this);
+    QAction* debugApiAction = new QAction("Debug Graph API", this);
     debugApiAction->setStatusTip("Debug Graph API availability and functionality");
     connect(debugApiAction, &QAction::triggered, [this]() { runSpecificScript("scripts/debug_graph_api.js"); });
     testScriptsMenu->addAction(debugApiAction);
     
-    QAction* nodeTypesAction = new QAction("🏷️ Test Node Types", this);
+    QAction* nodeTypesAction = new QAction("Test Node Types", this);
     nodeTypesAction->setStatusTip("Test all registered node types");
     connect(nodeTypesAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_node_types.js"); });
     testScriptsMenu->addAction(nodeTypesAction);
     
-    QAction* simpleGraphAction = new QAction("🟢 Simple Graph Test", this);
+    QAction* simpleGraphAction = new QAction("Simple Graph Test", this);
     simpleGraphAction->setStatusTip("Create a basic three-node connected graph");
     connect(simpleGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_graph.js"); });
     testScriptsMenu->addAction(simpleGraphAction);
     
-    QAction* layoutDemoAction = new QAction("🎯 Node Layout Demo", this);
+    QAction* layoutDemoAction = new QAction("Node Layout Demo", this);
     layoutDemoAction->setStatusTip("Demonstrate different node positioning strategies");
     connect(layoutDemoAction, &QAction::triggered, [this]() { runSpecificScript("scripts/demo_node_layout.js"); });
     testScriptsMenu->addAction(layoutDemoAction);
     
     testScriptsMenu->addSeparator();
-    QAction* runAllTestsAction = new QAction("🏃 Run All Tests", this);
+    QAction* runAllTestsAction = new QAction("Run All Tests", this);
     runAllTestsAction->setStatusTip("Run all test scripts sequentially");
     connect(runAllTestsAction, &QAction::triggered, this, &Window::runAllTests);
     testScriptsMenu->addAction(runAllTestsAction);
@@ -1133,16 +1133,29 @@ void Window::runSpecificScript(const QString& filePath)
     QFileInfo fileInfo(filePath);
     statusBar()->showMessage(QString("Running %1...").arg(fileInfo.baseName()), 3000);
     
+    // Log script execution details
+    qDebug() << "=== SCRIPT EXECUTION START ===";
+    qDebug() << "Script file:" << filePath;
+    qDebug() << "Script name:" << fileInfo.baseName();
+    qDebug() << "Executed by: Window::runSpecificScript()";
+    qDebug() << "===================================";
+    
     QJSValue result = jsEngine->evaluateFile(filePath);
     
+    // Log script completion details
+    qDebug() << "=== SCRIPT EXECUTION END ===";
+    qDebug() << "Script name:" << fileInfo.baseName();
     if (result.isError()) {
+        qDebug() << "Result: ERROR -" << result.toString();
         QMessageBox::critical(this, "Script Error", 
                              QString("Script execution failed: %1").arg(result.toString()));
     } else {
         QString resultText = result.isUndefined() ? "Test completed successfully" : result.toString();
+        qDebug() << "Result: SUCCESS -" << resultText;
         QMessageBox::information(this, "Test Results", 
                                QString("%1: %2").arg(fileInfo.baseName(), resultText));
     }
+    qDebug() << "=================================";
     
     updateStatusBar();
 }
