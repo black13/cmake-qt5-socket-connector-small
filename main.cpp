@@ -151,52 +151,17 @@ int main(int argc, char *argv[])
     bool fileLoadAttempted = !filename.isEmpty();
     QString originalFilename = filename; // Store original filename for user message
     
-    xmlDocPtr xmlDoc = nullptr;
-    if (!filename.isEmpty()) {
-        
-        QFileInfo fileInfo(filename);
-        qDebug() << "File path analysis:";
-        qDebug() << "  - Absolute path:" << fileInfo.absoluteFilePath();
-        qDebug() << "  - File exists:" << fileInfo.exists();
-        qDebug() << "  - File readable:" << fileInfo.isReadable();
-        qDebug() << "  - File size:" << fileInfo.size() << "bytes";
-        qDebug() << "  - Directory:" << fileInfo.absoluteDir().absolutePath();
-        
-        if (fileInfo.exists() && fileInfo.isReadable()) {
-            qDebug() << "✓ File found and accessible, loading XML content...";
-            
-            // Load XML file using libxml2
-            xmlDoc = xmlParseFile(fileInfo.absoluteFilePath().toUtf8().constData());
-            if (!xmlDoc) {
-                qCritical() << "✗ Failed to parse XML file:" << filename;
-                qCritical() << "Check XML syntax and format";
-                qDebug() << "Continuing with empty graph...";
-                filename.clear(); // Clear filename so we create a default document
-            } else {
-                qDebug() << "✓ XML file parsed successfully";
-            }
-        } else {
-            qDebug() << "✗ File not found or not readable:" << filename;
-            qDebug() << "Searched in:" << QDir::currentPath();
-            qDebug() << "Full path attempted:" << fileInfo.absoluteFilePath();
-            qDebug() << "Continuing with empty graph...";
-            filename.clear(); // Clear filename so we create a default document
-        }
-    }
+    // Create empty XML document for GraphFactory
+    // GraphFactory will handle all file loading - single XML authority
+    qDebug() << "=== Creating Empty XML Document ===";
+    xmlDocPtr xmlDoc = xmlNewDoc(BAD_CAST "1.0");
+    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+    xmlDocSetRootElement(xmlDoc, root);
     
-    // Create default XML document if no file was loaded or file was missing/invalid
-    if (!xmlDoc) {
-        // Create default XML document structure for XML-first architecture
-        qDebug() << "=== Creating XML Document Structure ===";
-        xmlDoc = xmlNewDoc(BAD_CAST "1.0");
-        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-        xmlDocSetRootElement(xmlDoc, root);
-        
-        xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
-        xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
-        
-        qDebug() << "✓ XML document created with root element";
-    }
+    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
+    xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
+    
+    qDebug() << "✓ Empty XML document created - GraphFactory will handle file loading";
     
     // Register all supported node types
     qDebug() << "=== STEP 3: Registering Node Types (AFTER window/JS engine creation) ===";
@@ -289,19 +254,23 @@ int main(int argc, char *argv[])
     }
     
     GraphFactory factory(scene, xmlDoc);
-    qDebug() << "GraphFactory initialized";
+    qDebug() << "GraphFactory initialized with empty XML document";
     
     if (!filename.isEmpty()) {
-        // Use GraphFactory's XML loading - single source of truth
+        // GraphFactory is now the single XML authority
+        qDebug() << "Loading file via GraphFactory:" << filename;
         if (!factory.loadFromXmlFile(filename)) {
-            qCritical() << "Failed to load XML file:" << filename;
+            qCritical() << "GraphFactory failed to load XML file:" << filename;
+            if (fileLoadAttempted) {
+                qDebug() << "Original filename was:" << originalFilename;
+            }
             return -1;
         }
         
-        qDebug() << "✓ Graph loaded successfully from file:" << filename;
+        qDebug() << "✓ Graph loaded successfully from file via GraphFactory:" << filename;
         
     } else {
-        // Start with empty graph - no default test nodes
+        qDebug() << "Starting with empty graph - no file specified";
         qDebug() << "=== Starting with Empty Graph ===";
         qDebug() << "✓ No file specified - application will start with clean scene";
         qDebug() << "  Users can create nodes manually or load XML files via Ctrl+L";
