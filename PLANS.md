@@ -1858,3 +1858,288 @@ Plan 11 provides a **minimal, non-invasive runtime extensibility system** that e
 - ✅ Comprehensive testing and documentation
 
 This system bridges the gap between static node definitions and dynamic runtime behaviors, providing engineers with the tools needed for truly extensible node graph applications.
+
+---
+
+## Phase 11.2: Slow & Steady Rubber Types Integration 🐌
+
+### 📍 Status: ACTIVE (Started August 13, 2025)
+**Branch**: `feature/rubber-types-slow-integration` (pending creation)  
+**Foundation**: XML-first unified creation system (COMPLETED ✅)  
+**Approach**: Additive layer pattern - zero impact on proven stable system
+
+### 🎯 Strategic Architecture
+
+**Core Principle**: NEVER modify working factory + template system. Only add optional wrapper layer on top.
+
+```
+PROVEN STABLE LAYER (don't touch):
+GraphFactory + NodeTypeTemplates + createNodeFromXml() ✅ WORKING
+
+EXPERIMENTAL LAYER (additive):  
+RubberNodeFacade → JavaScriptEngine → ActionRegistry ⚠️ NEW
+```
+
+### 🚦 Safety-First Development Strategy
+
+#### Preserve What Works
+- **GraphFactory**: Unchanged - proven XML-first creation
+- **NodeTypeTemplates**: Unchanged - scriptable node definitions  
+- **Node/Edge/Socket**: Unchanged - solid serialization system
+- **JavaScript Engine**: Reuse existing QJSEngine integration
+- **Build System**: Optional rubber types features only
+
+#### Add New Capabilities
+- **RubberNodeFacade**: Wrapper around existing Node* 
+- **Action Registry**: Runtime JavaScript behavior storage
+- **ExecutionBridge**: Connect facades to existing JavaScript engine
+- **Zero Regression**: All existing functionality preserved
+
+### 📋 Implementation Timeline (3 Weeks)
+
+#### Week 1: Minimal Facade Foundation
+**Goal**: Prove wrapper concept without touching existing system
+
+**Files to Create**:
+- `rubber_node_facade.h/.cpp` - Simple Node* wrapper
+- `test_rubber_facade_basic.cpp` - Wrapper functionality tests
+
+**Implementation**:
+```cpp
+// rubber_node_facade.h - Minimal wrapper
+class RubberNodeFacade {
+    Node* m_node;  // Reference to existing node (NOT owned)
+public:
+    explicit RubberNodeFacade(Node& node) : m_node(&node) {}
+    
+    // Delegate to existing node (zero overhead)
+    QUuid getId() const { return m_node->getId(); }
+    QString getType() const { return m_node->getNodeType(); }
+    QPointF getPosition() const { return m_node->pos(); }
+    
+    // New capability placeholders
+    void registerAction(const QString& name, const QString& script);
+    bool hasAction(const QString& name) const;
+    
+private:
+    QHash<QString, QString> m_actions;  // Store for Week 2
+};
+```
+
+**Success Criteria Week 1**:
+- [ ] RubberNodeFacade wraps Node* without issues
+- [ ] All existing tests pass unchanged
+- [ ] Facade reads node properties correctly  
+- [ ] Zero impact on factory/template system
+- [ ] Clean build with optional CMake flag
+
+#### Week 2: JavaScript Bridge Integration
+**Goal**: Connect facade to existing JavaScriptEngine safely
+
+**Files to Create**:
+- `rubber_javascript_bridge.h/.cpp` - Interface to existing JS engine
+- `test_rubber_javascript.cpp` - Script execution tests
+
+**Implementation**:
+```cpp  
+// rubber_javascript_bridge.h
+class RubberJavaScriptBridge {
+    JavaScriptEngine* m_jsEngine;  // Use existing engine
+public:
+    explicit RubberJavaScriptBridge(JavaScriptEngine* engine) 
+        : m_jsEngine(engine) {}
+    
+    // Execute registered action on facade
+    QVariant executeAction(RubberNodeFacade& facade, 
+                          const QString& actionName,
+                          const QVariantMap& inputs);
+    
+    // Register JavaScript function for node type  
+    void registerNodeAction(const QString& nodeType,
+                           const QString& actionName, 
+                           const QString& jsCode);
+};
+```
+
+**Integration Point**:
+```cpp
+// Connect to existing system without modification
+JavaScriptEngine* existingEngine = scene->getJavaScriptEngine();
+RubberJavaScriptBridge bridge(existingEngine);  // Reuse, don't replace
+
+// Existing factory creates node
+Node* node = factory->createNode("TRANSFORM", position);  // UNCHANGED
+RubberNodeFacade facade(*node);  // NEW: Wrap existing node
+bridge.executeAction(facade, "process_data", inputs);  // NEW: JS execution
+```
+
+**Success Criteria Week 2**:
+- [ ] Facade can execute JavaScript via existing engine
+- [ ] JavaScript has access to node properties
+- [ ] Error handling prevents engine crashes
+- [ ] All existing functionality unchanged
+- [ ] Simple script execution working
+
+#### Week 3: Action Registry System  
+**Goal**: Runtime registration and execution of node behaviors
+
+**Files to Create**:
+- `rubber_action_registry.h/.cpp` - Centralized action storage
+- `test_rubber_action_registry.cpp` - Registry functionality tests
+
+**Implementation**:
+```cpp
+// rubber_action_registry.h
+class RubberActionRegistry {
+public:
+    static RubberActionRegistry& instance();
+    
+    // Register JavaScript action for node type
+    void registerAction(const QString& nodeType, 
+                       const QString& actionName,
+                       const QString& jsCode);
+    
+    // Get all actions for node type
+    QHash<QString, QString> getActions(const QString& nodeType) const;
+    
+    // Check if action exists
+    bool hasAction(const QString& nodeType, const QString& actionName) const;
+    
+private:
+    QHash<QString, QHash<QString, QString>> m_typeActions;
+    mutable QMutex m_mutex;  // Thread safety
+};
+```
+
+**Template System Integration**:
+```cpp
+// Extend NodeTypeTemplates with action support (NON-BREAKING)
+class NodeTypeTemplates {
+    // EXISTING methods unchanged ✅
+    
+    // NEW: Optional action registration  
+    static void registerActionForType(const QString& nodeType,
+                                    const QString& actionName, 
+                                    const QString& jsCode);
+                                    
+    static QStringList getActionsForType(const QString& nodeType);
+};
+```
+
+**Success Criteria Week 3**:
+- [ ] Actions registered at runtime successfully
+- [ ] Template system + rubber types cooperate  
+- [ ] Registry thread-safe and performant
+- [ ] Integration with existing factory seamless
+- [ ] Ready for ExecutionOrchestrator connection
+
+### 🔧 Integration Architecture
+
+#### Current Working System (Preserve)
+```
+User Action → GraphFactory::createNode(type, pos)
+           → NodeTypeTemplates::generateNodeXml() 
+           → GraphFactory::createNodeFromXml()
+           → Node::read() → createSocketsFromXml() ✅
+```
+
+#### Enhanced System (Additive)
+```
+User Action → GraphFactory::createNode(type, pos)  [UNCHANGED]
+           → RubberNodeFacade(*node)  [NEW WRAPPER]  
+           → RubberActionRegistry::executeActions()  [NEW BEHAVIOR]
+           → JavaScriptEngine (existing)  [REUSE]
+```
+
+### 🚨 Safety Checkpoints
+
+**After Each Week**:
+- [ ] `./build.sh debug` completes successfully
+- [ ] All existing tests pass without modification
+- [ ] Application launches and creates/saves graphs normally  
+- [ ] XML serialization identical to before
+- [ ] Performance impact < 1% overhead
+- [ ] Can disable rubber types via CMake flag
+
+**Rollback Triggers**:
+- Any existing test fails
+- Build time increases >10%
+- Application crashes or hangs
+- Memory leaks detected
+- XML format changes
+
+### 📁 File Organization Strategy
+
+#### New Files (Experimental)
+```
+rubber_node_facade.h/cpp           # Week 1: Basic wrapper
+rubber_javascript_bridge.h/cpp     # Week 2: JS integration  
+rubber_action_registry.h/cpp       # Week 3: Runtime actions
+test_rubber_*.cpp                  # Comprehensive test suite
+```
+
+#### Existing Files (Untouched)
+```
+node.h/cpp                 ✅ NO CHANGES
+graph_factory.h/cpp        ✅ NO CHANGES  
+node_type_templates.h/cpp  ✅ NO CHANGES (maybe tiny additions)
+javascript_engine.h/cpp    ✅ NO CHANGES
+```
+
+#### CMakeLists.txt (Optional Features)
+```cmake
+# Optional rubber types support
+option(ENABLE_RUBBER_TYPES "Enable experimental rubber types integration" OFF)
+
+if(ENABLE_RUBBER_TYPES)
+    list(APPEND CORE_SOURCES 
+        rubber_node_facade.cpp
+        rubber_javascript_bridge.cpp  
+        rubber_action_registry.cpp)
+endif()
+```
+
+### 🎯 Success Definition
+
+**Phase 11.2 Complete When**:
+- [ ] RubberNodeFacade wraps existing nodes safely
+- [ ] JavaScript actions execute through facade layer
+- [ ] Action registry enables runtime behavior registration  
+- [ ] Zero impact on proven stable factory + template system
+- [ ] Comprehensive test coverage validates integration
+- [ ] Documentation explains additive architecture
+- [ ] Ready for ExecutionOrchestrator (Phase 11.3)
+
+### 🔮 Future Extensions (Phase 11.3+)
+
+**ExecutionOrchestrator Integration**:
+- Graph-level computation scheduling  
+- Topological execution ordering
+- Memoization and performance optimization
+
+**Advanced JavaScript Features**:
+- Multi-language code generation (Python, C++)
+- Hot-reload of compiled modules  
+- Plugin architecture for custom behaviors
+
+### 💡 Key Architectural Benefits
+
+**Stability Through Isolation**:
+- ✅ Proven system remains untouched and stable
+- ✅ New features developed in safety of separate layer
+- ✅ Easy to disable or remove if problems arise
+- ✅ Gradual adoption based on user feedback
+
+**Future-Proof Extension**:
+- ✅ Foundation prepared for execution orchestrator  
+- ✅ JavaScript integration follows existing patterns
+- ✅ Plugin architecture naturally emerges
+- ✅ AI/ML node generation becomes possible
+
+**Developer Experience**:  
+- ✅ Familiar Qt/JavaScript development patterns
+- ✅ Comprehensive testing and validation
+- ✅ Clear migration path from existing code
+- ✅ Professional documentation and examples
+
+This slow, methodical approach ensures we build powerful rubber types + JavaScript integration while maintaining the rock-solid foundation of our XML-first unified creation system.
