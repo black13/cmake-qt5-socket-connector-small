@@ -146,43 +146,14 @@ void Node::setNodeSize(qreal width, qreal height)
 void Node::setNodeType(const QString& type)
 {
     m_nodeType = type;
-    createStaticSockets();
+    // Socket creation handled by XML-first pipeline - no need to recreate sockets here
     update();
     
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "type:" << type;
 }
 
-void Node::createStaticSockets()
-{
-    // CRITICAL: Delete edges connected to this node BEFORE deleting sockets
-    Scene* typedScene = static_cast<Scene*>(scene());
-    if (typedScene) {
-        QList<QUuid> edgesToDelete;
-        for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
-            Edge* edge = it.value();
-            if (edge->isConnectedToNode(m_id)) {
-                edgesToDelete.append(it.key());
-            }
-        }
-        // Delete edges that reference old sockets
-        for (const QUuid& edgeId : edgesToDelete) {
-            typedScene->deleteEdge(edgeId);
-        }
-        qDebug() << "Node::createStaticSockets - removed" << edgesToDelete.size() 
-                 << "edges before socket recreation for node" << m_id.toString(QUuid::WithoutBraces).left(8);
-    }
-    
-    // Remove existing sockets (Qt will auto-delete child items)
-    for (QGraphicsItem* child : childItems()) {
-        if (qgraphicsitem_cast<Socket*>(child)) {
-            delete child;  // Qt removes from parent automatically
-        }
-    }
-    m_sockets.clear();  // Clear cache to prevent dangling pointers
-    
-    // This method now does nothing - sockets are created during XML read()
-    // based on XML attributes like inputs="2" outputs="3"
-}
+// createStaticSockets() ELIMINATED - dual pathways removed
+// All socket creation now goes through XML-first unified pipeline via createSocketsFromXml()
 
 void Node::createSocketsFromXml(int inputCount, int outputCount)
 {

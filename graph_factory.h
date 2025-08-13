@@ -5,8 +5,10 @@
 #include <QString>
 #include <QPointF>
 #include <QDebug>
+#include <QVariantMap>
 #include <libxml/tree.h>
 #include "socket.h"
+#include "node_type_templates.h"
 
 class Node;
 class Edge;
@@ -27,8 +29,9 @@ public:
     Node* createNodeFromXml(xmlNodePtr xmlNode);
     Edge* createEdgeFromXml(xmlNodePtr xmlEdge);
     
-    // Runtime creation (creates XML first, then objects)
-    Node* createNode(const QString& nodeType, const QPointF& position, int inputs = 1, int outputs = 1);
+    // UNIFIED CREATION - Template-driven XML-first approach (inputs/outputs ignored - template defines sockets)
+    Node* createNode(const QString& nodeType, const QPointF& position, int inputs = -1, int outputs = -1);
+    
     Edge* createEdge(Node* fromNode, int fromSocketIndex, Node* toNode, int toSocketIndex);
     
     // Atomic edge connection - enforces proper edge creation

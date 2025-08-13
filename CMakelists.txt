@@ -200,6 +200,10 @@ set(CORE_SOURCES
     graph_factory.h
     graph_factory.cpp
     
+    # Template-driven scriptable node types
+    node_type_templates.h
+    node_type_templates.cpp
+    
     # Layout engine using Graaf (disabled for now)
     # layout_engine.h
     # layout_engine.cpp

@@ -116,7 +116,7 @@ private:
     void calculateNodeSize(int inputCount, int outputCount);
     
     // Socket creation
-    void createStaticSockets();
+    // createStaticSockets() ELIMINATED - unified XML-first creation only
     
     // Visual styling helpers
     void paintSockets(QPainter* painter) const;

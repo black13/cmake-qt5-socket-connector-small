@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graph version="1.0">
+  <node id="1f55d13a-81d7-4bb5-aff4-c362545bf3bb" x="-488" y="-290" type="SOURCE" inputs="0" outputs="1"/>
+  <node id="a62fbda0-e0aa-4c71-af25-646246e4433e" x="-472" y="135" type="SOURCE" inputs="0" outputs="1"/>
+  <node id="2bf1fe2d-c2c3-4ef1-a50e-2c9465c5015b" x="489" y="-35" type="SPLIT" inputs="1" outputs="2"/>
+  <node id="05152128-1e9b-4996-b134-ba44bff2de8c" x="743" y="-132" type="SINK" inputs="1" outputs="0"/>
+  <node id="4a18cc28-178f-4fe0-8fdf-6f2190b0e3e5" x="789" y="125" type="SINK" inputs="1" outputs="0"/>
+  <node id="f254256b-2f35-42ef-8731-234e5664669b" x="-228" y="-93" type="TRANSFORM" inputs="1" outputs="1"/>
+  <node id="ade195df-e49e-4ed1-8be4-42cf4fa04152" x="188" y="-66" type="MERGE" inputs="2" outputs="1"/>
+  <edge id="477e29d8-a746-479f-b01e-7a1c28227afd" fromNode="2bf1fe2d-c2c3-4ef1-a50e-2c9465c5015b" toNode="05152128-1e9b-4996-b134-ba44bff2de8c" fromSocketIndex="1" toSocketIndex="0"/>
+  <edge id="3364fae3-9507-4761-8128-00daa6a94aef" fromNode="2bf1fe2d-c2c3-4ef1-a50e-2c9465c5015b" toNode="4a18cc28-178f-4fe0-8fdf-6f2190b0e3e5" fromSocketIndex="2" toSocketIndex="0"/>
+  <edge id="c8c5a696-c5b3-465d-8a2e-366b50809388" fromNode="f254256b-2f35-42ef-8731-234e5664669b" toNode="ade195df-e49e-4ed1-8be4-42cf4fa04152" fromSocketIndex="1" toSocketIndex="0"/>
+  <edge id="f587da0a-3290-447f-9ebc-c9cc108d9bc8" fromNode="ade195df-e49e-4ed1-8be4-42cf4fa04152" toNode="2bf1fe2d-c2c3-4ef1-a50e-2c9465c5015b" fromSocketIndex="2" toSocketIndex="0"/>
+  <edge id="76ff3a82-ceca-4c4c-a449-5c39e9223489" fromNode="a62fbda0-e0aa-4c71-af25-646246e4433e" toNode="ade195df-e49e-4ed1-8be4-42cf4fa04152" fromSocketIndex="0" toSocketIndex="1"/>
+  <edge id="1b842760-75ad-43ad-84ec-34657edf69f6" fromNode="1f55d13a-81d7-4bb5-aff4-c362545bf3bb" toNode="f254256b-2f35-42ef-8731-234e5664669b" fromSocketIndex="0" toSocketIndex="0"/>
+</graph>

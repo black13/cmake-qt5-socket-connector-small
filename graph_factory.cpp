@@ -5,6 +5,7 @@
 #include "scene.h"
 #include "node_registry.h"
 #include "graph_observer.h"
+#include "node_type_templates.h"
 #include <QDateTime>
 #include <QDebug>
 
@@ -105,20 +106,44 @@ Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge)
 
 Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position, int inputs, int outputs)
 {
-    if (!m_xmlDocument) {
-        qCritical() << "GraphFactory::createNode - no XML document";
+    qDebug() << "GraphFactory::createNode - UNIFIED XML-FIRST CREATION for type:" << nodeType;
+    
+    // Generate XML specification from template system (ignores inputs/outputs params - template has correct config)
+    QString xmlSpecification = NodeTypeTemplates::generateNodeXml(nodeType, position);
+    
+    if (xmlSpecification.isEmpty()) {
+        qCritical() << "GraphFactory::createNode - Failed to generate XML for node type:" << nodeType;
         return nullptr;
     }
     
-    // Create XML node first with socket configuration
-    xmlNodePtr xmlNode = createXmlNode(nodeType, position, inputs, outputs);
-    if (!xmlNode) {
-        qCritical() << "GraphFactory::createNode - failed to create XML node";
+    // Parse the XML specification
+    xmlDocPtr tempDoc = xmlParseDoc(BAD_CAST xmlSpecification.toUtf8().constData());
+    if (!tempDoc) {
+        qCritical() << "GraphFactory::createNode - Failed to parse generated XML:" << xmlSpecification;
         return nullptr;
     }
     
-    // Create object from XML
-    return createNodeFromXml(xmlNode);
+    xmlNodePtr rootNode = xmlDocGetRootElement(tempDoc);
+    if (!rootNode) {
+        qCritical() << "GraphFactory::createNode - No root element in generated XML";
+        xmlFreeDoc(tempDoc);
+        return nullptr;
+    }
+    
+    // Use existing working XML pipeline - the ONLY pathway now
+    Node* node = createNodeFromXml(rootNode);
+    
+    // Cleanup temporary document
+    xmlFreeDoc(tempDoc);
+    
+    if (node) {
+        qDebug() << "GraphFactory::createNode - SUCCESS: Created" << nodeType 
+                 << "node:" << node->getId().toString(QUuid::WithoutBraces).left(8);
+    } else {
+        qCritical() << "GraphFactory::createNode - FAILED to create node from XML";
+    }
+             
+    return node;
 }
 
 Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode, int toSocketIndex)
