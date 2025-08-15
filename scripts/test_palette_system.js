@@ -142,9 +142,9 @@ function testNodeConnections(sourceId, sinkId, processingNodes) {
             Graph.clear();
             
             // Recreate nodes for clean test
-            const newSource = Graph.createNode("Source", 100, 300);
+            const newSource = Graph.createNode("SOURCE", 100, 300);
             const newProcessor = Graph.createNode(processor.type, 300, 300);
-            const newSink = Graph.createNode("Sink", 500, 300);
+            const newSink = Graph.createNode("SINK", 500, 300);
             
             // Connect Source → Processor
             connectionsAttempted++;
