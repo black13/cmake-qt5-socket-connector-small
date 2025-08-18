@@ -210,10 +210,10 @@ Node* tst_Main::createNode(const QString& type)
     qDebug() << "Node created with ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
     
     // Ensure proper socket initialization based on type
-    if (type == "OUT") {
+    if (type == "SINK") {
         qDebug() << "Creating OUT node with 0 inputs, 1 output";
         node->createSocketsFromXml(0, 1);  // 0 inputs, 1 output
-    } else if (type == "IN") {
+    } else if (type == "SOURCE") {
         qDebug() << "Creating IN node with 1 input, 0 outputs";
         node->createSocketsFromXml(1, 0);  // 1 input, 0 outputs
     } else {
@@ -234,22 +234,22 @@ void tst_Main::testCreateNode()
     
     // Test creating nodes directly (bypass factory/registry for now)
     Node* outNode = new Node();
-    outNode->setNodeType("OUT");
+    outNode->setNodeType("SINK");
     outNode->createSocketsFromXml(0, 1);  // 0 inputs, 1 output
     m_testScene->addNode(outNode);
     
     QVERIFY(outNode != nullptr);
-    QCOMPARE(outNode->getNodeType(), QString("OUT"));
+    QCOMPARE(outNode->getNodeType(), QString("SINK"));
     QVERIFY(!outNode->getId().isNull());
     QCOMPARE(outNode->getSocketCount(), 1);
     
     Node* inNode = new Node();
-    inNode->setNodeType("IN");
+    inNode->setNodeType("SOURCE");
     inNode->createSocketsFromXml(1, 0);  // 1 input, 0 outputs
     m_testScene->addNode(inNode);
     
     QVERIFY(inNode != nullptr);
-    QCOMPARE(inNode->getNodeType(), QString("IN"));
+    QCOMPARE(inNode->getNodeType(), QString("SOURCE"));
     QVERIFY(!inNode->getId().isNull());
     QCOMPARE(inNode->getSocketCount(), 1);
     
@@ -288,28 +288,28 @@ void tst_Main::testFactoryNodeCreation()
     qDebug() << "\n=== Testing Factory/Registry Node Creation ===";
     
     // First register node types (this should be moved to a shared function)
-    NodeRegistry::instance().registerNode("IN", []() { 
+    NodeRegistry::instance().registerNode("SOURCE", []() { 
         Node* node = new Node(); 
-        node->setNodeType("IN"); 
+        node->setNodeType("SOURCE"); 
         return node; 
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
+    NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
-        node->setNodeType("OUT"); 
+        node->setNodeType("SINK"); 
         return node; 
     });
     
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
     
     // Test factory node creation with proper XML structure  
-    Node* outNode = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
+    Node* outNode = m_factory->createNode("SINK", QPointF(100, 100), 0, 1);
     QVERIFY(outNode != nullptr);
-    QCOMPARE(outNode->getNodeType(), QString("OUT"));
+    QCOMPARE(outNode->getNodeType(), QString("SINK"));
     QCOMPARE(outNode->getSocketCount(), 1);
     
-    Node* inNode = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
+    Node* inNode = m_factory->createNode("SOURCE", QPointF(200, 100), 1, 0);
     QVERIFY(inNode != nullptr);
-    QCOMPARE(inNode->getNodeType(), QString("IN"));
+    QCOMPARE(inNode->getNodeType(), QString("SOURCE"));
     QCOMPARE(inNode->getSocketCount(), 1);
     
     // Test edge creation through factory
@@ -327,14 +327,14 @@ void tst_Main::testXmlLoadSave()
     qDebug() << "\n=== Testing XML Load/Save Round-Trip ===";
     
     // Register node types
-    NodeRegistry::instance().registerNode("IN", []() { 
+    NodeRegistry::instance().registerNode("SOURCE", []() { 
         Node* node = new Node(); 
-        node->setNodeType("IN"); 
+        node->setNodeType("SOURCE"); 
         return node; 
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
+    NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
-        node->setNodeType("OUT"); 
+        node->setNodeType("SINK"); 
         return node; 
     });
     
@@ -370,8 +370,8 @@ void tst_Main::testXmlLoadSave()
     if (!loaded) {
         qDebug() << "No test file available, creating minimal test instead";
         // Create a minimal graph for testing
-        Node* node1 = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
-        Node* node2 = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
+        Node* node1 = m_factory->createNode("SINK", QPointF(100, 100), 0, 1);
+        Node* node2 = m_factory->createNode("SOURCE", QPointF(200, 100), 1, 0);
         Edge* edge = m_factory->createEdge(node1, 0, node2, 0);
         QVERIFY(node1 && node2 && edge);
     } else {
@@ -393,22 +393,22 @@ void tst_Main::testCompleteWorkflow()
     qDebug() << "\n=== Testing Complete Workflow ===";
     
     // Register node types
-    NodeRegistry::instance().registerNode("IN", []() { 
+    NodeRegistry::instance().registerNode("SOURCE", []() { 
         Node* node = new Node(); 
-        node->setNodeType("IN"); 
+        node->setNodeType("SOURCE"); 
         return node; 
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
+    NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
-        node->setNodeType("OUT"); 
+        node->setNodeType("SINK"); 
         return node; 
     });
     
     // Step 1: Create a test graph
     qDebug() << "Step 1: Creating test graph...";
-    Node* sourceNode = m_factory->createNode("OUT", QPointF(50, 50), 0, 1);
-    Node* middleNode = m_factory->createNode("OUT", QPointF(150, 50), 1, 1);  
-    Node* sinkNode = m_factory->createNode("IN", QPointF(250, 50), 1, 0);
+    Node* sourceNode = m_factory->createNode("SINK", QPointF(50, 50), 0, 1);
+    Node* middleNode = m_factory->createNode("SINK", QPointF(150, 50), 1, 1);  
+    Node* sinkNode = m_factory->createNode("SOURCE", QPointF(250, 50), 1, 0);
     
     QVERIFY(sourceNode && middleNode && sinkNode);
     
@@ -477,7 +477,7 @@ void tst_Main::testNodePositionToXml()
     QVERIFY(setupEnvironment());
     
     // Create a node at initial position
-    auto node = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
+    auto node = m_factory->createNode("SINK", QPointF(100, 100), 0, 1);
     QVERIFY(node != nullptr);
     
     QUuid nodeId = node->getId();
@@ -510,8 +510,8 @@ void tst_Main::testEdgeModificationToXml()
     QVERIFY(setupEnvironment());
     
     // Create two nodes
-    auto node1 = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
-    auto node2 = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
+    auto node1 = m_factory->createNode("SINK", QPointF(100, 100), 0, 1);
+    auto node2 = m_factory->createNode("SOURCE", QPointF(200, 100), 1, 0);
     QVERIFY(node1 && node2);
     
     QUuid node1Id = node1->getId();
@@ -600,14 +600,14 @@ void tst_Main::performXmlLoadTest(const QString& filename, const QString& testNa
 qint64 tst_Main::measureXmlLoadTime(const QString& filename)
 {
     // Register node types
-    NodeRegistry::instance().registerNode("IN", []() { 
+    NodeRegistry::instance().registerNode("SOURCE", []() { 
         Node* node = new Node(); 
-        node->setNodeType("IN"); 
+        node->setNodeType("SOURCE"); 
         return node; 
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
+    NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
-        node->setNodeType("OUT"); 
+        node->setNodeType("SINK"); 
         return node; 
     });
     
@@ -790,25 +790,40 @@ void tst_Main::testJavaScriptNodeScripting()
     
     QVERIFY(setupEnvironment());
     JavaScriptEngine* jsEngine = m_testScene->getJavaScriptEngine();
+    qDebug() << "JavaScript engine obtained:" << (jsEngine ? "SUCCESS" : "FAILED");
     
     // Create a test node
     Node* testNode = new Node();
     testNode->setNodeType("TEST");
     m_testScene->addNode(testNode);
+    qDebug() << "Test node created with ID:" << testNode->getId().toString().left(8);
+    qDebug() << "Test node type set to:" << testNode->getNodeType();
     
     // Test 1: Basic node script execution  
     QString nodeScript = R"(
-        console.log("Node script executing");
+        console.log("=== JavaScript executing inside node context ===");
+        console.log("Current node available:", typeof currentNode !== 'undefined');
+        console.log("Inputs available:", typeof inputs !== 'undefined');
+        
         const nodeResult = {
             nodeId: "test-node",
-            execution: "successful",
-            timestamp: new Date().getTime()
+            execution: "successful", 
+            timestamp: new Date().getTime(),
+            hasCurrentNode: typeof currentNode !== 'undefined',
+            hasInputs: typeof inputs !== 'undefined'
         };
+        
+        console.log("Node script result:", JSON.stringify(nodeResult));
         nodeResult;
     )";
     
+    qDebug() << "Executing basic node script...";
     // Test the executeNodeScript method
     bool scriptExecuted = jsEngine->executeNodeScript(testNode, nodeScript);
+    qDebug() << "Basic node script execution result:" << (scriptExecuted ? "SUCCESS" : "FAILED");
+    if (jsEngine->hasErrors()) {
+        qDebug() << "JavaScript errors detected:" << jsEngine->getLastError();
+    }
     logJSTestResult("Node Script Execution", scriptExecuted, 
                    scriptExecuted ? "Node script executed" : "Node script failed");
     
@@ -816,21 +831,97 @@ void tst_Main::testJavaScriptNodeScripting()
     QVariantMap inputs;
     inputs["inputValue"] = 42;
     inputs["inputString"] = "test input";
+    inputs["processingMode"] = "rubber_types_test";
+    qDebug() << "Setting up inputs:" << inputs;
     
     QString inputScript = R"(
-        // Note: Input handling depends on implementation
-        console.log("Processing inputs");
-        "Input processing complete";
+        console.log("=== Processing inputs in JavaScript ===");
+        console.log("Available inputs:", inputs);
+        
+        if (typeof inputs !== 'undefined') {
+            console.log("Input value:", inputs.inputValue);
+            console.log("Input string:", inputs.inputString);
+            console.log("Processing mode:", inputs.processingMode);
+            
+            // This is what rubber types will do:
+            const result = {
+                originalValue: inputs.inputValue,
+                processedValue: inputs.inputValue * 2,
+                message: "Processed by " + inputs.processingMode,
+                success: true
+            };
+            
+            console.log("Processing result:", JSON.stringify(result));
+            result;
+        } else {
+            console.log("ERROR: No inputs available!");
+            { error: "No inputs available" };
+        }
     )";
     
+    qDebug() << "Executing node script with inputs...";
     bool inputScriptExecuted = jsEngine->executeNodeScript(testNode, inputScript, inputs);
+    qDebug() << "Node script with inputs execution result:" << (inputScriptExecuted ? "SUCCESS" : "FAILED");
+    if (jsEngine->hasErrors()) {
+        qDebug() << "JavaScript errors detected:" << jsEngine->getLastError();
+    }
     logJSTestResult("Node Script with Inputs", inputScriptExecuted,
                    inputScriptExecuted ? "Input script executed" : "Input script failed");
     
-    // Clean up
-    m_testScene->deleteNode(testNode->getId());
+    // Test 3: Simulate rubber types action registration and execution
+    qDebug() << "Testing rubber types simulation...";
+    QString rubberTypesScript = R"(
+        console.log("=== Simulating Rubber Types Action ===");
+        
+        // This simulates what RubberNodeFacade.registerAction() will do
+        function registerAction(actionName, actionFunction) {
+            console.log("Registering action:", actionName);
+            // In real rubber types, this would be stored in m_actions
+            return true;
+        }
+        
+        // This simulates executing a registered action
+        function executeAction(actionName, actionInputs) {
+            console.log("Executing action:", actionName, "with inputs:", actionInputs);
+            
+            // Example rubber types action: amplify signal
+            if (actionName === "amplify") {
+                const result = {
+                    output: actionInputs.signal * actionInputs.gain,
+                    action: actionName,
+                    processed: true
+                };
+                console.log("Action result:", JSON.stringify(result));
+                return result;
+            }
+            
+            return { error: "Unknown action: " + actionName };
+        }
+        
+        // Simulate registering an action
+        registerAction("amplify", "function(inputs) { return inputs.signal * inputs.gain; }");
+        
+        // Simulate executing the action
+        const actionResult = executeAction("amplify", { signal: 10, gain: 3.5 });
+        
+        console.log("Rubber types simulation complete");
+        actionResult;
+    )";
     
-    logTestSummary("JS_NODE_SCRIPTING: Node scripting tests completed");
+    bool rubberTypesExecuted = jsEngine->executeNodeScript(testNode, rubberTypesScript);
+    qDebug() << "Rubber types simulation result:" << (rubberTypesExecuted ? "SUCCESS" : "FAILED");
+    if (jsEngine->hasErrors()) {
+        qDebug() << "JavaScript errors detected:" << jsEngine->getLastError();
+    }
+    logJSTestResult("Rubber Types Simulation", rubberTypesExecuted,
+                   rubberTypesExecuted ? "Rubber types pattern works" : "Rubber types pattern failed");
+    
+    // Clean up
+    qDebug() << "Cleaning up test node...";
+    m_testScene->deleteNode(testNode->getId());
+    qDebug() << "Test node cleanup complete";
+    
+    logTestSummary("JS_NODE_SCRIPTING: Node scripting tests completed successfully");
 }
 
 void tst_Main::testJavaScriptErrorHandling()

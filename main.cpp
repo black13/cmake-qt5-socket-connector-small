@@ -107,6 +107,11 @@ int main(int argc, char *argv[])
                                       "file");
     parser.addOption(loadFileOption);
     
+    // Add verification option
+    QCommandLineOption verifyOption(QStringList() << "verify",
+                                   "Run JavaScript integration verification and exit");
+    parser.addOption(verifyOption);
+    
     
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
@@ -288,6 +293,63 @@ int main(int argc, char *argv[])
     // Note: GraphFactory holds reference, so clean up after window closes
     
     window.show();
+    
+    // Check for verification mode - run after window is fully shown
+    bool verifyMode = parser.isSet(verifyOption);
+    
+    if (verifyMode) {
+        qDebug() << "=== VERIFICATION MODE ENABLED ===";
+        qDebug() << "Running JavaScript integration verification...";
+        
+        // Give the application time to fully initialize after show()
+        QTimer::singleShot(1000, [&]() {
+            // Get JavaScript engine from scene
+            Scene* scene = window.getScene();
+            if (!scene) {
+                qCritical() << "VERIFY_ERROR: Scene not available";
+                app.exit(1);
+                return;
+            }
+            
+            auto* jsEngine = scene->getJavaScriptEngine();
+            if (!jsEngine) {
+                qCritical() << "VERIFY_ERROR: JavaScript engine not available";
+                app.exit(1);
+                return;
+            }
+            
+            // Load and execute verification script
+            QString scriptPath = "scripts/startup_verification.js";
+            QJSValue result = jsEngine->evaluateFile(scriptPath);
+            
+            if (result.isError()) {
+                qCritical() << "VERIFY_ERROR: Script execution failed:" << result.toString();
+                app.exit(1);
+                return;
+            }
+            
+            // Extract test results
+            QJSValue testResults = result;
+            if (testResults.hasProperty("failed")) {
+                int failed = testResults.property("failed").toInt();
+                int passed = testResults.property("passed").toInt();
+                int total = testResults.property("total").toInt();
+                
+                qDebug() << "VERIFY_SUMMARY:" << passed << "/" << total << "tests passed";
+                
+                if (failed == 0) {
+                    qDebug() << "VERIFY_RESULT: SUCCESS - All JavaScript integration tests passed";
+                    app.exit(0);
+                } else {
+                    qDebug() << "VERIFY_RESULT: FAILURE -" << failed << "tests failed";
+                    app.exit(1);
+                }
+            } else {
+                qDebug() << "VERIFY_ERROR: Could not parse test results";
+                app.exit(1);
+            }
+        });
+    }
     
     // Show user-friendly message about file loading status
     if (fileLoadAttempted && originalFilename != filename) {

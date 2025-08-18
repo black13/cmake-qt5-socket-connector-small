@@ -322,7 +322,7 @@ void Window::createInputNode()
     QPointF position = viewCenter + QPointF(randomX, randomY);
     
     // Create input node using factory (XML-first approach)
-    Node* node = m_factory->createNode("IN", position, 0, 2);  // 0 inputs, 2 outputs
+    Node* node = m_factory->createNode("SOURCE", position);
     
     if (node) {
         qDebug() << "✓ Created input node at" << position;
@@ -342,7 +342,7 @@ void Window::createOutputNode()
     QPointF position = viewCenter + QPointF(randomX, randomY);
     
     // Create output node using factory (XML-first approach)
-    Node* node = m_factory->createNode("OUT", position, 2, 0);  // 2 inputs, 0 outputs
+    Node* node = m_factory->createNode("SINK", position);
     
     if (node) {
         qDebug() << "✓ Created output node at" << position;
@@ -362,7 +362,7 @@ void Window::createProcessorNode()
     QPointF position = viewCenter + QPointF(randomX, randomY);
     
     // Create processor node using factory (XML-first approach)
-    Node* node = m_factory->createNode("PROC", position, 2, 2);  // 2 inputs, 2 outputs
+    Node* node = m_factory->createNode("TRANSFORM", position);
     
     if (node) {
         qDebug() << "✓ Created processor node at" << position;

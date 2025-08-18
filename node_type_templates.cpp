@@ -128,17 +128,7 @@ QHash<QString, QString> NodeTypeTemplates::getBuiltinTemplates()
         {"SINK",   R"(<node type="SINK" inputs="1" outputs="0"/>)"},
         {"SPLIT",  R"(<node type="SPLIT" inputs="1" outputs="2"/>)"},
         {"MERGE",  R"(<node type="MERGE" inputs="2" outputs="1"/>)"},
-        {"TRANSFORM", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"},
-        
-        // Legacy compatibility (maps old names to new system)
-        {"IN",     R"(<node type="SOURCE" inputs="0" outputs="1"/>)"},
-        {"OUT",    R"(<node type="SINK" inputs="1" outputs="0"/>)"},
-        {"PROC",   R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"},
-        {"PASSTHROUGH", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"},
-        
-        // Processing node variants
-        {"1-to-2", R"(<node type="SPLIT" inputs="1" outputs="2"/>)"},
-        {"2-to-1", R"(<node type="MERGE" inputs="2" outputs="1"/>)"}
+        {"TRANSFORM", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"}
     };
     
     return templates;
