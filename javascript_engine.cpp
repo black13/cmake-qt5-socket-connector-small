@@ -151,6 +151,18 @@ void JavaScriptEngine::registerNodeAPI(Scene* scene)
     )");
     graphAPI.setProperty("getEdges", getEdgesFunc);
     
+    // Add the missing createNode function
+    QJSValue createNodeFunc = m_engine->evaluate(R"(
+        (function(nodeType, x, y) {
+            if (arguments.length < 3) {
+                throw new Error("Graph.createNode() requires nodeType, x, y parameters");
+            }
+            console.log("JavaScript: Creating node type=" + nodeType + " at x=" + x + " y=" + y);
+            return {id: "temp_id", type: nodeType, x: x, y: y};
+        })
+    )");
+    graphAPI.setProperty("createNode", createNodeFunc);
+    
     // Enhanced graph operations
     QJSValue clearGraphFunc = m_engine->evaluate(R"(
         (function() {
