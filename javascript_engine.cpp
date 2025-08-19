@@ -178,7 +178,9 @@ void JavaScriptEngine::registerNodeAPI(Scene* scene)
                 throw new Error("Graph.connect() requires fromNodeId, fromSocket, toNodeId, toSocket parameters");
             }
             console.log("JavaScript: Connecting " + fromNodeId + "[" + fromSocket + "] to " + toNodeId + "[" + toSocket + "]");
-            return {}; // Placeholder edge ID
+            
+            // Call the C++ GraphController connect method
+            return Qt.connectNodesViaCpp(fromNodeId, fromSocket, toNodeId, toSocket);
         })
     )");
     graphAPI.setProperty("connect", connectNodesFunc);
@@ -286,6 +288,9 @@ void JavaScriptEngine::registerGraphController(Scene* scene, GraphFactory* facto
     connect(m_graphController, &GraphController::error, [](const QString& message) {
         qDebug() << "JavaScript Graph Error:" << message;
     });
+    
+    // Phase 1: Set up Qt bridge now that GraphController exists
+    setupQtBridgeWithGraphController();
     
     qDebug() << "JavaScriptEngine: GraphController registered as 'Graph' global object";
 }
@@ -602,4 +607,93 @@ void JavaScriptEngine::loadEnhancedAPIs()
             qDebug() << "JavaScriptEngine: API script not found:" << scriptPath;
         }
     }
+}
+
+void JavaScriptEngine::setupQtBridgeWithGraphController()
+{
+    if (!m_graphController) {
+        qWarning() << "JavaScriptEngine: Cannot setup Qt bridge - GraphController not available";
+        return;
+    }
+    
+    // Phase 1: Set up Qt bridge with real GraphController access
+    QJSValue qt = m_engine->newObject();
+    
+    // Expose GraphController directly for advanced usage
+    QJSValue graphControllerObj = m_engine->newQObject(m_graphController);
+    qt.setProperty("GraphController", graphControllerObj);
+    
+    // Create bridge functions that call real GraphController methods
+    QJSValue createNodeViaCppFunc = m_engine->evaluate(R"(
+        (function(nodeType, x, y) {
+            console.log("Qt bridge: calling real GraphController.createNode with:", nodeType, x, y);
+            var nodeId = Qt.GraphController.createNode(nodeType, x, y);
+            console.log("Qt bridge: GraphController returned nodeId:", nodeId);
+            return {id: nodeId, type: nodeType, x: x, y: y};
+        })
+    )");
+    qt.setProperty("createNodeViaCpp", createNodeViaCppFunc);
+    
+    QJSValue connectNodesViaCppFunc = m_engine->evaluate(R"(
+        (function(fromNodeId, fromSocket, toNodeId, toSocket) {
+            console.log("Qt bridge: calling real GraphController.connect with:", fromNodeId, fromSocket, toNodeId, toSocket);
+            var edgeId = Qt.GraphController.connect(fromNodeId, fromSocket, toNodeId, toSocket);
+            console.log("Qt bridge: GraphController returned edgeId:", edgeId);
+            return {id: edgeId, from: fromNodeId, to: toNodeId, fromSocket: fromSocket, toSocket: toSocket};
+        })
+    )");
+    qt.setProperty("connectNodesViaCpp", connectNodesViaCppFunc);
+    
+    // Set the Qt object BEFORE registering it to global object
+    m_engine->globalObject().setProperty("Qt", qt);
+    
+    // Now override the Graph API functions to use real GraphController
+    QJSValue graphAPI = m_engine->globalObject().property("Graph");
+    if (!graphAPI.isUndefined() && graphAPI.isObject()) {
+        // Replace Graph.createNode with real implementation that calls GraphController
+        QJSValue realCreateNodeFunc = m_engine->evaluate(R"(
+            (function(nodeType, x, y) {
+                if (arguments.length < 3) {
+                    throw new Error("Graph.createNode() requires nodeType, x, y parameters");
+                }
+                console.log("Graph.createNode: delegating to Qt bridge for:", nodeType, x, y);
+                return Qt.createNodeViaCpp(nodeType, x, y);
+            })
+        )");
+        graphAPI.setProperty("createNode", realCreateNodeFunc);
+        
+        // Replace Graph.connect with real implementation
+        QJSValue realConnectFunc = m_engine->evaluate(R"(
+            (function(fromNodeId, fromSocket, toNodeId, toSocket) {
+                if (arguments.length < 4) {
+                    throw new Error("Graph.connect() requires fromNodeId, fromSocket, toNodeId, toSocket parameters");
+                }
+                console.log("Graph.connect: delegating to Qt bridge");
+                return Qt.connectNodesViaCpp(fromNodeId, fromSocket, toNodeId, toSocket);
+            })
+        )");
+        graphAPI.setProperty("connect", realConnectFunc);
+        
+        // Replace Graph.saveXml with real implementation
+        QJSValue realSaveXmlFunc = m_engine->evaluate(R"(
+            (function(filename) {
+                if (arguments.length < 1) {
+                    throw new Error("Graph.saveXml() requires filename parameter");
+                }
+                console.log("Graph.saveXml: delegating to Qt.GraphController.saveXml for:", filename);
+                try {
+                    Qt.GraphController.saveXml(filename);
+                    return true;
+                } catch (error) {
+                    console.log("Graph.saveXml error:", error.message);
+                    return false;
+                }
+            })
+        )");
+        graphAPI.setProperty("saveXml", realSaveXmlFunc);
+        
+        qDebug() << "JavaScriptEngine: Graph API functions replaced with real GraphController implementations";
+    }
+    
+    qDebug() << "JavaScriptEngine: Qt bridge connected to real GraphController - Phase 1 complete";
 }

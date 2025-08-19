@@ -318,6 +318,12 @@ int main(int argc, char *argv[])
                 return;
             }
             
+            // CRITICAL: Setup GraphController for verification
+            // The verification tests need real GraphController access
+            qDebug() << "VERIFY_SETUP: Setting up GraphController for verification tests";
+            jsEngine->registerGraphController(scene, &factory);
+            qDebug() << "VERIFY_SETUP: GraphController registration completed";
+            
             // Load and execute verification script
             QString scriptPath = "scripts/startup_verification.js";
             QJSValue result = jsEngine->evaluateFile(scriptPath);

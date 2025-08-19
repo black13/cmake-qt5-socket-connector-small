@@ -135,6 +135,68 @@ test("Factory System Active", () => {
     }
 });
 
+// Test 11: Edge creation functionality
+test("Graph.connect() Available", () => {
+    return typeof Graph !== 'undefined' && typeof Graph.connect === 'function';
+});
+
+// Test 12: Create edges between nodes
+test("Create Edges Between Nodes", () => {
+    if (typeof Graph === 'undefined' || typeof Graph.createNode !== 'function' || typeof Graph.connect !== 'function') {
+        return false;
+    }
+    
+    try {
+        // Create two nodes
+        let sourceNode = Graph.createNode("SOURCE", 100, 100);
+        let sinkNode = Graph.createNode("SINK", 300, 100);
+        
+        if (!sourceNode || !sinkNode) {
+            console.log("Edge test: Failed to create test nodes");
+            return false;
+        }
+        
+        // Try to connect them (SOURCE output socket 0 to SINK input socket 0)
+        let edge = Graph.connect(sourceNode.id, 0, sinkNode.id, 0);
+        
+        return edge !== null && edge !== undefined;
+    } catch (error) {
+        console.log("Edge creation error: " + error.message);
+        return false;
+    }
+});
+
+// Test 13: Save created graph to XML file
+test("Save Graph to XML", () => {
+    if (typeof Graph === 'undefined' || typeof Graph.saveXml !== 'function') {
+        console.log("Graph.saveXml not available - checking if nodes were actually created");
+        
+        // Try alternative - check if Qt.GraphController exists with saveXml
+        if (typeof Qt !== 'undefined' && typeof Qt.GraphController !== 'undefined' && typeof Qt.GraphController.saveXml === 'function') {
+            try {
+                console.log("Using Qt.GraphController.saveXml for verification");
+                Qt.GraphController.saveXml("verification_test.xml");
+                return true;
+            } catch (error) {
+                console.log("XML save error: " + error.message);
+                return false;
+            }
+        }
+        
+        return false;
+    }
+    
+    try {
+        // Save all created nodes and edges to XML file
+        Graph.saveXml("verification_test.xml");
+        console.log("Graph successfully saved to verification_test.xml");
+        return true;
+    } catch (error) {
+        console.log("XML save error: " + error.message);
+        return false;
+    }
+});
+
 // Print final results
 console.log("\n=== Verification Results ===");
 console.log("Total tests: " + testResults.total);

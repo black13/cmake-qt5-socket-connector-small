@@ -76,6 +76,7 @@ private:
     void setupGlobalAPI();
     void registerConsoleAPI();
     void registerUtilityAPI();
+    void setupQtBridgeWithGraphController();
     void loadEnhancedAPIs();
     
     QJSValue nodeToJSValue(Node* node);
