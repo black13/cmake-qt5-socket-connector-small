@@ -135,31 +135,10 @@ int main(int argc, char *argv[])
             qDebug() << "JavaScript engine initialized successfully";
             qDebug() << "NodeRegistry types after JS engine init:" << NodeRegistry::instance().getRegisteredTypes().size();
             
-            // STARTUP VERIFICATION: Test basic JavaScript execution
-            qDebug() << "STARTUP_VERIFY: Testing basic JavaScript execution...";
-            
-            QString basicTest = R"(
-                console.log("STARTUP_VERIFY: JavaScript execution working");
-                console.info("STARTUP_VERIFY: Testing console.info logging");
-                console.warn("STARTUP_VERIFY: Testing console.warn logging");
-                
-                // Test that console logs go to C++ file logging system
-                console.log("LOGGING_TEST: Verifying JavaScript to C++ logging integration");
-                
-                var testResult = { 
-                    status: "success", 
-                    message: "JavaScript logging integration verified",
-                    timestamp: new Date().toISOString()
-                };
-                testResult;
-            )";
-            
-            QJSValue result = jsEngine->evaluate(basicTest);
-            if (result.isError()) {
-                qCritical() << "STARTUP_VERIFY: FAILED - JavaScript execution not working:" << result.toString();
-            } else {
-                qDebug() << "STARTUP_VERIFY: SUCCESS - JavaScript execution confirmed";
-                qDebug() << "STARTUP_VERIFY: Test result:" << result.toString();
+            // MANDATORY EXECUTION TEST: Comprehensive JavaScript verification
+            if (!jsEngine->runMandatoryExecutionTest()) {
+                qCritical() << "CRITICAL: JavaScript engine failed mandatory execution test";
+                qCritical() << "CRITICAL: Application may not function correctly";
             }
         }
     }

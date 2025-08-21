@@ -8,6 +8,7 @@
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QElapsedTimer>
 
 JavaScriptEngine::JavaScriptEngine(QObject* parent)
     : QObject(parent)
@@ -34,21 +35,28 @@ QJSValue JavaScriptEngine::evaluate(const QString& script)
 {
     clearErrors();
     
-    qDebug() << "JS_EXECUTION: Starting script execution";
-    qDebug() << "JS_EXECUTION: Script length:" << script.length() << "characters";
+    // Enhanced execution logging with timing
+    qDebug() << "JS_EXEC_START: Script length:" << script.length();
+    qDebug() << "JS_EXEC_CONTENT:" << script.left(200) << "...";
+    
+    QElapsedTimer timer;
+    timer.start();
     
     QJSValue result = m_engine->evaluate(script);
     
+    qint64 elapsed = timer.elapsed();
+    
     if (result.isError()) {
-        m_lastError = QString("JavaScript Error: %1").arg(result.toString());
+        qCritical() << "JS_ERROR: Execution failed in" << elapsed << "ms";
+        qCritical() << "JS_ERROR: Message:" << result.toString();
+        qCritical() << "JS_ERROR: Script content:" << script.left(500);
+        m_lastError = result.toString();
         emit scriptError(m_lastError);
-        qDebug() << "JS_ERROR: Script execution failed:" << m_lastError;
-        qDebug() << "JS_ERROR: Script content:" << script.left(500); // Log first 500 chars
     } else {
-        emit scriptExecuted(script, result);
+        qDebug() << "JS_SUCCESS: Completed in" << elapsed << "ms";
         QString resultStr = result.isUndefined() ? "undefined" : result.toString();
-        qDebug() << "JS_EXECUTION: Script completed successfully";
-        qDebug() << "JS_EXECUTION: Result:" << resultStr;
+        qDebug() << "JS_RESULT:" << resultStr;
+        emit scriptExecuted(script, result);
     }
     
     return result;
@@ -728,4 +736,45 @@ void JavaScriptEngine::setupQtBridgeWithGraphController()
     }
     
     qDebug() << "JavaScriptEngine: Qt bridge connected to real GraphController - Phase 1 complete";
+}
+
+bool JavaScriptEngine::runMandatoryExecutionTest()
+{
+    qDebug() << "=== MANDATORY JS EXECUTION TEST ===";
+    
+    QString testScript = R"(
+        console.log("JavaScript execution verified!");
+        var result = 2 + 2;
+        console.log("Math test: 2 + 2 =", result);
+        
+        // Test console API
+        console.info("Console API test: INFO level");
+        console.warn("Console API test: WARN level");
+        
+        // Test object creation
+        var testObject = {
+            status: "success",
+            mathResult: result,
+            message: "Mandatory execution test completed"
+        };
+        
+        console.log("Test object created:", JSON.stringify(testObject));
+        result;
+    )";
+    
+    QJSValue result = evaluate(testScript);
+    
+    if (result.isError()) {
+        qCritical() << "JS_TEST: FAILED - Engine error:" << result.toString();
+        return false;
+    }
+    
+    if (result.toInt() == 4) {
+        qDebug() << "JS_TEST: PASSED - Engine is functional";
+        qDebug() << "JS_TEST: Math result correct, console API working, object creation successful";
+        return true;
+    } else {
+        qCritical() << "JS_TEST: FAILED - Expected 4, got:" << result.toString();
+        return false;
+    }
 }

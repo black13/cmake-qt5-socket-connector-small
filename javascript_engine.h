@@ -55,6 +55,9 @@ public:
     QString getEngineInfo() const;
     void logEngineCapabilities() const;
     
+    // Execution verification
+    bool runMandatoryExecutionTest();
+    
     // Script management
     void loadScriptModule(const QString& moduleName, const QString& scriptContent);
     QJSValue getModule(const QString& moduleName);
