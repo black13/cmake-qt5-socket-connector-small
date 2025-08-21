@@ -54,6 +54,7 @@ public:
     // JavaScript test runners
     void runSpecificScript(const QString& filePath);
     void runAllTests();
+    void runJavaScriptCode(const QString& jsCode);
 
 protected:
     // PHASE 3: Safe shutdown coordination

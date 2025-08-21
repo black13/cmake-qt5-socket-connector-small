@@ -30,13 +30,16 @@ try {
     
     if (stats.nodes === 5) {
         console.log("SUCCESS: All 5 node types created");
-        return { success: true, message: "All 5 node types created successfully" };
+        var result = { success: true, message: "All 5 node types created successfully" };
+        result;
     } else {
         console.log("FAILURE: Expected 5 nodes, got", stats.nodes);
-        return { success: false, message: `Expected 5 nodes, got ${stats.nodes}` };
+        var result = { success: false, message: `Expected 5 nodes, got ${stats.nodes}` };
+        result;
     }
     
 } catch (error) {
     console.error("Test failed:", error.message);
-    return { success: false, message: `Test failed: ${error.message}` };
+    var errorResult = { success: false, message: `Test failed: ${error.message}` };
+    errorResult;
 }

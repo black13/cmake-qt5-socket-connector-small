@@ -589,11 +589,78 @@ void Window::createToolsMenu()
     connect(jsScriptAction, &QAction::triggered, this, &Window::loadAndExecuteScript);
     m_toolsMenu->addAction(jsScriptAction);
     
-    // Simple JavaScript test
-    QAction* simpleTestAction = new QAction("Test Node Creation", this);
-    simpleTestAction->setStatusTip("Test basic JavaScript node creation functionality");
-    connect(simpleTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_node_creation_test.js"); });
-    m_toolsMenu->addAction(simpleTestAction);
+    // JavaScript Testing Menu
+    QMenu* jsTestMenu = m_toolsMenu->addMenu("JavaScript Tests");
+    jsTestMenu->setStatusTip("Test JavaScript integration and functionality");
+    
+    // Test 1: Basic Node Creation
+    QAction* nodeCreationAction = new QAction("Test Node Creation", this);
+    nodeCreationAction->setStatusTip("Create all 5 node types via JavaScript");
+    connect(nodeCreationAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_node_creation_test.js"); });
+    jsTestMenu->addAction(nodeCreationAction);
+    
+    // Test 2: Console Logging Levels
+    QAction* loggingTestAction = new QAction("Test Console Logging", this);
+    loggingTestAction->setStatusTip("Test all JavaScript console logging levels");
+    connect(loggingTestAction, &QAction::triggered, [this]() { runJavaScriptCode(R"(
+        console.log("Testing console.log() - DEBUG level");
+        console.info("Testing console.info() - INFO level");
+        console.warn("Testing console.warn() - WARN level");
+        
+        var result = {
+            message: "Console logging test completed",
+            levels: ["log", "info", "warn", "error"],
+            status: "success"
+        };
+        
+        console.log("Check the JavaScript log file to see all message levels");
+        result;
+    )"); });
+    jsTestMenu->addAction(loggingTestAction);
+    
+    // Test 3: Graph API Testing
+    QAction* graphApiAction = new QAction("Test Graph API", this);
+    graphApiAction->setStatusTip("Test Graph API methods and functionality");
+    connect(graphApiAction, &QAction::triggered, [this]() { runJavaScriptCode(R"(
+        console.log("=== Graph API Test ===");
+        
+        // Clear any existing graph
+        try {
+            Graph.clear();
+            console.log("Graph cleared successfully");
+        } catch(e) {
+            console.error("Graph.clear() failed:", e.message);
+        }
+        
+        // Test Graph.getStats()
+        try {
+            var stats = Graph.getStats();
+            console.log("Graph stats:", JSON.stringify(stats));
+        } catch(e) {
+            console.error("Graph.getStats() failed:", e.message);
+        }
+        
+        // Test node creation
+        try {
+            var nodeId = Graph.createNode("SOURCE", 100, 100);
+            console.log("Created SOURCE node:", nodeId);
+            
+            var finalStats = Graph.getStats();
+            console.log("Final stats:", JSON.stringify(finalStats));
+            
+            var result = {
+                success: true,
+                message: "Graph API test completed",
+                nodesCreated: finalStats.nodes
+            };
+            result;
+        } catch(e) {
+            console.error("Graph API test failed:", e.message);
+            var errorResult = { success: false, message: e.message };
+            errorResult;
+        }
+    )"); });
+    jsTestMenu->addAction(graphApiAction);
 }
 
 void Window::createHelpMenu()
@@ -1170,6 +1237,43 @@ void Window::runAllTests()
     QMessageBox::information(this, "All Tests Complete", summary);
     
     statusBar()->showMessage(QString("Tests complete: %1/%2 passed").arg(passedTests).arg(totalTests), 3000);
+    updateStatusBar();
+}
+
+void Window::runJavaScriptCode(const QString& jsCode)
+{
+    auto* jsEngine = m_scene->getJavaScriptEngine();
+    if (!jsEngine) {
+        QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
+        return;
+    }
+    
+    // Register GraphController if not already done
+    jsEngine->registerGraphController(m_scene, m_factory);
+    
+    qDebug() << "Window: Executing inline JavaScript code";
+    statusBar()->showMessage("Executing JavaScript...", 2000);
+    
+    QJSValue result = jsEngine->evaluate(jsCode);
+    
+    if (result.isError()) {
+        QString errorMsg = QString("JavaScript Error: %1").arg(result.toString());
+        qCritical() << "JS_EXECUTION: FAILED -" << errorMsg;
+        QMessageBox::warning(this, "JavaScript Execution Error", errorMsg);
+    } else {
+        QString resultText = result.toString();
+        qDebug() << "JS_EXECUTION: SUCCESS -" << resultText;
+        statusBar()->showMessage("JavaScript executed successfully", 3000);
+        
+        if (!resultText.isEmpty() && resultText != "undefined") {
+            QMessageBox::information(this, "JavaScript Result", 
+                QString("Execution completed successfully.\n\nResult: %1\n\nCheck logs for detailed output.").arg(resultText));
+        } else {
+            QMessageBox::information(this, "JavaScript Result", 
+                "Execution completed successfully.\n\nCheck logs for detailed output.");
+        }
+    }
+    
     updateStatusBar();
 }
 
