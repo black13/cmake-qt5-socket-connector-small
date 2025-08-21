@@ -38,6 +38,12 @@ public slots:
     QVariantMap getNode(const QString& uuid);
     QVariantList getNodes();
     
+    // Socket introspection operations
+    QVariantList getInputSockets(const QString& nodeId);
+    QVariantList getOutputSockets(const QString& nodeId);
+    QVariantMap getSocketInfo(const QString& nodeId, int socketIndex);
+    bool canConnect(const QString& fromNodeId, int fromIndex, const QString& toNodeId, int toIndex);
+    
     // Edge operations  
     QString connect(const QString& fromNodeId, int fromIndex, 
                    const QString& toNodeId, int toIndex);

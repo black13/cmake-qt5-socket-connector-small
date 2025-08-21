@@ -661,6 +661,24 @@ void Window::createToolsMenu()
         }
     )"); });
     jsTestMenu->addAction(graphApiAction);
+    
+    // Test 4: Complete Graph Production Test
+    QAction* completeGraphAction = new QAction("Test Complete Graph Production", this);
+    completeGraphAction->setStatusTip("Create a complete connected graph with multiple nodes and edges");
+    connect(completeGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/complete_graph_test.js"); });
+    jsTestMenu->addAction(completeGraphAction);
+    
+    // Test 5: Smart Connection with Socket Introspection
+    QAction* smartConnectionAction = new QAction("Test Smart Socket Connections", this);
+    smartConnectionAction->setStatusTip("Test socket introspection and validation with dynamic connections");
+    connect(smartConnectionAction, &QAction::triggered, [this]() { runSpecificScript("scripts/smart_connection_test.js"); });
+    jsTestMenu->addAction(smartConnectionAction);
+    
+    // Test 6: Complete Node Graph - All Types Connected
+    QAction* completeNodeGraphAction = new QAction("Create Complete Node Graph", this);
+    completeNodeGraphAction->setStatusTip("Create comprehensive graph with all 5 node types fully connected");
+    connect(completeNodeGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/complete_node_graph.js"); });
+    jsTestMenu->addAction(completeNodeGraphAction);
 }
 
 void Window::createHelpMenu()

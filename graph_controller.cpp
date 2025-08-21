@@ -150,6 +150,12 @@ QString GraphController::connect(const QString& fromNodeId, int fromIndex,
         return QString();
     }
     
+    // Validate connection before attempting
+    if (!canConnect(fromNodeId, fromIndex, toNodeId, toIndex)) {
+        qDebug() << "GraphController: Connection validation failed";
+        return QString();
+    }
+    
     qDebug() << "GraphController: Connecting" << fromNodeId << "[" << fromIndex << "] ->" 
              << toNodeId << "[" << toIndex << "]";
     
@@ -529,4 +535,153 @@ QVariantMap GraphController::edgeToVariant(Edge* edge)
     }
     
     return edgeData;
+}
+
+QVariantList GraphController::getInputSockets(const QString& nodeId)
+{
+    QVariantList inputSockets;
+    Node* node = findNode(nodeId);
+    if (!node) {
+        emit error(QString("GraphController: Node not found: %1").arg(nodeId));
+        return inputSockets;
+    }
+    
+    for (QGraphicsItem* item : node->childItems()) {
+        if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
+            if (socket->getRole() == Socket::Input) {
+                QVariantMap socketInfo;
+                socketInfo["index"] = socket->getIndex();
+                socketInfo["connected"] = socket->isConnected();
+                socketInfo["type"] = "input";
+                inputSockets.append(socketInfo);
+            }
+        }
+    }
+    
+    return inputSockets;
+}
+
+QVariantList GraphController::getOutputSockets(const QString& nodeId)
+{
+    QVariantList outputSockets;
+    Node* node = findNode(nodeId);
+    if (!node) {
+        emit error(QString("GraphController: Node not found: %1").arg(nodeId));
+        return outputSockets;
+    }
+    
+    for (QGraphicsItem* item : node->childItems()) {
+        if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
+            if (socket->getRole() == Socket::Output) {
+                QVariantMap socketInfo;
+                socketInfo["index"] = socket->getIndex();
+                socketInfo["connected"] = socket->isConnected();
+                socketInfo["type"] = "output";
+                outputSockets.append(socketInfo);
+            }
+        }
+    }
+    
+    return outputSockets;
+}
+
+QVariantMap GraphController::getSocketInfo(const QString& nodeId, int socketIndex)
+{
+    QVariantMap socketInfo;
+    Node* node = findNode(nodeId);
+    if (!node) {
+        emit error(QString("GraphController: Node not found: %1").arg(nodeId));
+        return socketInfo;
+    }
+    
+    for (QGraphicsItem* item : node->childItems()) {
+        if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
+            if (socket->getIndex() == socketIndex) {
+                socketInfo["index"] = socket->getIndex();
+                socketInfo["type"] = (socket->getRole() == Socket::Input) ? "input" : "output";
+                socketInfo["connected"] = socket->isConnected();
+                socketInfo["role"] = socket->getRole();
+                
+                // Add position info
+                QPointF pos = socket->pos();
+                socketInfo["x"] = pos.x();
+                socketInfo["y"] = pos.y();
+                
+                return socketInfo;
+            }
+        }
+    }
+    
+    emit error(QString("GraphController: Socket %1 not found on node %2").arg(socketIndex).arg(nodeId));
+    return socketInfo;
+}
+
+bool GraphController::canConnect(const QString& fromNodeId, int fromIndex, const QString& toNodeId, int toIndex)
+{
+    // Find nodes
+    Node* fromNode = findNode(fromNodeId);
+    Node* toNode = findNode(toNodeId);
+    
+    if (!fromNode || !toNode) {
+        emit error(QString("GraphController: Node not found for connection validation: %1 -> %2")
+                  .arg(fromNodeId).arg(toNodeId));
+        return false;
+    }
+    
+    // Find sockets
+    Socket* fromSocket = nullptr;
+    Socket* toSocket = nullptr;
+    
+    for (QGraphicsItem* item : fromNode->childItems()) {
+        if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
+            if (socket->getIndex() == fromIndex) {
+                fromSocket = socket;
+                break;
+            }
+        }
+    }
+    
+    for (QGraphicsItem* item : toNode->childItems()) {
+        if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
+            if (socket->getIndex() == toIndex) {
+                toSocket = socket;
+                break;
+            }
+        }
+    }
+    
+    if (!fromSocket || !toSocket) {
+        emit error(QString("GraphController: Socket not found - from:%1[%2] to:%3[%4]")
+                  .arg(fromNodeId).arg(fromIndex).arg(toNodeId).arg(toIndex));
+        return false;
+    }
+    
+    // Validate connection rules
+    if (fromSocket->getRole() != Socket::Output) {
+        emit error(QString("GraphController: Source socket must be OUTPUT, got %1")
+                  .arg(fromSocket->getRole() == Socket::Input ? "INPUT" : "UNKNOWN"));
+        return false;
+    }
+    
+    if (toSocket->getRole() != Socket::Input) {
+        emit error(QString("GraphController: Target socket must be INPUT, got %1")
+                  .arg(toSocket->getRole() == Socket::Output ? "OUTPUT" : "UNKNOWN"));
+        return false;
+    }
+    
+    // Check if sockets are already connected
+    if (fromSocket->isConnected() || toSocket->isConnected()) {
+        emit error(QString("GraphController: Socket already connected - from:%1[%2]=%3 to:%4[%5]=%6")
+                  .arg(fromNodeId).arg(fromIndex).arg(fromSocket->isConnected() ? "CONN" : "FREE")
+                  .arg(toNodeId).arg(toIndex).arg(toSocket->isConnected() ? "CONN" : "FREE"));
+        return false;
+    }
+    
+    // Prevent self-connection
+    if (fromNodeId == toNodeId) {
+        emit error("GraphController: Cannot connect node to itself");
+        return false;
+    }
+    
+    return true;
 }
