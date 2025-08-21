@@ -67,6 +67,8 @@ signals:
 public slots:
     // Console API callbacks
     void qt_console_log(const QString& message);
+    void qt_console_info(const QString& message);
+    void qt_console_warn(const QString& message);
     void qt_console_error(const QString& message);
 
 private slots:

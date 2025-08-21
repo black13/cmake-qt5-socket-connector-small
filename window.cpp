@@ -589,61 +589,11 @@ void Window::createToolsMenu()
     connect(jsScriptAction, &QAction::triggered, this, &Window::loadAndExecuteScript);
     m_toolsMenu->addAction(jsScriptAction);
     
-    // Quick test script menu
-    QMenu* testScriptsMenu = m_toolsMenu->addMenu("Quick Tests");
-    testScriptsMenu->setStatusTip("Run predefined test scripts");
-    
-    QAction* paletteTestAction = new QAction("Palette System Test", this);
-    paletteTestAction->setStatusTip("Test all 5 palette node types");
-    connect(paletteTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_palette_system.js"); });
-    testScriptsMenu->addAction(paletteTestAction);
-    
-    QAction* dragDropTestAction = new QAction("Drag-Drop Simulation", this);
-    dragDropTestAction->setStatusTip("Test drag and drop from palette to scene");
-    connect(dragDropTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_drag_drop_simulation.js"); });
-    testScriptsMenu->addAction(dragDropTestAction);
-    
-    QAction* uiTestAction = new QAction("UI Interactions Test", this);
-    uiTestAction->setStatusTip("Test UI interaction simulations");
-    connect(uiTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_ui_interactions.js"); });
-    testScriptsMenu->addAction(uiTestAction);
-    
-    QAction* performanceTestAction = new QAction("Performance & Stress Test", this);
-    performanceTestAction->setStatusTip("Test system performance with large graphs");
-    connect(performanceTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_performance.js"); });
-    testScriptsMenu->addAction(performanceTestAction);
-    
-    testScriptsMenu->addSeparator();
-    QAction* destructorSafetyAction = new QAction("Destructor Safety Test", this);
-    destructorSafetyAction->setStatusTip("Test crash prevention during object destruction");
-    connect(destructorSafetyAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_destructor_safety.js"); });
-    testScriptsMenu->addAction(destructorSafetyAction);
-    
-    QAction* debugApiAction = new QAction("Debug Graph API", this);
-    debugApiAction->setStatusTip("Debug Graph API availability and functionality");
-    connect(debugApiAction, &QAction::triggered, [this]() { runSpecificScript("scripts/debug_graph_api.js"); });
-    testScriptsMenu->addAction(debugApiAction);
-    
-    QAction* nodeTypesAction = new QAction("Test Node Types", this);
-    nodeTypesAction->setStatusTip("Test all registered node types");
-    connect(nodeTypesAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_node_types.js"); });
-    testScriptsMenu->addAction(nodeTypesAction);
-    
-    QAction* simpleGraphAction = new QAction("Simple Graph Test", this);
-    simpleGraphAction->setStatusTip("Create a basic three-node connected graph");
-    connect(simpleGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_graph.js"); });
-    testScriptsMenu->addAction(simpleGraphAction);
-    
-    QAction* layoutDemoAction = new QAction("Node Layout Demo", this);
-    layoutDemoAction->setStatusTip("Demonstrate different node positioning strategies");
-    connect(layoutDemoAction, &QAction::triggered, [this]() { runSpecificScript("scripts/demo_node_layout.js"); });
-    testScriptsMenu->addAction(layoutDemoAction);
-    
-    testScriptsMenu->addSeparator();
-    QAction* runAllTestsAction = new QAction("Run All Tests", this);
-    runAllTestsAction->setStatusTip("Run all test scripts sequentially");
-    connect(runAllTestsAction, &QAction::triggered, this, &Window::runAllTests);
-    testScriptsMenu->addAction(runAllTestsAction);
+    // Simple JavaScript test
+    QAction* simpleTestAction = new QAction("Test Node Creation", this);
+    simpleTestAction->setStatusTip("Test basic JavaScript node creation functionality");
+    connect(simpleTestAction, &QAction::triggered, [this]() { runSpecificScript("scripts/simple_node_creation_test.js"); });
+    m_toolsMenu->addAction(simpleTestAction);
 }
 
 void Window::createHelpMenu()

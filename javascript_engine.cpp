@@ -480,6 +480,22 @@ void JavaScriptEngine::registerConsoleAPI()
     )");
     console.setProperty("log", consoleLog);
     
+    QJSValue consoleInfo = m_engine->evaluate(R"(
+        (function() {
+            var args = Array.prototype.slice.call(arguments);
+            qt_console_info(args.join(" "));
+        })
+    )");
+    console.setProperty("info", consoleInfo);
+    
+    QJSValue consoleWarn = m_engine->evaluate(R"(
+        (function() {
+            var args = Array.prototype.slice.call(arguments);
+            qt_console_warn(args.join(" "));
+        })
+    )");
+    console.setProperty("warn", consoleWarn);
+    
     QJSValue consoleError = m_engine->evaluate(R"(
         (function() {
             var args = Array.prototype.slice.call(arguments);
@@ -491,6 +507,8 @@ void JavaScriptEngine::registerConsoleAPI()
     // Register the entire JavaScriptEngine object so its public slots are accessible
     QJSValue engineObject = m_engine->newQObject(this);
     m_engine->globalObject().setProperty("qt_console_log", engineObject.property("qt_console_log"));
+    m_engine->globalObject().setProperty("qt_console_info", engineObject.property("qt_console_info"));
+    m_engine->globalObject().setProperty("qt_console_warn", engineObject.property("qt_console_warn"));
     m_engine->globalObject().setProperty("qt_console_error", engineObject.property("qt_console_error"));
     
     m_engine->globalObject().setProperty("console", console);
@@ -498,12 +516,26 @@ void JavaScriptEngine::registerConsoleAPI()
 
 void JavaScriptEngine::qt_console_log(const QString& message)
 {
-    qDebug() << "JavaScript Console:" << message;
+    // Use explicit JavaScript prefix to ensure file logging integration
+    qDebug() << "JavaScript:" << message;
+}
+
+void JavaScriptEngine::qt_console_info(const QString& message)
+{
+    // Use qInfo for informational JavaScript messages
+    qInfo() << "JavaScript INFO:" << message;
+}
+
+void JavaScriptEngine::qt_console_warn(const QString& message)
+{
+    // Use qWarning for JavaScript warnings
+    qWarning() << "JavaScript WARN:" << message;
 }
 
 void JavaScriptEngine::qt_console_error(const QString& message)
 {
-    qDebug() << "JavaScript Error:" << message;
+    // Use qCritical for JavaScript errors to ensure proper categorization
+    qCritical() << "JavaScript ERROR:" << message;
 }
 
 void JavaScriptEngine::registerUtilityAPI()

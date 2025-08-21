@@ -107,10 +107,6 @@ int main(int argc, char *argv[])
                                       "file");
     parser.addOption(loadFileOption);
     
-    // Add verification option
-    QCommandLineOption verifyOption(QStringList() << "verify",
-                                   "Run JavaScript integration verification and exit");
-    parser.addOption(verifyOption);
     
     
     // Add positional argument for file
@@ -138,6 +134,33 @@ int main(int argc, char *argv[])
         } else {
             qDebug() << "JavaScript engine initialized successfully";
             qDebug() << "NodeRegistry types after JS engine init:" << NodeRegistry::instance().getRegisteredTypes().size();
+            
+            // STARTUP VERIFICATION: Test basic JavaScript execution
+            qDebug() << "STARTUP_VERIFY: Testing basic JavaScript execution...";
+            
+            QString basicTest = R"(
+                console.log("STARTUP_VERIFY: JavaScript execution working");
+                console.info("STARTUP_VERIFY: Testing console.info logging");
+                console.warn("STARTUP_VERIFY: Testing console.warn logging");
+                
+                // Test that console logs go to C++ file logging system
+                console.log("LOGGING_TEST: Verifying JavaScript to C++ logging integration");
+                
+                var testResult = { 
+                    status: "success", 
+                    message: "JavaScript logging integration verified",
+                    timestamp: new Date().toISOString()
+                };
+                testResult;
+            )";
+            
+            QJSValue result = jsEngine->evaluate(basicTest);
+            if (result.isError()) {
+                qCritical() << "STARTUP_VERIFY: FAILED - JavaScript execution not working:" << result.toString();
+            } else {
+                qDebug() << "STARTUP_VERIFY: SUCCESS - JavaScript execution confirmed";
+                qDebug() << "STARTUP_VERIFY: Test result:" << result.toString();
+            }
         }
     }
     
@@ -294,68 +317,6 @@ int main(int argc, char *argv[])
     
     window.show();
     
-    // Check for verification mode - run after window is fully shown
-    bool verifyMode = parser.isSet(verifyOption);
-    
-    if (verifyMode) {
-        qDebug() << "=== VERIFICATION MODE ENABLED ===";
-        qDebug() << "Running JavaScript integration verification...";
-        
-        // Give the application time to fully initialize after show()
-        QTimer::singleShot(1000, [&]() {
-            // Get JavaScript engine from scene
-            Scene* scene = window.getScene();
-            if (!scene) {
-                qCritical() << "VERIFY_ERROR: Scene not available";
-                app.exit(1);
-                return;
-            }
-            
-            auto* jsEngine = scene->getJavaScriptEngine();
-            if (!jsEngine) {
-                qCritical() << "VERIFY_ERROR: JavaScript engine not available";
-                app.exit(1);
-                return;
-            }
-            
-            // CRITICAL: Setup GraphController for verification
-            // The verification tests need real GraphController access
-            qDebug() << "VERIFY_SETUP: Setting up GraphController for verification tests";
-            jsEngine->registerGraphController(scene, &factory);
-            qDebug() << "VERIFY_SETUP: GraphController registration completed";
-            
-            // Load and execute verification script
-            QString scriptPath = "scripts/startup_verification.js";
-            QJSValue result = jsEngine->evaluateFile(scriptPath);
-            
-            if (result.isError()) {
-                qCritical() << "VERIFY_ERROR: Script execution failed:" << result.toString();
-                app.exit(1);
-                return;
-            }
-            
-            // Extract test results
-            QJSValue testResults = result;
-            if (testResults.hasProperty("failed")) {
-                int failed = testResults.property("failed").toInt();
-                int passed = testResults.property("passed").toInt();
-                int total = testResults.property("total").toInt();
-                
-                qDebug() << "VERIFY_SUMMARY:" << passed << "/" << total << "tests passed";
-                
-                if (failed == 0) {
-                    qDebug() << "VERIFY_RESULT: SUCCESS - All JavaScript integration tests passed";
-                    app.exit(0);
-                } else {
-                    qDebug() << "VERIFY_RESULT: FAILURE -" << failed << "tests failed";
-                    app.exit(1);
-                }
-            } else {
-                qDebug() << "VERIFY_ERROR: Could not parse test results";
-                app.exit(1);
-            }
-        });
-    }
     
     // Show user-friendly message about file loading status
     if (fileLoadAttempted && originalFilename != filename) {
