@@ -66,10 +66,10 @@ void View::dragEnterEvent(QDragEnterEvent* event)
         qDebug() << "View: Node template data detected:" << nodeString;
         
         event->acceptProposedAction();
-        qDebug() << "✓ View: Drag enter accepted - node template detected";
+        qDebug() << "View: Drag enter accepted - node template detected";
     } else {
         event->ignore();
-        qDebug() << "✗ View: Drag enter ignored - no node template data";
+        qDebug() << "View: Drag enter ignored - no node template data";
     }
 }
 
@@ -127,13 +127,13 @@ void View::dropEvent(QDropEvent* event)
             emit nodeDropped(scenePos, nodeType, name, inputSockets, outputSockets);
             
             event->acceptProposedAction();
-            qDebug() << "✓ View: Drop event accepted and processed";
+            qDebug() << "View: Drop event accepted and processed";
         } else {
-            qWarning() << "✗ View: Invalid node template data format - expected 5 parts, got" << parts.size();
+            qWarning() << "View: Invalid node template data format - expected 5 parts, got" << parts.size();
             event->ignore();
         }
     } else {
-        qDebug() << "✗ View: Drop event ignored - no node template data";
+        qDebug() << "View: Drop event ignored - no node template data";
         event->ignore();
     }
 }

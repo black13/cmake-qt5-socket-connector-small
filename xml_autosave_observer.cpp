@@ -158,7 +158,7 @@ void XmlAutosaveObserver::performAutosave()
         qint64 fileSize = fileInfo.size();
         
         qDebug().noquote() << "[AUTOSAVE] writeAutosave() SUCCESS! File written to disk.";
-        qDebug() << "✅ AUTOSAVE COMPLETE:";
+        qDebug() << "AUTOSAVE COMPLETE:";
         qDebug() << "   📁 File:" << fileInfo.fileName();
         qDebug() << "   ⏱️  Time:" << elapsed << "ms";
         qDebug() << "   📊 Size:" << (fileSize / 1024.0) << "KB";
@@ -167,7 +167,7 @@ void XmlAutosaveObserver::performAutosave()
         m_pendingChanges = false;
     } else {
         qDebug().noquote() << "[AUTOSAVE] writeAutosave() FAILED! Cannot open file for writing.";
-        qWarning() << "✗ XmlAutosaveObserver: Failed to save" << m_filename;
+        qWarning() << "XmlAutosaveObserver: Failed to save" << m_filename;
     }
 }
 

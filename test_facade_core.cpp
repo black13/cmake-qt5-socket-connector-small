@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     std::cout << "  Real Node Position: (" << node->pos().x() << ", " << node->pos().y() << ")\n";
     
     bool positionTest = (node->pos().x() == 300.0 && node->pos().y() == 400.0);
-    std::cout << "  Position update test: " << (positionTest ? "✓ PASS" : "✗ FAIL") << "\n";
+    std::cout << "  Position update test: " << (positionTest ? "PASS" : "FAIL") << "\n";
     
     // Test 2: NodeFacade serialization
     std::cout << "\n=== Test 2: NodeFacade Serialization ===\n";
@@ -57,9 +57,9 @@ int main(int argc, char *argv[]) {
     bool idTest = (newNode->getId() == node->getId());
     
     std::cout << "Round-trip tests:\n";
-    std::cout << "  Type match: " << (typeTest ? "✓ PASS" : "✗ FAIL") << "\n";
-    std::cout << "  Position match: " << (posTest ? "✓ PASS" : "✗ FAIL") << "\n";
-    std::cout << "  ID match: " << (idTest ? "✓ PASS" : "✗ FAIL") << "\n";
+    std::cout << "  Type match: " << (typeTest ? "PASS" : "FAIL") << "\n";
+    std::cout << "  Position match: " << (posTest ? "PASS" : "FAIL") << "\n";
+    std::cout << "  ID match: " << (idTest ? "PASS" : "FAIL") << "\n";
     
     // Test 3: EdgeFacade basic functionality
     std::cout << "\n=== Test 3: EdgeFacade Basic Test ===\n";
@@ -78,20 +78,20 @@ int main(int argc, char *argv[]) {
     newEdgeFacade.read(serializedEdge);
     
     bool edgeIdTest = (newEdge->getId() == edge->getId());
-    std::cout << "Edge round-trip ID test: " << (edgeIdTest ? "✓ PASS" : "✗ FAIL") << "\n";
+    std::cout << "Edge round-trip ID test: " << (edgeIdTest ? "PASS" : "FAIL") << "\n";
     
     // Final results
     bool allTests = positionTest && typeTest && posTest && idTest && edgeIdTest;
     
     std::cout << "\n=== FINAL RESULTS ===\n";
-    std::cout << "All facade tests: " << (allTests ? "✓ SUCCESS" : "✗ FAILED") << "\n";
+    std::cout << "All facade tests: " << (allTests ? "SUCCESS" : "FAILED") << "\n";
     
     if (allTests) {
-        std::cout << "\n🎉 Phase 11.1 SUCCESS: Type-erasure facades working!\n";
-        std::cout << "✓ NodeFacade provides uniform interface to Node objects\n";
-        std::cout << "✓ EdgeFacade provides uniform interface to Edge objects\n";
-        std::cout << "✓ Serialization through facades identical to direct serialization\n";
-        std::cout << "✓ Zero impact on existing Node::write/read and Edge::write/read\n";
+        std::cout << "\nPhase 11.1 SUCCESS: Type-erasure facades working!\n";
+        std::cout << "NodeFacade provides uniform interface to Node objects\n";
+        std::cout << "EdgeFacade provides uniform interface to Edge objects\n";
+        std::cout << "Serialization through facades identical to direct serialization\n";
+        std::cout << "Zero impact on existing Node::write/read and Edge::write/read\n";
     }
     
     // Cleanup

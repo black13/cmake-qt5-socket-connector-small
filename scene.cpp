@@ -250,7 +250,7 @@ void Scene::clearGraph()
     // Emit signal for UI updates
     emit sceneChanged();
     
-    qDebug() << "SIMPLE_FIX: ✓ Graph cleared safely - hash cleared before Qt cleanup";
+    qDebug() << "SIMPLE_FIX: Graph cleared safely - hash cleared before Qt cleanup";
 }
 
 // ============================================================================
@@ -272,7 +272,7 @@ void Scene::prepareForShutdown()
         // Note: Socket connection cleanup disabled - methods not available in current implementation
     }
     
-    qDebug() << "PHASE1: ✓ Socket connections cleared safely";
+    qDebug() << "PHASE1: Socket connections cleared safely";
 }
 
 // ============================================================================
@@ -397,10 +397,10 @@ void Scene::finishGhostEdge(Socket* toSocket)
                 //     toSocket->setVisualState(Socket::Normal);
                 // });
                 
-                qDebug() << "GHOST: ✓ Created edge" << m_ghostFromSocket->getIndex() << "→" << toSocket->getIndex();
+                qDebug() << "GHOST: Created edge" << m_ghostFromSocket->getIndex() << "->" << toSocket->getIndex();
             }
         } else {
-            qDebug() << "GHOST: ✗ Invalid connection - wrong socket roles";
+            qDebug() << "GHOST: Invalid connection - wrong socket roles";
         }
     }
     

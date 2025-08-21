@@ -28,39 +28,39 @@ QString GraphController::createNode(const QString& type, qreal x, qreal y)
     
     // Log node type validation
     QStringList validTypes = getValidNodeTypes();
-    qDebug() << "GraphController: Validating node type" << type;
-    qDebug() << "GraphController: Available types:" << validTypes;
+    qDebug() << __FUNCTION__ << ": Validating node type" << type;
+    qDebug() << __FUNCTION__ << ": Available types:" << validTypes;
     
     if (!isValidNodeType(type)) {
-        qDebug() << "GraphController: ❌ INVALID node type:" << type;
+        qDebug() << __FUNCTION__ << ": INVALID node type:" << type;
         emit error(QString("GraphController: Invalid node type: %1").arg(type));
         return QString();
     } else {
-        qDebug() << "GraphController: ✅ VALID node type:" << type;
+        qDebug() << __FUNCTION__ << ": VALID node type:" << type;
     }
     
-    qDebug() << "GraphController: Creating node" << type << "at" << x << "," << y;
+    qDebug() << __FUNCTION__ << ": Creating node" << type << "at" << x << "," << y;
     
     try {
         Node* node = m_factory->createNode(type, QPointF(x, y));
         if (node) {
             QString uuid = node->getId().toString();
-            qDebug() << "GraphController: ✅ Node created successfully!";
-            qDebug() << "GraphController: Node UUID:" << uuid;
-            qDebug() << "GraphController: Node type:" << node->getNodeType();
-            qDebug() << "GraphController: Node position:" << node->pos();
+            qDebug() << __FUNCTION__ << ": Node created successfully!";
+            qDebug() << __FUNCTION__ << ": Node UUID:" << uuid;
+            qDebug() << __FUNCTION__ << ": Node type:" << node->getNodeType();
+            qDebug() << __FUNCTION__ << ": Node position:" << node->pos();
             emit nodeCreated(uuid);
             return uuid;
         } else {
-            qDebug() << "GraphController: ❌ Factory returned null node";
+            qDebug() << __FUNCTION__ << ": Factory returned null node";
             emit error("GraphController: Factory failed to create node");
         }
     } catch (const std::exception& e) {
-        qDebug() << "GraphController: ❌ Exception during node creation:" << e.what();
+        qDebug() << __FUNCTION__ << ": Exception during node creation:" << e.what();
         emit error(QString("GraphController: Error creating node: %1").arg(e.what()));
     }
     
-    qDebug() << "GraphController: ❌ Node creation failed - returning empty string";
+    qDebug() << __FUNCTION__ << ": Node creation failed - returning empty string";
     return QString();
 }
 

@@ -69,7 +69,7 @@ public:
     // XML-driven socket creation
     void createSocketsFromXml(int inputCount, int outputCount);
     
-    // ✅ Two-phase positioning: Position all sockets with complete information
+    // Two-phase positioning: Position all sockets with complete information
     void positionAllSockets(int totalInputs, int totalOutputs);
     
     // Change notification - simple callback, no connect

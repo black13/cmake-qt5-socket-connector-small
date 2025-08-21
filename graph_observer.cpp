@@ -19,7 +19,7 @@ GraphSubject::~GraphSubject()
     // Simply clear the container - observers manage their own lifecycle
     m_observers.clear();
     
-    qDebug() << "GraphSubject: ✓ Observer container cleared safely";
+    qDebug() << "GraphSubject: Observer container cleared safely";
 }
 
 void GraphSubject::attach(GraphObserver* observer)

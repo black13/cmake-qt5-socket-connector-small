@@ -122,13 +122,13 @@ int main(int argc, char *argv[])
     // Command line parsing
     
     // Create main window
-    qDebug() << "=== STEP 1: Creating Window (BEFORE node registration) ===";
+    // qDebug() << "=== STEP 1: Creating Window (BEFORE node registration) ===";
     qDebug() << "NodeRegistry types at window creation:" << NodeRegistry::instance().getRegisteredTypes().size();
     Window window;
     qDebug() << "Window created successfully";
     
     // Initialize JavaScript engine
-    qDebug() << "=== STEP 2: Initializing JavaScript Engine (BEFORE node registration) ===";
+    // qDebug() << "=== STEP 2: Initializing JavaScript Engine (BEFORE node registration) ===";
     qDebug() << "NodeRegistry types before JS engine:" << NodeRegistry::instance().getRegisteredTypes().size();
     Scene* scene = window.getScene();
     if (scene) {
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
     
     // Create empty XML document for GraphFactory
     // GraphFactory will handle all file loading - single XML authority
-    qDebug() << "=== Creating Empty XML Document ===";
+    // qDebug() << "=== Creating Empty XML Document ===";
     xmlDocPtr xmlDoc = xmlNewDoc(BAD_CAST "1.0");
     xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
     xmlDocSetRootElement(xmlDoc, root);
@@ -166,10 +166,10 @@ int main(int argc, char *argv[])
     xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
     xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
     
-    qDebug() << "✓ Empty XML document created - GraphFactory will handle file loading";
+    qDebug() << "Empty XML document created - GraphFactory will handle file loading";
     
     // Register all supported node types
-    qDebug() << "=== STEP 3: Registering Node Types (AFTER window/JS engine creation) ===";
+    // qDebug() << "=== STEP 3: Registering Node Types (AFTER window/JS engine creation) ===";
     qDebug() << "NodeRegistry types BEFORE registration:" << NodeRegistry::instance().getRegisteredTypes().size();
     qDebug() << "Starting node type registration process...";
     
@@ -179,21 +179,21 @@ int main(int argc, char *argv[])
         node->setNodeType("IN"); 
         return node; 
     });
-    qDebug() << "Registered: IN (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: IN (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     NodeRegistry::instance().registerNode("OUT", []() { 
         Node* node = new Node(); 
         node->setNodeType("OUT"); 
         return node; 
     });
-    qDebug() << "Registered: OUT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: OUT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     NodeRegistry::instance().registerNode("PROC", []() { 
         Node* node = new Node(); 
         node->setNodeType("PROC"); 
         return node; 
     });
-    qDebug() << "Registered: PROC (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: PROC (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     // Palette node types - each with proper type designation
     NodeRegistry::instance().registerNode("SOURCE", []() { 
@@ -201,35 +201,35 @@ int main(int argc, char *argv[])
         node->setNodeType("SOURCE"); 
         return node; 
     });
-    qDebug() << "Registered: SOURCE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: SOURCE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     NodeRegistry::instance().registerNode("SINK", []() { 
         Node* node = new Node(); 
         node->setNodeType("SINK"); 
         return node; 
     });
-    qDebug() << "Registered: SINK (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: SINK (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     NodeRegistry::instance().registerNode("TRANSFORM", []() { 
         Node* node = new Node(); 
         node->setNodeType("TRANSFORM"); 
         return node; 
     });
-    qDebug() << "Registered: TRANSFORM (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: TRANSFORM (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     NodeRegistry::instance().registerNode("MERGE", []() { 
         Node* node = new Node(); 
         node->setNodeType("MERGE"); 
         return node; 
     });
-    qDebug() << "Registered: MERGE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: MERGE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     NodeRegistry::instance().registerNode("SPLIT", []() { 
         Node* node = new Node(); 
         node->setNodeType("SPLIT"); 
         return node; 
     });
-    qDebug() << "Registered: SPLIT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: SPLIT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     // Legacy compatibility for older tests
     NodeRegistry::instance().registerNode("PROCESSOR", []() { 
@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
         node->setNodeType("PROCESSOR"); 
         return node; 
     });
-    qDebug() << "Registered: PROCESSOR (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")";
+    // qDebug() << "Registered: PROCESSOR (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
     
     QStringList registeredTypes = NodeRegistry::instance().getRegisteredTypes();
 
@@ -245,11 +245,11 @@ int main(int argc, char *argv[])
     qDebug() << "=== NodeGraph Application Starting ===";
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
     qDebug() << "Total registered types:" << registeredTypes.size();
-    qDebug() << "=== Logging each registered type ===";
+    // qDebug() << "=== Logging each registered type ===";
     for (int i = 0; i < registeredTypes.size(); ++i) {
         qDebug() << QString("  [%1] \"%2\"").arg(i + 1).arg(registeredTypes[i]);
     }
-    qDebug() << "======================================";
+    // qDebug() << "======================================";
     
     // Initialize GraphFactory with scene and XML document
     // Scene* scene = window.getScene(); // Already declared above
@@ -272,21 +272,21 @@ int main(int argc, char *argv[])
             return -1;
         }
         
-        qDebug() << "✓ Graph loaded successfully from file via GraphFactory:" << filename;
+        qDebug() << "Graph loaded successfully from file via GraphFactory:" << filename;
         
     } else {
         qDebug() << "Starting with empty graph - no file specified";
-        qDebug() << "=== Starting with Empty Graph ===";
-        qDebug() << "✓ No file specified - application will start with clean scene";
+        // qDebug() << "=== Starting with Empty Graph ===";
+        qDebug() << "No file specified - application will start with clean scene";
         qDebug() << "  Users can create nodes manually or load XML files via Ctrl+L";
     }
     
-    qDebug() << "=== XML-First Architecture Test Complete ===";
+    // qDebug() << "=== XML-First Architecture Test Complete ===";
     
     // Set current file if we loaded from command line
     if (!filename.isEmpty()) {
         window.setCurrentFile(filename);
-        qDebug() << "📁 Command line file loaded - Ctrl+S will save to:" << filename;
+        qDebug() << "Command line file loaded - Ctrl+S will save to:" << filename;
     }
     
     // Cleanup XML document when done
@@ -375,7 +375,7 @@ int main(int argc, char *argv[])
     // Cleanup XML document
     if (xmlDoc) {
         xmlFreeDoc(xmlDoc);
-        qDebug() << "✓ XML document cleaned up";
+        qDebug() << "XML document cleaned up";
     }
     
     return result;

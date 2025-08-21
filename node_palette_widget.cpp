@@ -199,7 +199,7 @@ void NodePaletteWidget::populateNodeTemplates()
     qDebug() << "NodePalette: Adding SPLIT node template - inputs:" << splitNode.inputSockets << "outputs:" << splitNode.outputSockets;
     addNodeTemplate(splitNode);
     
-    qDebug() << "✓ NodePalette: Populated with" << m_nodeTemplates.size() << "socket configuration templates";
+    // qDebug() << "NodePalette: Populated with" << m_nodeTemplates.size() << "templates";
 }
 
 void NodePaletteWidget::addNodeTemplate(const NodeTemplate& nodeTemplate)
@@ -222,7 +222,7 @@ void NodePaletteWidget::addNodeTemplate(const NodeTemplate& nodeTemplate)
     int col = buttonIndex % 2; // Remainder for column (0 or 1)
     qDebug() << "NodePalette: Adding button" << (buttonIndex + 1) << "to grid layout at row" << row << "col" << col;
     m_gridLayout->addWidget(button, row, col);
-    qDebug() << "✓ NodePalette: Successfully added" << nodeTemplate.name << "button to palette";
+    // qDebug() << "NodePalette: Added" << nodeTemplate.name << "button";
 }
 
 void NodePaletteWidget::filterChanged(const QString& text)
@@ -282,7 +282,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     
     // Enable drag support
     setAcceptDrops(false); // This is a drag source, not a drop target
-    qDebug() << "✓ NodeButton: Button created successfully for" << nodeTemplate.name;
+    // qDebug() << "NodeButton: Created for" << nodeTemplate.name;
 }
 
 bool NodePaletteWidget::NodeButton::matchesFilter(const QString& filter) const
@@ -467,9 +467,9 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     Qt::DropAction dropAction = drag->exec(Qt::CopyAction);
     
     if (dropAction == Qt::CopyAction) {
-        qDebug() << "✓ NodeButton: Drag completed successfully for" << m_nodeTemplate.name;
+        qDebug() << "NodeButton: Drag completed for" << m_nodeTemplate.name;
     } else {
-        qDebug() << "✗ NodeButton: Drag was cancelled or failed for" << m_nodeTemplate.name;
+        // qDebug() << "NodeButton: Drag cancelled for" << m_nodeTemplate.name;
     }
 }
 

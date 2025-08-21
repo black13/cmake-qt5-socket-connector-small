@@ -479,7 +479,7 @@ QString TestJavaScriptEngine::createTestScript(const QString& scriptContent)
 
 void TestJavaScriptEngine::logTestResults(const QString& testName, bool passed, const QString& details)
 {
-    QString status = passed ? "✅ PASSED" : "❌ FAILED";
+    QString status = passed ? "PASSED" : "FAILED";
     qDebug() << QString("%1: %2").arg(status, testName);
     if (!details.isEmpty()) {
         qDebug() << "   Details:" << details;

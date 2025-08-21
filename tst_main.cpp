@@ -67,7 +67,7 @@ void tst_Main::initTestCase()
     m_factory = nullptr;
     m_xmlDoc = nullptr;
     
-    qDebug() << "✓ Test case initialized";
+    qDebug() << "Test case initialized";
 }
 
 void tst_Main::cleanupTestCase()
@@ -75,21 +75,21 @@ void tst_Main::cleanupTestCase()
     qDebug() << "Cleaning up test case...";
     cleanupEnvironment();
     qInfo().noquote() << "=== TEST RUN FINISHED ===";
-    qDebug() << "✓ Test case cleaned up";
+    qDebug() << "Test case cleaned up";
 }
 
 void tst_Main::init()
 {
     qDebug() << "\n--- Setting up test environment ---";
     QVERIFY(setupEnvironment());
-    qDebug() << "✓ Test environment ready";
+    qDebug() << "Test environment ready";
 }
 
 void tst_Main::cleanup()
 {
     qDebug() << "--- Cleaning up test environment ---";
     cleanupEnvironment();
-    qDebug() << "✓ Test environment cleaned up";
+    qDebug() << "Test environment cleaned up";
 }
 
 bool tst_Main::setupEnvironment()
@@ -103,7 +103,7 @@ bool tst_Main::setupEnvironment()
         qCritical() << "  FAILED: Could not create XML document";
         return false;
     }
-    qDebug() << "  ✓ XML document created";
+    qDebug() << "  XML document created";
     
     // Step 2: Create root graph element
     qDebug() << "  Creating root graph element...";
@@ -115,7 +115,7 @@ bool tst_Main::setupEnvironment()
         return false;
     }
     xmlDocSetRootElement(m_xmlDoc, root);
-    qDebug() << "  ✓ Root graph element created";
+    qDebug() << "  Root graph element created";
     
     // Step 3: Create test scene
     qDebug() << "  Creating test scene...";
@@ -126,7 +126,7 @@ bool tst_Main::setupEnvironment()
         m_xmlDoc = nullptr;
         return false;
     }
-    qDebug() << "  ✓ Scene created - initial nodes:" << m_testScene->getNodes().size() 
+    qDebug() << "  Scene created - initial nodes:" << m_testScene->getNodes().size() 
              << "edges:" << m_testScene->getEdges().size();
     
     // Step 4: Create GraphFactory
@@ -140,7 +140,7 @@ bool tst_Main::setupEnvironment()
         m_xmlDoc = nullptr;
         return false;
     }
-    qDebug() << "  ✓ GraphFactory created";
+    qDebug() << "  GraphFactory created";
     
     // Step 5: Validate setup
     qDebug() << "  Validating setup...";
@@ -149,7 +149,7 @@ bool tst_Main::setupEnvironment()
         return false;
     }
     
-    qDebug() << "✓ Test environment setup complete";
+    qDebug() << "Test environment setup complete";
     return true;
 }
 
@@ -256,7 +256,7 @@ void tst_Main::testCreateNode()
     // Verify scene has correct node count
     QCOMPARE(m_testScene->getNodes().size(), 2);
     
-    qDebug() << "✓ Basic node creation works";
+    qDebug() << "Basic node creation works";
     
     // Test edge creation and connection
     qDebug() << "\n=== Testing Edge System ===";
@@ -270,17 +270,17 @@ void tst_Main::testCreateNode()
     // Test edge resolution
     bool resolved = edge->resolveConnections(m_testScene);
     if (resolved) {
-        qDebug() << "✓ Edge resolution successful";
+        qDebug() << "Edge resolution successful";
         QVERIFY(resolved);
     } else {
-        qDebug() << "✗ Edge resolution failed";
+        qDebug() << "Edge resolution failed";
         QVERIFY(resolved);  // This will fail and show the issue
     }
     
     // Verify scene has the edge
     QCOMPARE(m_testScene->getEdges().size(), 1);
     
-    qDebug() << "✓ Edge system test passed";
+    qDebug() << "Edge system test passed";
 }
 
 void tst_Main::testFactoryNodeCreation()
@@ -319,7 +319,7 @@ void tst_Main::testFactoryNodeCreation()
     // Test edge resolution
     QVERIFY(edge->resolveConnections(m_testScene));
     
-    qDebug() << "✓ Factory/Registry system working";
+    qDebug() << "Factory/Registry system working";
 }
 
 void tst_Main::testXmlLoadSave()
@@ -375,7 +375,7 @@ void tst_Main::testXmlLoadSave()
         Edge* edge = m_factory->createEdge(node1, 0, node2, 0);
         QVERIFY(node1 && node2 && edge);
     } else {
-        qDebug() << "✓ Successfully loaded test file";
+        qDebug() << "Successfully loaded test file";
     }
     
     // Check scene has content
@@ -385,7 +385,7 @@ void tst_Main::testXmlLoadSave()
     
     QVERIFY(nodeCount > 0);
     
-    qDebug() << "✓ XML loading test passed";
+    qDebug() << "XML loading test passed";
 }
 
 void tst_Main::testCompleteWorkflow()
@@ -425,8 +425,8 @@ void tst_Main::testCompleteWorkflow()
     QCOMPARE(m_testScene->getNodes().size(), 3);
     QCOMPARE(m_testScene->getEdges().size(), 2);
     
-    qDebug() << "✓ Test graph created successfully";
-    qDebug() << "✓ Complete workflow test passed";
+    qDebug() << "Test graph created successfully";
+    qDebug() << "Complete workflow test passed";
 }
 
 // XML Performance Tests - data-driven
@@ -493,15 +493,15 @@ void tst_Main::testNodePositionToXml()
     bool positionMatches = (actualPos.x() == newPos.x()) && (actualPos.y() == newPos.y());
     
     if (positionMatches) {
-        qDebug() << "✓ Node position correctly updated to" << actualPos;
+        qDebug() << "Node position correctly updated to" << actualPos;
     } else {
-        qDebug() << "✗ Node position mismatch. Expected:" << newPos << "Actual:" << actualPos;
+        qDebug() << "Node position mismatch. Expected:" << newPos << "Actual:" << actualPos;
     }
     
     QVERIFY(positionMatches);
     
     // TODO: Add XML serialization verification when save method is available
-    qDebug() << "✓ Node position modification test passed";
+    qDebug() << "Node position modification test passed";
 }
 
 void tst_Main::testEdgeModificationToXml()
@@ -543,15 +543,15 @@ void tst_Main::testEdgeModificationToXml()
     }
     
     if (edgeFound) {
-        qDebug() << "✓ Edge correctly connects the two nodes";
+        qDebug() << "Edge correctly connects the two nodes";
     } else {
-        qDebug() << "✗ Edge connection not found in scene";
+        qDebug() << "Edge connection not found in scene";
     }
     
     QVERIFY(edgeFound);
     
     // TODO: Add XML serialization verification when save method is available  
-    qDebug() << "✓ Edge modification test passed";
+    qDebug() << "Edge modification test passed";
 }
 
 // Performance Test Helpers
@@ -1116,7 +1116,7 @@ QString tst_Main::createTestScript(const QString& scriptContent)
 
 void tst_Main::logJSTestResult(const QString& testName, bool passed, const QString& details)
 {
-    QString status = passed ? "✅ PASSED" : "❌ FAILED";
+    QString status = passed ? "PASSED" : "FAILED";
     QString logEntry = QString("JS_TEST: %1 - %2").arg(status, testName);
     
     qDebug() << logEntry;

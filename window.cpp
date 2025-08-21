@@ -187,7 +187,7 @@ void Window::keyPressEvent(QKeyEvent* event)
         }
     } else if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         // Delete selected items
-        qDebug() << "🗑️ Delete key pressed - deleting selected items";
+        qDebug() << "Delete key pressed - deleting selected items";
         m_scene->deleteSelected();
     }
     QMainWindow::keyPressEvent(event);
@@ -198,10 +198,10 @@ void Window::setCurrentFile(const QString& filename)
     m_currentFile = filename;
     if (!filename.isEmpty()) {
         setWindowTitle(QString("Node Editor - %1").arg(QFileInfo(filename).fileName()));
-        qDebug() << "📁 Current file set to:" << filename;
+        qDebug() << "Current file set to:" << filename;
     } else {
         setWindowTitle("Node Editor");
-        qDebug() << "📁 Current file cleared";
+        qDebug() << "Current file cleared";
     }
 }
 
@@ -242,15 +242,15 @@ bool Window::saveGraph(const QString& filename)
         int nodeCount = m_scene->getNodes().size();
         int edgeCount = m_scene->getEdges().size();
         
-        qDebug() << "✅ MANUAL SAVE COMPLETE:";
-        qDebug() << "   📁 File:" << fileInfo.fileName();
-        qDebug() << "   ⏱️  Time:" << elapsed << "ms";
-        qDebug() << "   📊 Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   🔵 Nodes:" << nodeCount;
-        qDebug() << "   🔗 Edges:" << edgeCount;
+        qDebug() << "Manual save complete:";
+        qDebug() << "   File:" << fileInfo.fileName();
+        qDebug() << "   Time:" << elapsed << "ms";
+        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
+        qDebug() << "   Nodes:" << nodeCount;
+        qDebug() << "   Edges:" << edgeCount;
         
         QMessageBox::information(this, "Save Complete", 
-            QString("Graph saved successfully!\n\n📁 File: %1\n🔵 Nodes: %2\n🔗 Edges: %3\n⏱️ Time: %4ms\n📊 Size: %5 KB")
+            QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
             .arg(fileInfo.fileName())
             .arg(nodeCount)
             .arg(edgeCount)
@@ -258,7 +258,7 @@ bool Window::saveGraph(const QString& filename)
             .arg(fileSize / 1024.0, 0, 'f', 1));
         return true;
     } else {
-        qDebug() << "✗ Failed to save graph";
+        qDebug() << "Failed to save graph";
         QMessageBox::critical(this, "Save Error", "Failed to save graph to file.");
         return false;
     }
@@ -284,7 +284,7 @@ bool Window::loadGraph(const QString& filename)
         m_currentFile = filename;
         setWindowTitle(QString("Node Editor - %1").arg(QFileInfo(filename).fileName()));
         
-        qDebug() << "✓ Graph loaded successfully in" << elapsed << "ms";
+        qDebug() << "Graph loaded successfully in" << elapsed << "ms";
         
         // DEBUGGING: Detailed count verification
         int nodeCount = m_scene->getNodes().size();
@@ -303,7 +303,7 @@ bool Window::loadGraph(const QString& filename)
             .arg(elapsed));
         return true;
     } else {
-        qDebug() << "✗ Failed to load graph";
+        qDebug() << "Failed to load graph";
         QMessageBox::critical(this, "Load Error", 
             QString("Failed to load graph from file.\n\nFile: %1")
             .arg(QFileInfo(filename).fileName()));
@@ -325,9 +325,9 @@ void Window::createInputNode()
     Node* node = m_factory->createNode("SOURCE", position);
     
     if (node) {
-        qDebug() << "✓ Created input node at" << position;
+        qDebug() << "Created input node at" << position;
     } else {
-        qDebug() << "✗ Failed to create input node";
+        qDebug() << "Failed to create input node";
     }
 }
 
@@ -345,9 +345,9 @@ void Window::createOutputNode()
     Node* node = m_factory->createNode("SINK", position);
     
     if (node) {
-        qDebug() << "✓ Created output node at" << position;
+        qDebug() << "Created output node at" << position;
     } else {
-        qDebug() << "✗ Failed to create output node";
+        qDebug() << "Failed to create output node";
     }
 }
 
@@ -365,9 +365,9 @@ void Window::createProcessorNode()
     Node* node = m_factory->createNode("TRANSFORM", position);
     
     if (node) {
-        qDebug() << "✓ Created processor node at" << position;
+        qDebug() << "Created processor node at" << position;
     } else {
-        qDebug() << "✗ Failed to create processor node";
+        qDebug() << "Failed to create processor node";
     }
 }
 
@@ -388,7 +388,7 @@ void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeT
     Node* node = m_factory->createNode(nodeType, scenePos, inputSockets, outputSockets);
     
     if (node) {
-        qDebug() << "✓ Window: Factory successfully created" << name << "node";
+        qDebug() << "Window: Factory successfully created" << name << "node";
         qDebug() << "Window: Node created at scene position:" << scenePos;
         qDebug() << "Window: Updating status bar";
         
@@ -396,9 +396,9 @@ void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeT
         updateStatusBar();
         statusBar()->showMessage(QString("Created %1 node").arg(name), 2000);
         
-        qDebug() << "✓ Window: Node creation process completed successfully";
+        qDebug() << "Window: Node creation process completed successfully";
     } else {
-        qDebug() << "✗ Window: Factory FAILED to create" << name << "node";
+        qDebug() << "Window: Factory FAILED to create" << name << "node";
         qDebug() << "Window: This may indicate factory or scene issues";
         statusBar()->showMessage(QString("Failed to create %1 node").arg(name), 3000);
     }
@@ -576,14 +576,14 @@ void Window::createToolsMenu()
     
     // JavaScript test runner
     m_toolsMenu->addSeparator();
-    QAction* jsTestAction = new QAction("🧪 Run &JavaScript Tests", this);
+    QAction* jsTestAction = new QAction("Run &JavaScript Tests", this);
     jsTestAction->setStatusTip("Run embedded JavaScript test suite");
     jsTestAction->setShortcut(QKeySequence("Ctrl+J"));
     connect(jsTestAction, &QAction::triggered, this, &Window::runJavaScriptTests);
     m_toolsMenu->addAction(jsTestAction);
     
     // Simple script execution
-    QAction* jsScriptAction = new QAction("📝 Load &Script", this);
+    QAction* jsScriptAction = new QAction("Load &Script", this);
     jsScriptAction->setStatusTip("Load and execute JavaScript script");
     jsScriptAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
     connect(jsScriptAction, &QAction::triggered, this, &Window::loadAndExecuteScript);
@@ -823,7 +823,7 @@ void Window::updateSelectionInfo()
 void Window::newFile()
 {
     // TODO: Clear current scene and reset
-    qDebug() << "🆕 New file requested";
+    qDebug() << "New file requested";
 }
 
 void Window::openFile()
@@ -855,10 +855,10 @@ void Window::saveFile()
     } else {
         qDebug() << "Saving to current file:" << m_currentFile;
         if (saveGraph(m_currentFile)) {
-            qDebug() << "✓ Save successful";
+            qDebug() << "Save successful";
             updateStatusBar();
         } else {
-            qDebug() << "✗ Save FAILED";
+            qDebug() << "Save FAILED";
         }
     }
 }
@@ -944,7 +944,7 @@ void Window::closeEvent(QCloseEvent* event)
     // Accept the close event (no dirty state tracking yet)
     QMainWindow::closeEvent(event);
     
-    qDebug() << "PHASE1: ✓ Window shutdown complete";
+    qDebug() << "PHASE1: Window shutdown complete";
 }
 
 void Window::runJavaScriptTests()
@@ -980,12 +980,12 @@ void Window::runJavaScriptTests()
             console.log("Created graph with " + stats.nodes + " nodes and " + stats.edges + " edges");
             
             if (stats.nodes === 2 && stats.edges === 1) {
-                console.log("✅ Test 1 PASSED");
+                console.log("Test 1 PASSED");
             } else {
-                console.log("❌ Test 1 FAILED");
+                console.log("Test 1 FAILED");
             }
         } catch (e) {
-            console.log("❌ Test 1 ERROR: " + e.toString());
+            console.log("Test 1 ERROR: " + e.toString());
         }
         
         // Test 2: Node deletion
@@ -996,12 +996,12 @@ void Window::runJavaScriptTests()
             let afterStats = Graph.getStats();
             
             if (afterStats.nodes === 1 && afterStats.edges === 0) {
-                console.log("✅ Test 2 PASSED");
+                console.log("Test 2 PASSED");
             } else {
-                console.log("❌ Test 2 FAILED");
+                console.log("Test 2 FAILED");
             }
         } catch (e) {
-            console.log("❌ Test 2 ERROR: " + e.toString());
+            console.log("Test 2 ERROR: " + e.toString());
         }
         
         // Test 3: XML operations
@@ -1014,12 +1014,12 @@ void Window::runJavaScriptTests()
             let xmlString = Graph.getXmlString();
             
             if (xmlString.length > 0 && xmlString.includes('<graph')) {
-                console.log("✅ Test 3 PASSED");
+                console.log("Test 3 PASSED");
             } else {
-                console.log("❌ Test 3 FAILED");
+                console.log("Test 3 FAILED");
             }
         } catch (e) {
-            console.log("❌ Test 3 ERROR: " + e.toString());
+            console.log("Test 3 ERROR: " + e.toString());
         }
         
         // Test 4: Complex graph
@@ -1039,13 +1039,13 @@ void Window::runJavaScriptTests()
             let complexStats = Graph.getStats();
             
             if (complexStats.nodes === 4 && complexStats.edges === 3) {
-                console.log("✅ Test 4 PASSED");
+                console.log("Test 4 PASSED");
             } else {
-                console.log("❌ Test 4 FAILED - Expected 4 nodes, 3 edges, got " + 
+                console.log("Test 4 FAILED - Expected 4 nodes, 3 edges, got " + 
                            complexStats.nodes + " nodes, " + complexStats.edges + " edges");
             }
         } catch (e) {
-            console.log("❌ Test 4 ERROR: " + e.toString());
+            console.log("Test 4 ERROR: " + e.toString());
         }
         
         console.log("=== JavaScript Test Suite Complete ===");
@@ -1201,9 +1201,9 @@ void Window::runAllTests()
         QJSValue result = jsEngine->evaluateFile(scriptPath);
         
         if (result.isError()) {
-            results.append(QString("❌ %1: FAILED - %2").arg(fileInfo.baseName(), result.toString()));
+            results.append(QString("FAILED %1: %2").arg(fileInfo.baseName(), result.toString()));
         } else {
-            results.append(QString("✅ %1: PASSED").arg(fileInfo.baseName()));
+            results.append(QString("PASSED %1").arg(fileInfo.baseName()));
             passedTests++;
         }
         

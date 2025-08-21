@@ -215,7 +215,7 @@ function run_all_tests() {
     
     for (let i = 0; i < results.length; i++) {
         let result = results[i];
-        let status = result.success ? "✅ PASS" : "❌ FAIL";
+        let status = result.success ? "PASS" : "FAIL";
         console.log(`Test ${i + 1}: ${status} - ${result.message}`);
         
         if (result.success) {

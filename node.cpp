@@ -225,7 +225,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     // Parse-then-position architecture: Position all sockets with complete information
     // Uses K/O formula: max((2*K + 1), (2*O + 1)) × socketSize with BALANCED CENTERING
     
-    // ✅ Get actual socket size from existing socket - no fallbacks or magic numbers
+    // Get actual socket size from existing socket - no fallbacks or magic numbers
     if (m_sockets.isEmpty()) {
         qWarning() << "Node::positionAllSockets() called with no sockets available";
         return;

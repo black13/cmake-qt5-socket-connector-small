@@ -5,12 +5,12 @@ console.log("=== Palette System Test Starting ===");
 console.log("Testing all 5 core node types: SOURCE, SINK, TRANSFORM, SPLIT, MERGE");
 
 function logTestStart(testName) {
-    console.log(`\n🧪 TEST: ${testName}`);
+    console.log(`\nTEST: ${testName}`);
     console.log("─".repeat(50));
 }
 
 function logTestResult(success, message) {
-    const status = success ? "✅ PASS" : "❌ FAIL";
+    const status = success ? "PASS" : "FAIL";
     console.log(`${status}: ${message}`);
 }
 
@@ -28,7 +28,7 @@ function logGraphStats() {
         console.log(`   Graph stats: ${stats.nodes} nodes, ${stats.edges} edges`);
         return stats;
     } catch (error) {
-        console.log(`   ❌ Failed to get graph stats: ${error}`);
+        console.log(`   Failed to get graph stats: ${error}`);
         return null;
     }
 }
@@ -323,13 +323,13 @@ function runPaletteSystemTests() {
     console.log("🏆 PALETTE SYSTEM TEST RESULTS");
     console.log("=".repeat(60));
     console.log(`Total tests: ${results.total}`);
-    console.log(`Passed: ${results.passed} ✅`);
-    console.log(`Failed: ${results.failed} ❌`);
+    console.log(`Passed: ${results.passed}`);
+    console.log(`Failed: ${results.failed}`);
     console.log(`Success rate: ${(results.passed / results.total * 100).toFixed(1)}%`);
     
     console.log("\nDetailed results:");
     for (const test of results.tests) {
-        const status = test.passed ? "✅" : "❌";
+        const status = test.passed ? "PASS" : "FAIL";
         console.log(`  ${status} ${test.name}`);
     }
     
@@ -338,11 +338,11 @@ function runPaletteSystemTests() {
         console.log(`\nFinal graph: ${finalStats.nodes} nodes, ${finalStats.edges} edges`);
     }
     
-    console.log("\n🎯 Palette test files generated:");
+    console.log("\nPalette test files generated:");
     console.log("   - palette_test_graph.xml (test graph for inspection)");
     
     const overallSuccess = results.failed === 0;
-    console.log(`\n${overallSuccess ? "🎉" : "⚠️"} Overall result: ${overallSuccess ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
+    console.log(`\nOverall result: ${overallSuccess ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
     console.log("=== Palette System Test Complete ===");
     
     return {

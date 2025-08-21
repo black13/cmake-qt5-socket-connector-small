@@ -22,10 +22,10 @@ Socket::Socket(Role role, Node* parentNode, int index)
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
     
-    // ✅ Set socket z-order: above nodes (0) but below edges (2)
+    // Set socket z-order: above nodes (0) but below edges (2)
     setZValue(1);
     
-    // ✅ NO positioning in constructor - will be positioned later with complete information
+    // NO positioning in constructor - will be positioned later with complete information
     
     // Register with parent node for O(1) lookups
     if (parentNode) {
@@ -94,14 +94,14 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
     switch (m_connectionState) {
         case Connected:
             {
-                // ✅ ENHANCED: Clear visual feedback for connected sockets
+                // ENHANCED: Clear visual feedback for connected sockets
                 
                 // Draw socket body (slightly dimmed to show "occupied" state)
                 painter->setBrush(socketColor.darker(110));
                 painter->setPen(QPen(borderColor, 2));
                 painter->drawRoundedRect(rect, 3.0, 3.0);
                 
-                // ✅ Draw prominent BLACK connection dot in center
+                // Draw prominent BLACK connection dot in center
                 QRectF dotRect = rect.adjusted(3, 3, -3, -3); // Larger dot for visibility
                 painter->setBrush(QBrush(Qt::black));
                 painter->setPen(QPen(Qt::black, 1));
@@ -169,7 +169,7 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
     m_pressed = true;
     update(); // Show pressed state immediately
     
-    // ✅ DISABLE dragging from connected sockets
+    // DISABLE dragging from connected sockets
     if (isConnected()) {
         qDebug() << "Socket" << m_index << "is connected - dragging disabled";
         event->ignore(); // Don't start drag operations on connected sockets

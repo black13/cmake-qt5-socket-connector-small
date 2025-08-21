@@ -26,14 +26,14 @@ function testMassCreationDestruction() {
             // This will trigger XmlAutosaveObserver destructors with pending changes
             Graph.clear();
             
-            console.log(`  ✅ Batch ${batch + 1} cleared successfully - no crashes`);
+            console.log(`  Batch ${batch + 1} cleared successfully - no crashes`);
         }
         
-        console.log("✅ Mass creation/destruction test PASSED");
+        console.log("Mass creation/destruction test PASSED");
         return true;
         
     } catch (error) {
-        console.log("❌ Mass creation/destruction test FAILED:", error.message);
+        console.log("Mass creation/destruction test FAILED:", error.message);
         return false;
     }
 }
@@ -64,11 +64,11 @@ function testPendingChangesCleanup() {
         // This tests the destructor exception handling
         Graph.clear();
         
-        console.log("✅ Pending changes cleanup test PASSED - no crashes during destruction");
+        console.log("Pending changes cleanup test PASSED - no crashes during destruction");
         return true;
         
     } catch (error) {
-        console.log("❌ Pending changes cleanup test FAILED:", error.message);
+        console.log("Pending changes cleanup test FAILED:", error.message);
         return false;
     }
 }
@@ -101,11 +101,11 @@ function testErrorDuringCleanup() {
         // The destructors should handle any exceptions gracefully
         Graph.clear();
         
-        console.log("✅ Error handling during cleanup test PASSED");
+        console.log("Error handling during cleanup test PASSED");
         return true;
         
     } catch (error) {
-        console.log("❌ Error handling during cleanup test FAILED:", error.message);
+        console.log("Error handling during cleanup test FAILED:", error.message);
         return false;
     }
 }
@@ -135,11 +135,11 @@ function testNestedExceptionScenarios() {
         // Clear should work even after previous errors
         Graph.clear();
         
-        console.log("✅ Nested exception scenarios test PASSED");
+        console.log("Nested exception scenarios test PASSED");
         return true;
         
     } catch (error) {
-        console.log("❌ Nested exception scenarios test FAILED:", error.message);
+        console.log("Nested exception scenarios test FAILED:", error.message);
         return false;
     }
 }
@@ -168,12 +168,12 @@ function runDestructorSafetyTests() {
     console.log(`Passed: ${passed}/${total} tests`);
     
     if (passed === total) {
-        console.log("🎉 ALL DESTRUCTOR SAFETY TESTS PASSED!");
-        console.log("✅ Application handles destructor exceptions gracefully");
-        console.log("✅ No crashes occur during cleanup scenarios");
-        console.log("✅ Pending changes are handled safely during destruction");
+        console.log("ALL DESTRUCTOR SAFETY TESTS PASSED!");
+        console.log("Application handles destructor exceptions gracefully");
+        console.log("No crashes occur during cleanup scenarios");
+        console.log("Pending changes are handled safely during destruction");
     } else {
-        console.log("⚠️ Some tests failed - destructor safety needs attention");
+        console.log("Some tests failed - destructor safety needs attention");
     }
     
     return passed === total;

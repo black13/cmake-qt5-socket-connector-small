@@ -32,7 +32,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     setFlag(QGraphicsItem::ItemHasNoContents, false); // Ensure we control our own drawing
     setAcceptHoverEvents(true);  // Enable hover events for better interaction
     
-    // ✅ Z-order hierarchy: Nodes(0) < Sockets(1) < Edges(2)
+    // Z-order hierarchy: Nodes(0) < Sockets(1) < Edges(2)
     // Edges appear on top of sockets for "plugged-in" visual effect
     setZValue(2);
     
@@ -217,7 +217,7 @@ void Edge::updatePath()
         return;
     }
     
-    // ✅ FIXED: Connect to exact socket centers in scene coordinates
+    // FIXED: Connect to exact socket centers in scene coordinates
     // Use mapToScene to get the socket's center point in scene coordinates
     QRectF fromRect = m_fromSocket->boundingRect();
     QRectF toRect = m_toSocket->boundingRect();
@@ -246,7 +246,7 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Clear and rebuild path safely
     m_path.clear();
     
-    // ✅ ENHANCED: Connect directly to socket centers (no adjustment needed)
+    // ENHANCED: Connect directly to socket centers (no adjustment needed)
     // Since updatePath() now provides socket centers, use them directly
     QPointF adjustedStart = start;
     QPointF adjustedEnd = end;
@@ -521,6 +521,6 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     if (fromNode) fromNode->registerEdge(this);
     if (toNode) toNode->registerEdge(this);
     
-    qDebug() << "✓ Edge: Set resolved sockets directly (optimization)";
+    qDebug() << "Edge: Set resolved sockets directly (optimization)";
     updatePath();
 }

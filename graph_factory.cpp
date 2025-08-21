@@ -269,7 +269,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
         return false;
     }
     
-    qDebug() << "✓ XML file parsed successfully";
+    // qDebug() << "XML file parsed successfully";
     
     // PHASE 1: Load ALL nodes first - handle both direct and nested formats
     QVector<Node*> allNodes;
@@ -299,8 +299,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 Node* node = createNodeFromXml(xmlNode);
                 if (node) {
                     allNodes.append(node);
-                    qDebug() << "✓ Loaded node:" << node->getNodeType() 
-                             << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
+                    // qDebug() << "Loaded node:" << node->getNodeType() << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
                 }
                 xmlFree(inputsAttr);
                 xmlFree(outputsAttr);
@@ -321,13 +320,13 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
             Edge* edge = createEdgeFromXml(xmlNode);
             if (edge) {
                 allEdges.append(edge);
-                qDebug() << "✓ Loaded edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+                // qDebug() << "Loaded edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
             }
         }
     }
     
     qDebug() << "=== XML Loading Complete ===";
-    qDebug() << "✓ Loaded" << allNodes.size() << "nodes and" << allEdges.size() << "edges";
+    qDebug() << "Loaded" << allNodes.size() << "nodes and" << allEdges.size() << "edges";
     
     xmlFreeDoc(doc);
     
@@ -345,7 +344,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
         }
     }
     
-    qDebug() << "✓ Graph loaded:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
+    qDebug() << "Graph loaded:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
     
     // OPTIMIZATION: End batch mode to resume normal observer notifications
     GraphSubject::endBatch();
@@ -541,7 +540,7 @@ bool GraphFactory::validateGraphIntegrity() const
     }
     
     if (valid) {
-        qDebug() << "✓ Graph integrity validation passed";
+        // qDebug() << "Graph integrity validation passed";
     }
     
     return valid;

@@ -38,7 +38,7 @@ void testBasicDelegation()
     assert(facade.getNode() == node);
     assert(facade.isValid() == true);
     
-    qDebug() << "✅ Basic delegation: All assertions passed";
+    qDebug() << "Basic delegation: All assertions passed";
     qDebug() << "   Facade toString():" << facade.toString();
     
     delete node;
@@ -60,7 +60,7 @@ void testPositionModification()
     assert(facade.getPosition() == newPos);
     assert(node->pos() == newPos);  // Verify delegation worked
     
-    qDebug() << "✅ Position modification: Delegation working correctly";
+    qDebug() << "Position modification: Delegation working correctly";
     
     delete node;
 }
@@ -94,7 +94,7 @@ void testActionStorage()
     assert(facade.hasAction("secondAction"));
     assert(facade.getActions().size() == 1);
     
-    qDebug() << "✅ Action storage: Working correctly (Week 2 will add execution)";
+    qDebug() << "Action storage: Working correctly (Week 2 will add execution)";
     
     delete node;
 }
@@ -114,7 +114,7 @@ void testFacadeEquality()
     assert(facade1 != facade3);  // Different wrapped nodes
     assert(facade2 != facade3);  // Different wrapped nodes
     
-    qDebug() << "✅ Facade equality: Working correctly";
+    qDebug() << "Facade equality: Working correctly";
     
     delete node1;
     delete node2;
@@ -135,7 +135,7 @@ void testSafetyFeatures()
     assert(copy.isValid());
     assert(copy == facade);
     
-    qDebug() << "✅ Safety features: Copy constructor and validation working";
+    qDebug() << "Safety features: Copy constructor and validation working";
     
     delete node;
 }
@@ -154,19 +154,19 @@ int main(int argc, char *argv[])
         testFacadeEquality();
         testSafetyFeatures();
         
-        qDebug() << "\n🎉 ALL TESTS PASSED - Week 1 Success Criteria Met!";
+        qDebug() << "\nALL TESTS PASSED - Week 1 Success Criteria Met!";
         qDebug() << "\nWeek 1 Achievements:";
-        qDebug() << "• ✅ Minimal wrapper around existing Node*";
-        qDebug() << "• ✅ Zero impact on existing Node class";
-        qDebug() << "• ✅ All methods delegate to proven existing code";
-        qDebug() << "• ✅ Placeholder action system (storage only)";
-        qDebug() << "• ✅ Safety features (validation, copy constructor)";
-        qDebug() << "• ✅ Reference-based wrapper (doesn't own Node*)";
+        qDebug() << "Minimal wrapper around existing Node*";
+        qDebug() << "Zero impact on existing Node class";
+        qDebug() << "All methods delegate to proven existing code";
+        qDebug() << "Placeholder action system (storage only)";
+        qDebug() << "Safety features (validation, copy constructor)";
+        qDebug() << "Reference-based wrapper (doesn't own Node*)";
         
         qDebug() << "\n➡️  Ready for Week 2: JavaScript Bridge Integration";
         
     } catch (const std::exception& e) {
-        qDebug() << "❌ TEST FAILED:" << e.what();
+        qDebug() << "TEST FAILED:" << e.what();
         return 1;
     }
     
