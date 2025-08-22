@@ -136,6 +136,9 @@ QVariantList GraphController::getNodes()
 QString GraphController::connect(const QString& fromNodeId, int fromIndex, 
                                 const QString& toNodeId, int toIndex)
 {
+    qDebug() << "GraphController::connect() called - from:" << fromNodeId.left(8) 
+             << "[" << fromIndex << "] to:" << toNodeId.left(8) << "[" << toIndex << "]";
+             
     if (!m_scene || !m_factory) {
         emit error("GraphController: Scene or factory not initialized");
         return QString();
@@ -151,10 +154,14 @@ QString GraphController::connect(const QString& fromNodeId, int fromIndex,
     }
     
     // Validate connection before attempting
+    emit error(QString("DEBUG: About to call canConnect() for %1[%2] -> %3[%4]")
+              .arg(fromNodeId.left(8)).arg(fromIndex).arg(toNodeId.left(8)).arg(toIndex));
     if (!canConnect(fromNodeId, fromIndex, toNodeId, toIndex)) {
         qDebug() << "GraphController: Connection validation failed";
+        emit error("DEBUG: canConnect() returned FALSE - connection blocked!");
         return QString();
     }
+    emit error("DEBUG: canConnect() returned TRUE - proceeding with connection");
     
     qDebug() << "GraphController: Connecting" << fromNodeId << "[" << fromIndex << "] ->" 
              << toNodeId << "[" << toIndex << "]";
@@ -634,7 +641,7 @@ bool GraphController::canConnect(const QString& fromNodeId, int fromIndex, const
     
     for (QGraphicsItem* item : fromNode->childItems()) {
         if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
-            if (socket->getIndex() == fromIndex) {
+            if (socket->getIndex() == fromIndex && socket->getRole() == Socket::Output) {
                 fromSocket = socket;
                 break;
             }
@@ -643,7 +650,7 @@ bool GraphController::canConnect(const QString& fromNodeId, int fromIndex, const
     
     for (QGraphicsItem* item : toNode->childItems()) {
         if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
-            if (socket->getIndex() == toIndex) {
+            if (socket->getIndex() == toIndex && socket->getRole() == Socket::Input) {
                 toSocket = socket;
                 break;
             }
@@ -675,6 +682,54 @@ bool GraphController::canConnect(const QString& fromNodeId, int fromIndex, const
                   .arg(fromNodeId).arg(fromIndex).arg(fromSocket->isConnected() ? "CONN" : "FREE")
                   .arg(toNodeId).arg(toIndex).arg(toSocket->isConnected() ? "CONN" : "FREE"));
         return false;
+    }
+    
+    // Additional check: scan existing edges to prevent race conditions during rapid creation
+    if (m_scene) {
+        Scene* typedScene = static_cast<Scene*>(m_scene);
+        const auto& existingEdges = typedScene->getEdges();
+        emit error(QString("DEBUG: Scanning %1 existing edges for conflicts").arg(existingEdges.size()));
+        for (Edge* existingEdge : existingEdges.values()) {
+            // Debug: Show what we're comparing
+            emit error(QString("DEBUG: Checking edge %1: from %2[%3] to %4[%5]")
+                      .arg(existingEdge->getId().toString().left(8))
+                      .arg(existingEdge->getFromNodeId().left(8))
+                      .arg(existingEdge->getFromSocketIndex())
+                      .arg(existingEdge->getToNodeId().left(8))
+                      .arg(existingEdge->getToSocketIndex()));
+            emit error(QString("DEBUG: Target comparison: existing='%1' vs new='%2', socket: existing=%3 vs new=%4")
+                      .arg(existingEdge->getToNodeId())
+                      .arg(toNodeId)
+                      .arg(existingEdge->getToSocketIndex())
+                      .arg(toIndex));
+            
+            // Check if an existing edge already connects to the target input socket
+            // Normalize UUIDs by removing braces for comparison
+            QString existingNodeId = existingEdge->getToNodeId();
+            QString newNodeId = toNodeId;
+            if (existingNodeId.startsWith("{")) existingNodeId.remove(0, 1);
+            if (existingNodeId.endsWith("}")) existingNodeId.chop(1);
+            if (newNodeId.startsWith("{")) newNodeId.remove(0, 1);
+            if (newNodeId.endsWith("}")) newNodeId.chop(1);
+            
+            emit error(QString("DEBUG: Normalized comparison: existing='%1' vs new='%2'")
+                      .arg(existingNodeId).arg(newNodeId));
+            if (existingNodeId == newNodeId && existingEdge->getToSocketIndex() == toIndex) {
+                qWarning() << "GraphController: BLOCKING double connection! Target socket already has connection";
+                qWarning() << "  Existing edge:" << existingEdge->getId().toString().left(8) 
+                          << "connects to" << toNodeId.left(8) << "[" << toIndex << "]";
+                emit error(QString("DEBUG: BLOCKING double connection! Existing edge %1 connects to %2[%3]")
+                          .arg(existingEdge->getId().toString().left(8)).arg(toNodeId.left(8)).arg(toIndex));
+                return false;
+            }
+            // For completeness, check source socket too (though output sockets can have multiple connections in some designs)
+            // Uncomment if you want to prevent multiple connections from the same output socket:
+            // if (existingEdge->getFromNodeId() == fromNodeId && existingEdge->getFromSocketIndex() == fromIndex) {
+            //     emit error(QString("GraphController: Source socket already has connection"));
+            //     return false;
+            // }
+        }
+        emit error("DEBUG: No existing edge conflicts found - connection allowed");
     }
     
     // Prevent self-connection

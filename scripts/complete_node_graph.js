@@ -67,15 +67,15 @@ try {
                     edge: edgeId,
                     description: description
                 });
-                console.log("  ✅ SUCCESS: " + edgeId);
+                console.log("  PASS SUCCESS: " + edgeId);
                 connectionCount++;
                 return true;
             } else {
-                console.log("  ❌ FAILED: Connection returned empty");
+                console.log("  FAIL FAILED: Connection returned empty");
                 return false;
             }
         } else {
-            console.log("  ❌ VALIDATION FAILED");
+            console.log("  FAIL VALIDATION FAILED");
             return false;
         }
     }
@@ -136,16 +136,16 @@ try {
     
     console.log("Validation Results:");
     Object.keys(validationResults).forEach(function(test) {
-        console.log("  " + test + ": " + (validationResults[test] ? "✅ PASS" : "❌ FAIL"));
+        console.log("  " + test + ": " + (validationResults[test] ? "PASS PASS" : "FAIL FAIL"));
     });
     
     var allTestsPassed = Object.values(validationResults).every(function(result) { return result; });
     
     if (allTestsPassed) {
-        console.log("\n🎉 SUCCESS: COMPLETE NODE GRAPH CREATED!");
-        console.log("✅ All 5 node types present and connected");
-        console.log("✅ Complex data flow network established");
-        console.log("✅ " + connectionCount + " connections successfully created");
+        console.log("\n SUCCESS: COMPLETE NODE GRAPH CREATED!");
+        console.log("PASS All 5 node types present and connected");
+        console.log("PASS Complex data flow network established");
+        console.log("PASS " + connectionCount + " connections successfully created");
         
         var result = {
             success: true,
@@ -159,7 +159,7 @@ try {
         };
         result;
     } else {
-        console.error("❌ VALIDATION FAILED: Graph incomplete");
+        console.error("FAIL VALIDATION FAILED: Graph incomplete");
         console.error("Expected: " + expectedNodes + " nodes, " + minimumEdges + "-" + maximumEdges + " edges");
         console.error("Actual: " + finalStats.nodes + " nodes, " + finalStats.edges + " edges");
         

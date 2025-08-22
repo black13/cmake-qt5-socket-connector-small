@@ -179,7 +179,17 @@ Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode
              << "socket" << toSocketIndex;
     
     // Create object from XML
-    return createEdgeFromXml(xmlEdge);
+    Edge* edge = createEdgeFromXml(xmlEdge);
+    if (edge) {
+        // Immediately resolve connections for JavaScript-created edges
+        Scene* typedScene = static_cast<Scene*>(m_scene);
+        if (typedScene && edge->resolveConnections(typedScene)) {
+            qDebug() << "GraphFactory: Edge connections resolved successfully";
+        } else {
+            qWarning() << "GraphFactory: Failed to resolve edge connections";
+        }
+    }
+    return edge;
 }
 
 Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)

@@ -81,6 +81,12 @@ public:
     Node* getToNode() const { return m_toNode; }
     Socket* getFromSocket() const { return m_fromSocket; }
     Socket* getToSocket() const { return m_toSocket; }
+    
+    // Connection data accessors (for validation)
+    QString getFromNodeId() const { return m_fromNodeId; }
+    QString getToNodeId() const { return m_toNodeId; }
+    int getFromSocketIndex() const { return m_fromSocketIndex; }
+    int getToSocketIndex() const { return m_toSocketIndex; }
 
 private:
     QUuid m_id;

@@ -679,6 +679,24 @@ void Window::createToolsMenu()
     completeNodeGraphAction->setStatusTip("Create comprehensive graph with all 5 node types fully connected");
     connect(completeNodeGraphAction, &QAction::triggered, [this]() { runSpecificScript("scripts/complete_node_graph.js"); });
     jsTestMenu->addAction(completeNodeGraphAction);
+    
+    // Test 7: Error Isolation Testing
+    QAction* errorIsolationAction = new QAction("Test Error Isolation", this);
+    errorIsolationAction->setStatusTip("Test safe script execution with error isolation and recovery");
+    connect(errorIsolationAction, &QAction::triggered, [this]() { runSpecificScript("scripts/error_isolation_test.js"); });
+    jsTestMenu->addAction(errorIsolationAction);
+    
+    // Test 8: Socket Debugging
+    QAction* socketDebugAction = new QAction("Debug Socket Connections", this);
+    socketDebugAction->setStatusTip("Debug socket introspection and connection validation issues");
+    connect(socketDebugAction, &QAction::triggered, [this]() { runSpecificScript("scripts/debug_sockets.js"); });
+    jsTestMenu->addAction(socketDebugAction);
+    
+    // Test 9: Double Connection Prevention
+    QAction* doubleConnectionAction = new QAction("Test Double Connection Prevention", this);
+    doubleConnectionAction->setStatusTip("Test that input sockets reject multiple connections");
+    connect(doubleConnectionAction, &QAction::triggered, [this]() { runSpecificScript("scripts/test_double_connection.js"); });
+    jsTestMenu->addAction(doubleConnectionAction);
 }
 
 void Window::createHelpMenu()
