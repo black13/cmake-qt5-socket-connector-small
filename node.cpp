@@ -21,6 +21,7 @@ Node::Node(const QUuid& id, const QPointF& position)
     setPos(position);
     setFlag(QGraphicsItem::ItemIsMovable, true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemIsFocusable, true); // Enable keyboard events
     setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
     
     // Node creation logging removed - working correctly
@@ -107,6 +108,12 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
         bool isNowSelected = value.toBool();
         qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
                  << (isNowSelected ? "SELECT" : "DESELECT") << m_nodeType;
+        
+        // CRITICAL: When selected, take keyboard focus for delete key events
+        if (isNowSelected) {
+            setFocus(Qt::MouseFocusReason);
+            qDebug() << "Node: Taking keyboard focus for delete key handling";
+        }
         
         // Trigger visual update when selection changes
         update();
@@ -525,4 +532,25 @@ void Node::calculateNodeSize(int inputCount, int outputCount)
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
              << "resized to" << m_width << "x" << m_height 
              << "for" << inputCount << "inputs," << outputCount << "outputs";
+}
+
+void Node::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        qDebug() << "=== NODE SELF-DELETION START ===";
+        qDebug() << "Node" << getId().toString(QUuid::WithoutBraces).left(8) << "handling its own delete key";
+        
+        // Proper Qt approach: Node handles its own deletion
+        // Get the scene to call proper deletion method
+        Scene* scene = qobject_cast<Scene*>(this->scene());
+        if (scene) {
+            scene->deleteNode(getId());
+        } else {
+            qWarning() << "Node: No scene found for deletion";
+        }
+        return;
+    }
+    
+    // Pass unhandled keys to parent
+    QGraphicsItem::keyPressEvent(event);
 }

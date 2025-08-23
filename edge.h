@@ -10,6 +10,7 @@
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPointF>
+#include <QKeyEvent>
 #include <functional>
 #include <libxml/tree.h>
 
@@ -45,6 +46,9 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
     QPainterPath shape() const override;
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    
+    // Event handling - proper Qt architecture
+    void keyPressEvent(QKeyEvent *event) override;
     
     // Connection management - clean design uses node+index only
     // No socket UUIDs - edges resolved via resolveConnections() method

@@ -29,6 +29,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     Q_UNUSED(fromSocketId)  // Legacy parameter, not used in clean design
     Q_UNUSED(toSocketId)    // Legacy parameter, not used in clean design
     setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemIsFocusable, true); // Enable keyboard events
     setFlag(QGraphicsItem::ItemHasNoContents, false); // Ensure we control our own drawing
     setAcceptHoverEvents(true);  // Enable hover events for better interaction
     
@@ -166,26 +167,52 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == ItemSelectedHasChanged) {
         // Selection tracking logging - what has been selected
-        bool isNowSelected = value.toBool();
+        bool wasSelected = isSelected();
+        bool willBeSelected = value.toBool();
+        qDebug() << "=== EDGE SELECTION CHANGE ===";
         qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << (isNowSelected ? "SELECT" : "DESELECT");
+                 << "changing from" << (wasSelected ? "SELECTED" : "NOT_SELECTED")
+                 << "to" << (willBeSelected ? "SELECTED" : "NOT_SELECTED");
+        qDebug() << "Edge will" << (willBeSelected ? "turn ORANGE" : "turn NORMAL");
+        
+        // CRITICAL: When selected, take keyboard focus for delete key events
+        if (willBeSelected) {
+            setFocus(Qt::MouseFocusReason);
+            qDebug() << "Edge: Taking keyboard focus for delete key handling";
+        }
         
         // Trigger visual update when selection changes
         update();
+        qDebug() << "=== EDGE SELECTION CHANGE COMPLETE ===";
     }
     return QGraphicsItem::itemChange(change, value);
 }
 
 void Edge::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    qDebug() << "=== EDGE MOUSE PRESS START ===";
     qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mousePressEvent at" << event->pos();
+    qDebug() << "Edge was selected BEFORE mouse press:" << isSelected();
+    qDebug() << "Mouse button:" << (event->button() == Qt::LeftButton ? "LEFT" : "OTHER");
+    qDebug() << "Modifiers:" << event->modifiers();
+    
     QGraphicsItem::mousePressEvent(event);
+    
+    qDebug() << "Edge is selected AFTER mouse press:" << isSelected();
+    qDebug() << "=== EDGE MOUSE PRESS END ===";
 }
 
 void Edge::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
+    qDebug() << "=== EDGE MOUSE RELEASE START ===";
     qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mouseReleaseEvent at" << event->pos();
+    qDebug() << "Edge is selected BEFORE mouse release:" << isSelected();
+    
     QGraphicsItem::mouseReleaseEvent(event);
+    
+    qDebug() << "Edge is selected AFTER mouse release:" << isSelected();
+    qDebug() << "Edge turns orange (selected):" << (isSelected() ? "YES" : "NO");
+    qDebug() << "=== EDGE MOUSE RELEASE END ===";
 }
 
 void Edge::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
@@ -523,4 +550,25 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     qDebug() << "Edge: Set resolved sockets directly (optimization)";
     updatePath();
+}
+
+void Edge::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        qDebug() << "=== EDGE SELF-DELETION START ===";
+        qDebug() << "Edge" << getId().toString(QUuid::WithoutBraces).left(8) << "handling its own delete key";
+        
+        // Proper Qt approach: Edge handles its own deletion
+        // Get the scene to call proper deletion method
+        Scene* scene = qobject_cast<Scene*>(this->scene());
+        if (scene) {
+            scene->deleteEdge(getId());
+        } else {
+            qWarning() << "Edge: No scene found for deletion";
+        }
+        return;
+    }
+    
+    // Pass unhandled keys to parent
+    QGraphicsItem::keyPressEvent(event);
 }

@@ -21,6 +21,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemIsFocusable, true); // Enable keyboard events
     
     // Set socket z-order: above nodes (0) but below edges (2)
     setZValue(1);
@@ -235,6 +236,50 @@ void Socket::read(xmlNodePtr node)
     Q_UNUSED(node)
     // Socket properties read from parent node's socket definitions
     // Position is set by parent node's positionAllSockets() method
+}
+
+QVariant Socket::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+    if (change == ItemSelectedHasChanged) {
+        bool isNowSelected = value.toBool();
+        qDebug() << "Socket" << roleToString(m_role) << "index" << m_index 
+                 << (isNowSelected ? "SELECTED" : "DESELECTED");
+        
+        // CRITICAL: When selected, take keyboard focus for delete key events
+        if (isNowSelected) {
+            setFocus(Qt::MouseFocusReason);
+            qDebug() << "Socket: Taking keyboard focus for delete key handling";
+        }
+        
+        // Trigger visual update when selection changes
+        update();
+    }
+    
+    return QGraphicsItem::itemChange(change, value);
+}
+
+void Socket::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        qDebug() << "=== SOCKET SELF-DELETION START ===";
+        qDebug() << "Socket" << roleToString(m_role) << "index" << m_index << "handling its own delete key";
+        
+        // NOTE: Sockets are typically not deleted individually - they're part of nodes
+        // But we can disconnect any connected edges
+        if (m_connectedEdge) {
+            Scene* scene = qobject_cast<Scene*>(this->scene());
+            if (scene) {
+                qDebug() << "Socket: Disconnecting edge" << m_connectedEdge->getId().toString(QUuid::WithoutBraces).left(8);
+                scene->deleteEdge(m_connectedEdge->getId());
+            }
+        } else {
+            qDebug() << "Socket: No connected edge to delete";
+        }
+        return;
+    }
+    
+    // Pass unhandled keys to parent
+    QGraphicsItem::keyPressEvent(event);
 }
 
 

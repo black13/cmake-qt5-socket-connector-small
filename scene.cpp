@@ -191,43 +191,9 @@ void Scene::deleteEdge(const QUuid& edgeId)
     qDebug() << "Edge deleted - Observer notified";
 }
 
-void Scene::deleteSelected()
-{
-    QList<QGraphicsItem*> selectedItems = this->selectedItems();
-    if (selectedItems.isEmpty()) {
-        qDebug() << "No items selected for deletion";
-        return;
-    }
-    
-    qDebug() << "DELETE KEY: Deleting" << selectedItems.size() << "selected items";
-    
-    // Separate nodes and edges for proper deletion order
-    QList<Node*> selectedNodes;
-    QList<Edge*> selectedEdges;
-    
-    for (QGraphicsItem* item : selectedItems) {
-        if (Node* node = qgraphicsitem_cast<Node*>(item)) {
-            selectedNodes.append(node);
-        } else if (Edge* edge = qgraphicsitem_cast<Edge*>(item)) {
-            selectedEdges.append(edge);
-        }
-    }
-    
-    // Delete selected edges first
-    for (Edge* edge : selectedEdges) {
-        deleteEdge(edge->getId());
-    }
-    
-    // Then delete selected nodes (which will delete their remaining edges)
-    for (Node* node : selectedNodes) {
-        deleteNode(node->getId());
-    }
-    
-    // Emit signal for UI updates
-    emit sceneChanged();
-    
-    qDebug() << "DELETE COMPLETE: Deleted" << selectedEdges.size() << "edges and" << selectedNodes.size() << "nodes - Observers notified";
-}
+// DELETED: Scene::deleteSelected() method removed
+// Reason: Violates Qt architecture - items should handle their own delete events
+// New approach: Each QGraphicsItem handles keyPressEvent directly
 
 void Scene::clearGraph()
 {

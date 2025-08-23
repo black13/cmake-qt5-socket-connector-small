@@ -13,7 +13,9 @@
 #include <QSizeF>
 #include <QColor>
 #include <QSet>
+#include <QKeyEvent>
 #include <libxml/tree.h>
+#include "graph_item_types.h"
 
 // Forward declarations to avoid circular includes
 class Socket;
@@ -28,8 +30,9 @@ class Edge;
  * - No QObject inheritance or connect usage
  * - Sockets are children of nodes only
  * - Uses Qt containers instead of std library
+ * - Explicit type system via IGraphItem interface
  */
-class Node : public QGraphicsItem
+class Node : public QGraphicsItem, public IGraphItem
 {
 public:
     Node(const QUuid& id = QUuid::createUuid(), 
@@ -39,6 +42,10 @@ public:
     // Core identity
     const QUuid& getId() const { return m_id; }
     
+    // IGraphItem interface implementation
+    GraphItemType getGraphItemType() const override { return GraphItemType::Node; }
+    QString getItemId() const override { return m_id.toString(QUuid::WithoutBraces); }
+    
     // Self-serialization interface
     xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const;
     virtual void read(xmlNodePtr node);
@@ -46,6 +53,9 @@ public:
     // QGraphicsItem interface
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    
+    // Event handling - proper Qt architecture
+    void keyPressEvent(QKeyEvent *event) override;
     
     // Movement tracking for live XML updates
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;

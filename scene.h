@@ -48,7 +48,6 @@ public:
     // Deletion methods - maintain integrity
     void deleteNode(const QUuid& nodeId);
     void deleteEdge(const QUuid& edgeId);
-    void deleteSelected();  // Delete all selected items
     
     // Clear both graphics items AND registries - prevents dangling pointers
     void clearGraph();

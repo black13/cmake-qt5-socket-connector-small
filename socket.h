@@ -8,6 +8,7 @@
 #include <QUuid>
 #include <QPointF>
 #include <QString>
+#include <QKeyEvent>
 #include <QColor>
 #include <QRectF>
 #include <libxml/tree.h>
@@ -64,6 +65,10 @@ public:
     // QGraphicsItem interface
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    
+    // Event handling - proper Qt architecture
+    void keyPressEvent(QKeyEvent *event) override;
     
     // Mouse events for connection creation
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
