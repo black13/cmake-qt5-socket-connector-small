@@ -5,9 +5,7 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
-#include "javascript_engine.h"
 #include "node_palette_widget.h"
-// #include "javascript_console.h"  // Disabled for now
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QMessageBox>

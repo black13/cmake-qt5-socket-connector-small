@@ -11,7 +11,6 @@
 #include <QMutex>
 #include <QTimer>
 #include <QMessageBox>
-#include <QJSValue>
 #include <iostream>
 #include "window.h"
 #include "scene.h"
@@ -19,7 +18,6 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "node_registry.h"
-#include "javascript_engine.h"
 
 void setupLogging()
 {
@@ -56,24 +54,6 @@ void setupLogging()
         stream << logEntry << Qt::endl;
         stream.flush();
         
-        // Write JavaScript-related messages to separate JS log
-        if (msg.contains("JavaScript", Qt::CaseInsensitive) || 
-            msg.contains("Script", Qt::CaseInsensitive) ||
-            msg.contains("QJSEngine", Qt::CaseInsensitive) ||
-            msg.contains("JS_ERROR", Qt::CaseInsensitive) ||
-            msg.contains("JS_EXECUTION", Qt::CaseInsensitive)) {
-            
-            static QFile jsLogFile(QString("logs/JavaScript_%1.log").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss")));
-            if (!jsLogFile.isOpen()) {
-                jsLogFile.open(QIODevice::WriteOnly | QIODevice::Append);
-            }
-            
-            if (jsLogFile.isOpen()) {
-                QTextStream jsStream(&jsLogFile);
-                jsStream << logEntry << Qt::endl;
-                jsStream.flush();
-            }
-        }
     });
     
     qDebug() << "=== NodeGraph Application Started ===";
@@ -108,7 +88,6 @@ int main(int argc, char *argv[])
     parser.addOption(loadFileOption);
     
     
-    
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
@@ -123,25 +102,13 @@ int main(int argc, char *argv[])
     Window window;
     qDebug() << "Window created successfully";
     
-    // Initialize JavaScript engine
-    // qDebug() << "=== STEP 2: Initializing JavaScript Engine (BEFORE node registration) ===";
-    qDebug() << "NodeRegistry types before JS engine:" << NodeRegistry::instance().getRegisteredTypes().size();
+    // Get scene reference for graph initialization
     Scene* scene = window.getScene();
-    if (scene) {
-        auto* jsEngine = scene->getJavaScriptEngine();
-        if (!jsEngine) {
-            qDebug() << "Warning: JavaScript engine initialization failed";
-        } else {
-            qDebug() << "JavaScript engine initialized successfully";
-            qDebug() << "NodeRegistry types after JS engine init:" << NodeRegistry::instance().getRegisteredTypes().size();
-            
-            // MANDATORY EXECUTION TEST: Comprehensive JavaScript verification
-            if (!jsEngine->runMandatoryExecutionTest()) {
-                qCritical() << "CRITICAL: JavaScript engine failed mandatory execution test";
-                qCritical() << "CRITICAL: Application may not function correctly";
-            }
-        }
+    if (!scene) {
+        qCritical() << "Failed to get scene from window";
+        return -1;
     }
+    
     
     // Handle file loading
     QString filename;
@@ -254,12 +221,6 @@ int main(int argc, char *argv[])
     // qDebug() << "======================================";
     
     // Initialize GraphFactory with scene and XML document
-    // Scene* scene = window.getScene(); // Already declared above
-    if (!scene) {
-        qCritical() << "✗ Failed to get scene from window";
-        return -1;
-    }
-    
     GraphFactory factory(scene, xmlDoc);
     qDebug() << "GraphFactory initialized with empty XML document";
     

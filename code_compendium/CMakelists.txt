@@ -220,7 +220,13 @@ set(CORE_SOURCES
     node_palette_widget.h
     node_palette_widget.cpp
     
-    # Core engine integration (JavaScript removed)
+    # JavaScript engine integration
+    javascript_engine.h
+    javascript_engine.cpp
+    # javascript_console.h
+    # javascript_console.cpp
+    graph_controller.h
+    graph_controller.cpp
     
     # Observer pattern implementation
     graph_observer.h
@@ -263,10 +269,10 @@ add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
 target_link_libraries(NodeGraph NodeGraphCore)
 
 # ─────────────────────────────────────
-# 10. Test executable target (DISABLED - JavaScript removal)
+# 10. Test executable target
 # ─────────────────────────────────────
-# add_executable(NodeGraphTests ${TEST_SOURCES})
-# target_link_libraries(NodeGraphTests NodeGraphCore)
+add_executable(NodeGraphTests ${TEST_SOURCES})
+target_link_libraries(NodeGraphTests NodeGraphCore)
 
 # ─────────────────────────────────────
 # 11. Phase 11 Facade Test executable (optional)
@@ -285,8 +291,8 @@ option(ENABLE_AUTOMATIC_TESTS "Enable automatic test execution" ON)
 if(ENABLE_AUTOMATIC_TESTS)
     enable_testing()
     
-    # Add main test suite (DISABLED - JavaScript removal)
-    # add_test(NAME MainTests COMMAND NodeGraphTests)
+    # Add main test suite (now includes JavaScript engine tests)
+    add_test(NAME MainTests COMMAND NodeGraphTests)
     
     # Add facade tests if enabled
     if(BUILD_FACADE_TESTS)
