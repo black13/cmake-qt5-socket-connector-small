@@ -2,7 +2,7 @@
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
-#include "javascript_engine.h"
+// JavaScript engine include removed
 #include "ghost_edge.h"
 #include <QDebug>
 #include <QTimer>
@@ -14,11 +14,11 @@ Scene::Scene(QObject* parent)
     , m_ghostFromSocket(nullptr)
     , m_ghostEdgeActive(false)
     , m_shutdownInProgress(false)
-    , m_jsEngine(new JavaScriptEngine(this))
+    // JavaScript engine initialization removed
 {
     setSceneRect(-1000, -1000, 2000, 2000);
     
-    // Initialize JavaScript engine with this scene
+    // JavaScript engine initialization removed
     if (m_jsEngine) {
         m_jsEngine->registerNodeAPI(this);
         m_jsEngine->registerGraphAPI();
@@ -425,36 +425,4 @@ void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     QGraphicsScene::mouseReleaseEvent(event);
 }
 
-// JavaScript engine integration methods
-QString Scene::executeJavaScript(const QString& script)
-{
-    if (!m_jsEngine) {
-        qDebug() << "Scene: JavaScript engine not initialized";
-        return QString();
-    }
-    
-    QJSValue result = m_jsEngine->evaluate(script);
-    
-    if (result.isError()) {
-        qDebug() << "Scene: JavaScript error:" << result.toString();
-        return QString();
-    }
-    
-    return result.toString();
-}
-
-void Scene::loadJavaScriptFile(const QString& filePath)
-{
-    if (!m_jsEngine) {
-        qDebug() << "Scene: JavaScript engine not initialized";
-        return;
-    }
-    
-    QJSValue result = m_jsEngine->evaluateFile(filePath);
-    
-    if (result.isError()) {
-        qDebug() << "Scene: Failed to load JavaScript file:" << filePath << "Error:" << result.toString();
-    } else {
-        qDebug() << "Scene: Successfully loaded JavaScript file:" << filePath;
-    }
-}
+// JavaScript engine methods removed - focusing on core C++ functionality

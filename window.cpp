@@ -185,10 +185,11 @@ void Window::keyPressEvent(QKeyEvent* event)
                 }
                 break;
         }
+    } else if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        // Delete selected items
+        qDebug() << "Delete key pressed - deleting selected items";
+        m_scene->deleteSelected();
     }
-    // DELETED: Delete key interception removed
-    // Reason: Violates Qt event routing - selected items should receive delete keys directly
-    // New approach: Items handle keyPressEvent themselves
     QMainWindow::keyPressEvent(event);
 }
 
@@ -573,9 +574,7 @@ void Window::createToolsMenu()
     statisticsAction->setStatusTip("Show detailed graph statistics");
     m_toolsMenu->addAction(statisticsAction);
     
-    // Note: JavaScript test menus removed - use CLI scripting instead:
-    // ./NodeGraph --script path/to/script.js
-    // ./NodeGraph --eval "JavaScript code here"
+    // JavaScript test menu items removed - focusing on core C++ functionality
 }
 
 void Window::createHelpMenu()
@@ -879,9 +878,10 @@ void Window::closeEvent(QCloseEvent* event)
     qDebug() << "PHASE1: Window shutdown complete";
 }
 
-// Note: JavaScript test methods removed - use CLI scripting instead:
-// ./NodeGraph --script path/to/script.js  
-// ./NodeGraph --eval "JavaScript code here"
+// JavaScript test methods removed - focusing on core C++ functionality
+
+
+
 
 void Window::onNodeCreationRequested()
 {
