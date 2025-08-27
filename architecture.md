@@ -7,10 +7,177 @@ This document describes the architecture of a Qt5/C++ node graph editor that ach
 ## Core Architectural Principles
 
 1. **XML-First Design**: All objects serialize themselves to XML, enabling unified persistence
-2. **JavaScript Bridge**: QJSEngine integration provides runtime control and automation
+2. **Non-QObject Graphics Items**: Deliberate choice to avoid QObject inheritance and signals/slots complexity
 3. **Type-Safe Scene Management**: O(1) UUID-based lookups with typed collections
 4. **Observer Pattern**: Change notification system for automatic XML synchronization
-5. **Template-Driven Node Creation**: Scriptable node type system for extensibility
+5. **Value Semantics**: Clear ownership patterns without smart pointer complexity
+6. **Anti-Connect Pattern**: Direct method calls and explicit observers instead of signals/slots
+
+### Core Architecture Decision: The Non-QObject Pattern
+
+**The Problem with QObject in Dynamic Graphics Systems:**
+
+After "many attempts," the architecture deliberately avoids QObject inheritance for Node, Edge, and Socket classes. This decision prevents a common Qt graphics development trap:
+
+```cpp
+// PROBLEMATIC PATTERN (avoided):
+class Node : public QObject, public QGraphicsItem {
+    Q_OBJECT
+public slots:
+    void onSomethingChanged();
+signals:
+    void nodeChanged();
+};
+```
+
+**Why This Pattern Fails:**
+1. **Dynamic Item Lifecycle**: Nodes/edges get deleted frequently in graphics applications
+2. **Zombie References**: `connect()` creates persistent references that outlive objects
+3. **Memory Corruption**: Dangling pointers in signal/slot connections cause crashes
+4. **Debugging Nightmare**: Mysterious failures when objects are destroyed
+
+**The QObject + connect() Trap:**
+- See QObject → Think "I need connect()"
+- Use signals/slots to solve communication problems
+- Items get deleted → connect() holds dangling pointers
+- Result: "zombie references and connect goes badly"
+
+**Why std::smart_pointer + Qt Objects Is Bad:**
+```cpp
+// CONFLICTING OWNERSHIP SEMANTICS:
+std::shared_ptr<QObject> obj = std::make_shared<SomeQObject>();
+obj->setParent(parent);  // Qt thinks parent owns it
+// Question: Who's responsible for deletion? Qt parent or shared_ptr?
+// Answer: Both try → Double deletion → Crash
+```
+
+**Qt's Memory Management vs. Smart Pointers:**
+- **Qt Philosophy**: Parent-child ownership trees, automatic cleanup
+- **Smart Pointer Philosophy**: Shared ownership via reference counting  
+- **The Conflict**: Mixed ownership semantics lead to undefined behavior
+- **Qt's Official Stance**: Don't mix Qt parent-child with smart pointers
+
+**The Value Semantics Solution:**
+```cpp
+// CLEAR OWNERSHIP - NO CONFUSION:
+class Node : public QGraphicsItem {  // No QObject inheritance
+    QVector<Socket*> m_sockets;      // Node owns sockets directly
+    QSet<Edge*> m_incidentEdges;     // Edges register themselves
+    void (*m_changeCallback)(Node*); // Simple callback, no connect()
+};
+```
+
+**Benefits of This Architecture:**
+- **Clear Ownership**: Node owns its sockets, no ambiguity
+- **Deterministic Cleanup**: Destructor handles everything predictably
+- **No Reference Counting**: Avoids smart pointer complexity
+- **No Zombie Pointers**: No connect() means no dangling references
+- **Qt Graphics Lifecycle**: Works naturally with QGraphicsItem destruction
+
+**The Anti-Connect Pattern:**
+Instead of signals/slots, the system uses:
+- **Direct Method Calls**: Explicit, immediate communication
+- **Observer Pattern**: Explicit registration with manual cleanup
+- **Callback Pointers**: Simple function pointers for notifications
+- **Manual Notification Chains**: Controlled, predictable event flow
+
+**Result**: When items are deleted, cleanup is **immediate and predictable**. This represents a sophisticated architectural choice that avoids a major Qt pitfall that many developers never learn to recognize.
+
+### Implementation Evidence: Where These Decisions Live in Code
+
+**1. Non-QObject Inheritance - Explicitly Documented:**
+
+**node.h:32** - The architectural decision is documented in comments:
+```cpp
+/**
+ * Core principles:
+ * - No QObject inheritance or connect usage  // ← Hard-won lesson
+ */
+class Node : public QGraphicsItem  // ← QGraphicsItem ONLY, no QObject
+```
+
+**edge.h:24** - Consistent pattern across all graphics items:
+```cpp
+/**
+ * Core principles:
+ * - No QObject inheritance or connect usage  // ← Applied everywhere
+ */
+class Edge : public QGraphicsItem  // ← QGraphicsItem ONLY
+```
+
+**socket.h:28** - Same architectural consistency:
+```cpp
+class Socket : public QGraphicsItem  // ← QGraphicsItem ONLY
+```
+
+**2. Value Semantics & Clear Ownership:**
+
+**node.h:101-104** - Direct ownership without smart pointers:
+```cpp
+// Socket cache for O(1) lookups - critical performance fix
+QVector<Socket*> m_sockets;  // ← Node owns sockets directly
+
+// Edge adjacency set for O(degree) edge updates  
+QSet<Edge*> m_incidentEdges;  // ← Edges register themselves
+```
+
+**3. Anti-Connect Pattern Implementation:**
+
+**node.h:76** - Simple callbacks replace signals/slots:
+```cpp
+// Change notification - simple callback, no connect
+void setChangeCallback(void (*callback)(Node*));
+```
+
+**node.h:107** - Function pointer instead of QObject connections:
+```cpp
+// Simple callback - no QObject connect
+void (*m_changeCallback)(Node*);
+```
+
+**4. Manual Observer Pattern (Not connect()):**
+
+**node.h:78-81** - Explicit observer registration:
+```cpp
+// Observer interface for GraphFactory - contract enforcement
+void setObserver(void* observer) { m_observer = observer; }
+bool hasObserver() const { return m_observer != nullptr; }
+void* getObserver() const { return m_observer; }
+```
+
+**node.h:110** - Raw pointer for manual management:
+```cpp
+// Observer for contract enforcement  
+void* m_observer;  // ← Manual registration, manual cleanup
+```
+
+**5. Edge Safety System:**
+
+**node.h:84-86** - Manual edge lifecycle management:
+```cpp
+// Edge connection management - O(degree) performance optimization
+void registerEdge(Edge* edge);      // ← Manual registration
+void unregisterEdge(Edge* edge);    // ← Manual cleanup  
+void updateConnectedEdges();        // ← Direct method calls
+```
+
+**edge.h:34** - Destructor handles all cleanup:
+```cpp
+~Edge(); // Destructor for node unregistration  ← No connect() cleanup needed
+```
+
+**Architectural Evidence Summary:**
+
+The architectural decision is **explicitly documented** in header comments throughout the codebase:
+- `"No QObject inheritance or connect usage"` - Appears in Node and Edge headers
+- `"Simple callback, no connect"` - In implementation comments
+- `"Manual weak pointer system"` - In Edge class documentation
+
+This demonstrates that the Non-QObject decision was **intentional and hard-won** - documented to prevent future developers from falling back into the QObject trap. The code practices what the architecture documentation preaches through completely consistent implementation.
+
+### Template-Driven Node Creation
+
+5. **Template-Driven Node Creation**: Scriptable node type system for extensibility (JavaScript integration removed)
 
 ---
 

@@ -18,7 +18,7 @@ class Scene;
 class GraphFactory;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
-// class JavaScriptConsole;  // Disabled for now
+// JavaScript console class removed
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -45,15 +45,7 @@ public:
     // Create node at specific position (disabled for now)
     // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
     
-    // JavaScript test runner
-    void runJavaScriptTests();
-    
-    // Simple script execution
-    void loadAndExecuteScript();
-    
-    // JavaScript test runners
-    void runSpecificScript(const QString& filePath);
-    void runAllTests();
+    // JavaScript test methods removed - focusing on core C++ functionality
 
 protected:
     // PHASE 3: Safe shutdown coordination
@@ -121,9 +113,7 @@ private:
     QDockWidget* m_nodePaletteDock;
     NodePaletteWidget* m_nodePalette;
     
-    // JavaScript console (disabled for now)
-    // QDockWidget* m_javaScriptConsoleDock;
-    // JavaScriptConsole* m_javaScriptConsole;
+    // JavaScript console members removed
     
     // Status bar components
     QLabel* m_fileInfoLabel;      // Current file info

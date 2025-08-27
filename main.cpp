@@ -11,7 +11,6 @@
 #include <QMutex>
 #include <QTimer>
 #include <QMessageBox>
-#include <QJSValue>
 #include <iostream>
 #include "window.h"
 #include "scene.h"
@@ -19,7 +18,6 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "node_registry.h"
-#include "javascript_engine.h"
 
 void setupLogging()
 {
@@ -56,24 +54,7 @@ void setupLogging()
         stream << logEntry << Qt::endl;
         stream.flush();
         
-        // Write JavaScript-related messages to separate JS log
-        if (msg.contains("JavaScript", Qt::CaseInsensitive) || 
-            msg.contains("Script", Qt::CaseInsensitive) ||
-            msg.contains("QJSEngine", Qt::CaseInsensitive) ||
-            msg.contains("JS_ERROR", Qt::CaseInsensitive) ||
-            msg.contains("JS_EXECUTION", Qt::CaseInsensitive)) {
-            
-            static QFile jsLogFile(QString("logs/JavaScript_%1.log").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss")));
-            if (!jsLogFile.isOpen()) {
-                jsLogFile.open(QIODevice::WriteOnly | QIODevice::Append);
-            }
-            
-            if (jsLogFile.isOpen()) {
-                QTextStream jsStream(&jsLogFile);
-                jsStream << logEntry << Qt::endl;
-                jsStream.flush();
-            }
-        }
+        // JavaScript logging removed - focusing on core C++ functionality
     });
     
     qDebug() << "=== NodeGraph Application Started ===";
@@ -107,10 +88,7 @@ int main(int argc, char *argv[])
                                       "file");
     parser.addOption(loadFileOption);
     
-    // Add verification option
-    QCommandLineOption verifyOption(QStringList() << "verify",
-                                   "Run JavaScript integration verification and exit");
-    parser.addOption(verifyOption);
+    // JavaScript verification option removed - focusing on core C++ functionality
     
     
     // Add positional argument for file
@@ -127,19 +105,8 @@ int main(int argc, char *argv[])
     Window window;
     qDebug() << "Window created successfully";
     
-    // Initialize JavaScript engine
-    // qDebug() << "=== STEP 2: Initializing JavaScript Engine (BEFORE node registration) ===";
-    qDebug() << "NodeRegistry types before JS engine:" << NodeRegistry::instance().getRegisteredTypes().size();
+    // JavaScript engine initialization removed - focusing on core C++ functionality
     Scene* scene = window.getScene();
-    if (scene) {
-        auto* jsEngine = scene->getJavaScriptEngine();
-        if (!jsEngine) {
-            qDebug() << "Warning: JavaScript engine initialization failed";
-        } else {
-            qDebug() << "JavaScript engine initialized successfully";
-            qDebug() << "NodeRegistry types after JS engine init:" << NodeRegistry::instance().getRegisteredTypes().size();
-        }
-    }
     
     // Handle file loading
     QString filename;
@@ -294,68 +261,7 @@ int main(int argc, char *argv[])
     
     window.show();
     
-    // Check for verification mode - run after window is fully shown
-    bool verifyMode = parser.isSet(verifyOption);
-    
-    if (verifyMode) {
-        qDebug() << "=== VERIFICATION MODE ENABLED ===";
-        qDebug() << "Running JavaScript integration verification...";
-        
-        // Give the application time to fully initialize after show()
-        QTimer::singleShot(1000, [&]() {
-            // Get JavaScript engine from scene
-            Scene* scene = window.getScene();
-            if (!scene) {
-                qCritical() << "VERIFY_ERROR: Scene not available";
-                app.exit(1);
-                return;
-            }
-            
-            auto* jsEngine = scene->getJavaScriptEngine();
-            if (!jsEngine) {
-                qCritical() << "VERIFY_ERROR: JavaScript engine not available";
-                app.exit(1);
-                return;
-            }
-            
-            // CRITICAL: Setup GraphController for verification
-            // The verification tests need real GraphController access
-            qDebug() << "VERIFY_SETUP: Setting up GraphController for verification tests";
-            jsEngine->registerGraphController(scene, &factory);
-            qDebug() << "VERIFY_SETUP: GraphController registration completed";
-            
-            // Load and execute verification script
-            QString scriptPath = "scripts/startup_verification.js";
-            QJSValue result = jsEngine->evaluateFile(scriptPath);
-            
-            if (result.isError()) {
-                qCritical() << "VERIFY_ERROR: Script execution failed:" << result.toString();
-                app.exit(1);
-                return;
-            }
-            
-            // Extract test results
-            QJSValue testResults = result;
-            if (testResults.hasProperty("failed")) {
-                int failed = testResults.property("failed").toInt();
-                int passed = testResults.property("passed").toInt();
-                int total = testResults.property("total").toInt();
-                
-                qDebug() << "VERIFY_SUMMARY:" << passed << "/" << total << "tests passed";
-                
-                if (failed == 0) {
-                    qDebug() << "VERIFY_RESULT: SUCCESS - All JavaScript integration tests passed";
-                    app.exit(0);
-                } else {
-                    qDebug() << "VERIFY_RESULT: FAILURE -" << failed << "tests failed";
-                    app.exit(1);
-                }
-            } else {
-                qDebug() << "VERIFY_ERROR: Could not parse test results";
-                app.exit(1);
-            }
-        });
-    }
+    // JavaScript verification mode removed - focusing on core C++ functionality
     
     // Show user-friendly message about file loading status
     if (fileLoadAttempted && originalFilename != filename) {
