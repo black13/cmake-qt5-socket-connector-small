@@ -68,6 +68,10 @@ public:
         NodeTemplate& operator=(const NodeTemplate& other) = default;
     };
 
+    // Template validation
+    bool hasTemplate(const QString& nodeType) const;
+    QStringList getTemplatedTypes() const;
+
 signals:
     // Emitted when user wants to create a node
     void nodeCreationRequested(const NodeTemplate& nodeTemplate);

@@ -94,6 +94,40 @@ int main(int argc, char *argv[])
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
+    // Log command line arguments before processing
+    qDebug() << "Command line arguments:";
+    for (int i = 0; i < argc; i++) {
+        qDebug() << QString("  [%1]: %2").arg(i).arg(argv[i]);
+    }
+    
+    // Check for help/version before processing to log them
+    QStringList args = QCoreApplication::arguments();
+    if (args.contains("--help") || args.contains("-h")) {
+        qDebug() << "=== HELP REQUESTED ===";
+        qDebug() << "Application Name:" << QCoreApplication::applicationName();
+        qDebug() << "Version:" << QCoreApplication::applicationVersion();
+        qDebug() << "Description:" << parser.applicationDescription();
+        qDebug() << "Usage: NodeGraph [options] file";
+        qDebug() << "Options:";
+        qDebug() << "  -h, --help         Displays help on commandline options";
+        qDebug() << "  --help-all         Displays help including Qt specific options";
+        qDebug() << "  -v, --version      Displays version information";
+        qDebug() << "  -l, --load <file>  Load graph from XML file";
+        qDebug() << "Arguments:";
+        qDebug() << "  file               XML file to load (optional)";
+        qDebug() << "=== END HELP ===";
+    }
+    
+    if (args.contains("--version") || args.contains("-v")) {
+        qDebug() << "=== VERSION REQUESTED ===";
+        qDebug() << "Application:" << QCoreApplication::applicationName();
+        qDebug() << "Version:" << QCoreApplication::applicationVersion();
+        qDebug() << "Organization:" << QCoreApplication::organizationName();
+        qDebug() << "Build Date:" << __DATE__ << __TIME__;
+        qDebug() << "Qt Version:" << QT_VERSION_STR;
+        qDebug() << "=== END VERSION ===";
+    }
+    
     // Process command line arguments
     parser.process(app);
     

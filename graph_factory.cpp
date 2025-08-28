@@ -30,6 +30,17 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
         return nullptr;
     }
     
+    // Validate node type against template system
+    QStringList templatedTypes = {"SOURCE", "SINK", "TRANSFORM", "MERGE", "SPLIT"};
+    if (!templatedTypes.contains(nodeType)) {
+        qCritical() << "REJECTED: Node type" << nodeType << "is not templated";
+        qCritical() << "   VALID TEMPLATED TYPES:" << templatedTypes;
+        qCritical() << "   INVALID REGISTERED TYPES: IN, OUT, PROC, PROCESSOR";
+        qCritical() << "   SOLUTION: Only use templated node types in XML files";
+        qCritical() << "   NODE CREATION FAILED";
+        return nullptr;
+    }
+    
     // Create node using registry
     Node* node = NodeRegistry::instance().createNode(nodeType);
     if (!node) {
@@ -314,8 +325,26 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 xmlFree(inputsAttr);
                 xmlFree(outputsAttr);
             } else {
-                // Nested socket format: <node><socket /></node> - skip
-                qDebug() << "Skipping node with nested socket format (not supported)";
+                // Detailed validation logging for unsupported format
+                xmlChar* idAttr = xmlGetProp(xmlNode, BAD_CAST "id");
+                xmlChar* typeAttr = xmlGetProp(xmlNode, BAD_CAST "type");
+                xmlChar* xAttr = xmlGetProp(xmlNode, BAD_CAST "x");
+                xmlChar* yAttr = xmlGetProp(xmlNode, BAD_CAST "y");
+                
+                qDebug() << "INVALID NODE FORMAT DETECTED:";
+                qDebug() << "   ID:" << (idAttr ? (const char*)idAttr : "MISSING");
+                qDebug() << "   Type:" << (typeAttr ? (const char*)typeAttr : "MISSING");
+                qDebug() << "   Position: x=" << (xAttr ? (const char*)xAttr : "MISSING") 
+                         << " y=" << (yAttr ? (const char*)yAttr : "MISSING");
+                qDebug() << "   Missing 'inputs' attribute:" << (inputsAttr ? "PRESENT" : "MISSING");
+                qDebug() << "   Missing 'outputs' attribute:" << (outputsAttr ? "PRESENT" : "MISSING");
+                qDebug() << "   CORRECT FORMAT: <node id=\"{uuid}\" type=\"TYPE\" x=\"100\" y=\"100\" inputs=\"1\" outputs=\"1\"/>";
+                qDebug() << "   SKIPPED: Node will not be loaded";
+                
+                if (idAttr) xmlFree(idAttr);
+                if (typeAttr) xmlFree(typeAttr);
+                if (xAttr) xmlFree(xAttr);
+                if (yAttr) xmlFree(yAttr);
                 if (inputsAttr) xmlFree(inputsAttr);
                 if (outputsAttr) xmlFree(outputsAttr);
             }

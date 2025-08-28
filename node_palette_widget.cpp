@@ -473,3 +473,23 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     }
 }
 
+// Template validation methods
+bool NodePaletteWidget::hasTemplate(const QString& nodeType) const
+{
+    for (const NodeTemplate& tmpl : m_nodeTemplates) {
+        if (tmpl.type == nodeType) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QStringList NodePaletteWidget::getTemplatedTypes() const
+{
+    QStringList types;
+    for (const NodeTemplate& tmpl : m_nodeTemplates) {
+        types.append(tmpl.type);
+    }
+    return types;
+}
+
