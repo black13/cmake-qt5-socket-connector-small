@@ -3,9 +3,9 @@
 #include "socket.h"
 #include "edge.h"
 #include "scene.h"
-#include "node_registry.h"
+// NodeRegistry removed - using template system directly
 #include "graph_observer.h"
-#include "node_type_templates.h"
+#include "node_templates.h"
 #include <QDateTime>
 #include <QDebug>
 
@@ -31,22 +31,15 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
     }
     
     // Validate node type against template system
-    QStringList templatedTypes = {"SOURCE", "SINK", "TRANSFORM", "MERGE", "SPLIT"};
-    if (!templatedTypes.contains(nodeType)) {
-        qCritical() << "REJECTED: Node type" << nodeType << "is not templated";
-        qCritical() << "   VALID TEMPLATED TYPES:" << templatedTypes;
-        qCritical() << "   INVALID REGISTERED TYPES: IN, OUT, PROC, PROCESSOR";
-        qCritical() << "   SOLUTION: Only use templated node types in XML files";
-        qCritical() << "   NODE CREATION FAILED";
+    if (!NodeTypeTemplates::hasNodeType(nodeType)) {
+        qCritical() << "Invalid node type:" << nodeType;
+        qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
         return nullptr;
     }
     
-    // Create node using registry
-    Node* node = NodeRegistry::instance().createNode(nodeType);
-    if (!node) {
-        qCritical() << "GraphFactory::createNodeFromXml - failed to create node of type:" << nodeType;
-        return nullptr;
-    }
+    // Create node directly - template system is the authority
+    Node* node = new Node();
+    node->setNodeType(nodeType);
     
     // Attach observer before reading XML - contract requirement
     node->setObserver(this);

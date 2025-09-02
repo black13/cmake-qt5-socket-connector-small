@@ -428,15 +428,15 @@ QVariantMap GraphController::getStats()
 
 bool GraphController::isValidNodeType(const QString& type)
 {
-    QStringList registeredTypes = NodeRegistry::instance().getRegisteredTypes();
-    bool isValid = registeredTypes.contains(type);
+    // Use template system instead of NodeRegistry
+    bool isValid = NodeTypeTemplates::hasNodeType(type);
     qDebug() << "GraphController: Type validation:" << type << "→" << (isValid ? "VALID" : "INVALID");
     return isValid;
 }
 
 QStringList GraphController::getValidNodeTypes()
 {
-    QStringList types = NodeRegistry::instance().getRegisteredTypes();
+    QStringList types = NodeTypeTemplates::getAvailableTypes();
     qDebug() << "GraphController: Available node types:" << types;
     return types;
 }

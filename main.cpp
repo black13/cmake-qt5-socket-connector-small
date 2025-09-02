@@ -17,7 +17,7 @@
 #include "node.h"
 #include "edge.h"
 #include "graph_factory.h"
-#include "node_registry.h"
+#include "node_templates.h"
 
 void setupLogging()
 {
@@ -134,8 +134,7 @@ int main(int argc, char *argv[])
     // Command line parsing
     
     // Create main window
-    // qDebug() << "=== STEP 1: Creating Window (BEFORE node registration) ===";
-    qDebug() << "NodeRegistry types at window creation:" << NodeRegistry::instance().getRegisteredTypes().size();
+    // Template system doesn't require registration - clean startup
     Window window;
     qDebug() << "Window created successfully";
     
@@ -169,88 +168,10 @@ int main(int argc, char *argv[])
     
     qDebug() << "Empty XML document created - GraphFactory will handle file loading";
     
-    // Register all supported node types
-    // qDebug() << "=== STEP 3: Registering Node Types (AFTER window/JS engine creation) ===";
-    qDebug() << "NodeRegistry types BEFORE registration:" << NodeRegistry::instance().getRegisteredTypes().size();
-    qDebug() << "Starting node type registration process...";
-    
-    // Core node types
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
-    });
-    // qDebug() << "Registered: IN (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
-    });
-    // qDebug() << "Registered: OUT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    NodeRegistry::instance().registerNode("PROC", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("PROC"); 
-        return node; 
-    });
-    // qDebug() << "Registered: PROC (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    // Palette node types - each with proper type designation
-    NodeRegistry::instance().registerNode("SOURCE", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SOURCE"); 
-        return node; 
-    });
-    // qDebug() << "Registered: SOURCE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    NodeRegistry::instance().registerNode("SINK", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SINK"); 
-        return node; 
-    });
-    // qDebug() << "Registered: SINK (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    NodeRegistry::instance().registerNode("TRANSFORM", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("TRANSFORM"); 
-        return node; 
-    });
-    // qDebug() << "Registered: TRANSFORM (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    NodeRegistry::instance().registerNode("MERGE", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("MERGE"); 
-        return node; 
-    });
-    // qDebug() << "Registered: MERGE (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    NodeRegistry::instance().registerNode("SPLIT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SPLIT"); 
-        return node; 
-    });
-    // qDebug() << "Registered: SPLIT (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    // Legacy compatibility for older tests
-    NodeRegistry::instance().registerNode("PROCESSOR", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("PROCESSOR"); 
-        return node; 
-    });
-    // qDebug() << "Registered: PROCESSOR (count now:" << NodeRegistry::instance().getRegisteredTypes().size() << ")"
-    
-    QStringList registeredTypes = NodeRegistry::instance().getRegisteredTypes();
-
-    // Test the NodeRegistry to verify nodes are registered
-    qDebug() << "=== NodeGraph Application Starting ===";
-    qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
-    qDebug() << "Total registered types:" << registeredTypes.size();
-    // qDebug() << "=== Logging each registered type ===";
-    for (int i = 0; i < registeredTypes.size(); ++i) {
-        qDebug() << QString("  [%1] \"%2\"").arg(i + 1).arg(registeredTypes[i]);
-    }
-    // qDebug() << "======================================";
+    // Use template system instead of NodeRegistry - fixing dual registry problem
+    qDebug() << "=== Using Template-Driven Node Creation (No NodeRegistry) ===";
+    qDebug() << "Available node types from templates:" << NodeTypeTemplates::getAvailableTypes();
+    qDebug() << "Template system ready - GraphFactory will handle all node creation";
     
     // Initialize GraphFactory with scene and XML document
     // Scene* scene = window.getScene(); // Already declared above

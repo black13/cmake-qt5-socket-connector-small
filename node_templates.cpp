@@ -1,4 +1,4 @@
-#include "node_type_templates.h"
+#include "node_templates.h"
 #include <QDebug>
 #include <QXmlStreamWriter>
 #include <QXmlStreamReader>

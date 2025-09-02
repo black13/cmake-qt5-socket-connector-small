@@ -8,7 +8,7 @@
 #include <QVariantMap>
 #include <libxml/tree.h>
 #include "socket.h"
-#include "node_type_templates.h"
+#include "node_templates.h"
 
 class Node;
 class Edge;

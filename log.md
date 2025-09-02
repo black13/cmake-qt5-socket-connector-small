@@ -1,5 +1,77 @@
 # Implementation Log
 
+## Session: September 2, 2025 - Template System Cleanup & Architectural Critiques
+
+### 🎯 **Session Goals**
+- Address dual registry system architectural debt
+- Implement phased branch plan for template system cleanup  
+- Respond to comprehensive code review critiques
+- Establish clean node creation pipeline
+
+### 📋 **Branch Strategy**
+**Current Branch**: `fix/remove-dual-registry-usage`
+**Phase 1 Goal**: Remove NodeRegistry usage, fix immediate issues
+
+### 🔍 **Key Issues Identified**
+
+#### **Dual Registry Problem**
+- `main.cpp` was bypassing existing template system with NodeRegistry calls
+- GraphFactory still uses `NodeRegistry::instance().createNode()` instead of templates
+- Architecture already correct - usage patterns were wrong
+
+#### **Reviewer Critiques Summary**
+
+**Reviewer 1 (Claude.code)**:
+- ✅ Template-as-string-resource idea has merit but over-engineered
+- ⚠️ String substitution fragility and validation concerns
+- 💡 Recommendation: Fix usage, keep working architecture
+
+**Reviewer 2**:  
+- ✅ Existing template system already works correctly
+- ❌ Problem is `main.cpp` calling NodeRegistry instead of GraphFactory
+- 💡 Simple fix: Remove NodeRegistry calls, use existing templates
+
+**Compromise Solution**: Fix usage patterns, improve validation, avoid over-engineering
+
+### 🛠 **Implementation Progress**
+
+#### **Completed Tasks**
+- ✅ Removed 60+ lines of NodeRegistry registration from `main.cpp`
+- ✅ Renamed `node_type_templates` → `node_templates` for shorter name
+- ✅ Updated includes to use template system directly
+
+#### **Current Focus**  
+- 🔧 Fix GraphFactory to use pure template system (Line 41 issue)
+- 🔧 Address ActionRegistry deadlock in `dumpRegistry()`
+
+### 💭 **Architectural Insights**
+
+#### **Template → Node Creation Flow**
+```
+Template String → XML Generation → XML Parsing → Node Object
+"<node type='SOURCE'/>" → inject position/UUID → parse attributes → configure sockets
+```
+
+#### **Unified Node Creation Pipeline**
+All creation paths converge on GraphFactory:
+- **Palette Drag**: `NodePaletteWidget` → `Window` → `GraphFactory::createNode()`
+- **File Load**: `loadXmlFile()` → `GraphFactory::createNodeFromXml()`  
+- **JavaScript**: `GraphController` → `GraphFactory::createNode()`
+- **Menu/API**: All routes → `GraphFactory` (single authority)
+
+#### **Future JavaScript Integration**
+- Templates define structure only (sockets, properties)
+- Scripts provide behavior dynamically (separate concern)
+- Clean separation: "what sockets" vs "what computation"
+
+### 🎯 **Next Steps**
+1. Fix GraphFactory NodeRegistry dependency  
+2. Test unified template-only node creation
+3. Address ActionRegistry concurrency issues
+4. Validate template system robustness
+
+---
+
 ## Session: August 14, 2025 - Rubber Types Foundation & JavaScript Fusion Vision
 
 ### 🎯 **Session Goals**
