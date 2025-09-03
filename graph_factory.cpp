@@ -257,36 +257,35 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
 {
     qDebug() << "=== GraphFactory: Loading from XML File ===" << filePath;
     
-    // OPTIMIZATION: Enable batch mode to prevent observer storm during bulk loading
-    GraphSubject::beginBatch();
-    
-    // Parse XML file
+    // Parse XML file first for validation
     xmlDocPtr doc = xmlParseFile(filePath.toUtf8().constData());
     if (!doc) {
-        qCritical() << "GraphFactory::loadFromXmlFile - failed to parse XML file:" << filePath;
-        GraphSubject::endBatch();  // Clean up batch mode on error
+        qCritical() << "XML VALIDATION FAILED: Unable to parse file:" << filePath;
+        qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
         return false;
     }
     
     xmlNodePtr root = xmlDocGetRootElement(doc);
     if (!root) {
-        qCritical() << "GraphFactory::loadFromXmlFile - no root element";
+        qCritical() << "XML VALIDATION FAILED: No root element in file:" << filePath;
+        qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
         xmlFreeDoc(doc);
-        GraphSubject::endBatch();  // Clean up batch mode on error
         return false;
     }
     
     if (xmlStrcmp(root->name, (const xmlChar*)"graph") != 0) {
-        qCritical() << "Invalid XML file: root element should be 'graph'";
+        qCritical() << "XML VALIDATION FAILED: Root element must be 'graph', found:" << (const char*)root->name;
+        qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
         xmlFreeDoc(doc);
-        GraphSubject::endBatch();  // Clean up batch mode on error
         return false;
     }
     
-    // qDebug() << "XML file parsed successfully";
+    // ALL-OR-NOTHING VALIDATION: Parse and validate entire file structure before making any changes
+    qDebug() << "=== Phase 1: Validating XML Structure (No Scene Changes) ===";
     
-    // PHASE 1: Load ALL nodes first - handle both direct and nested formats
-    QVector<Node*> allNodes;
+    // Temporary storage for validation - no scene modifications yet
+    QVector<xmlNodePtr> validNodeElements;
+    QVector<xmlNodePtr> validEdgeElements;
     
     // Check if nodes are direct children or nested under <nodes>
     xmlNodePtr nodesContainer = nullptr;
@@ -297,88 +296,206 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
         }
     }
     
-    // Load nodes from appropriate location
+    // Validate all nodes without creating them
     xmlNodePtr nodeParent = nodesContainer ? nodesContainer : root;
-    qDebug() << "=== Loading Nodes" << (nodesContainer ? "from <nodes> wrapper" : "directly from root") << "===";
+    qDebug() << "Validating nodes" << (nodesContainer ? "from <nodes> wrapper" : "directly from root");
     
     for (xmlNodePtr xmlNode = nodeParent->children; xmlNode; xmlNode = xmlNode->next) {
         if (xmlNode->type == XML_ELEMENT_NODE && xmlStrcmp(xmlNode->name, (const xmlChar*)"node") == 0) {
             
-            // Check if this node has the format we support (inputs/outputs attributes)
+            // Validate node format
             xmlChar* inputsAttr = xmlGetProp(xmlNode, BAD_CAST "inputs");
             xmlChar* outputsAttr = xmlGetProp(xmlNode, BAD_CAST "outputs");
+            xmlChar* typeAttr = xmlGetProp(xmlNode, BAD_CAST "type");
+            xmlChar* idAttr = xmlGetProp(xmlNode, BAD_CAST "id");
             
-            if (inputsAttr && outputsAttr) {
-                // Our format: <node inputs="1" outputs="1" />
-                Node* node = createNodeFromXml(xmlNode);
-                if (node) {
-                    allNodes.append(node);
-                    // qDebug() << "Loaded node:" << node->getNodeType() << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
-                }
-                xmlFree(inputsAttr);
-                xmlFree(outputsAttr);
-            } else {
-                // Detailed validation logging for unsupported format
-                xmlChar* idAttr = xmlGetProp(xmlNode, BAD_CAST "id");
-                xmlChar* typeAttr = xmlGetProp(xmlNode, BAD_CAST "type");
-                xmlChar* xAttr = xmlGetProp(xmlNode, BAD_CAST "x");
-                xmlChar* yAttr = xmlGetProp(xmlNode, BAD_CAST "y");
+            if (!inputsAttr || !outputsAttr || !typeAttr || !idAttr) {
+                qCritical() << "XML VALIDATION FAILED: Node missing required attributes";
+                qCritical() << "  Required: id, type, inputs, outputs";
+                qCritical() << "  Found: id=" << (idAttr ? "present" : "MISSING")
+                           << " type=" << (typeAttr ? "present" : "MISSING")
+                           << " inputs=" << (inputsAttr ? "present" : "MISSING")
+                           << " outputs=" << (outputsAttr ? "present" : "MISSING");
+                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
                 
-                qDebug() << "INVALID NODE FORMAT DETECTED:";
-                qDebug() << "   ID:" << (idAttr ? (const char*)idAttr : "MISSING");
-                qDebug() << "   Type:" << (typeAttr ? (const char*)typeAttr : "MISSING");
-                qDebug() << "   Position: x=" << (xAttr ? (const char*)xAttr : "MISSING") 
-                         << " y=" << (yAttr ? (const char*)yAttr : "MISSING");
-                qDebug() << "   Missing 'inputs' attribute:" << (inputsAttr ? "PRESENT" : "MISSING");
-                qDebug() << "   Missing 'outputs' attribute:" << (outputsAttr ? "PRESENT" : "MISSING");
-                qDebug() << "   CORRECT FORMAT: <node id=\"{uuid}\" type=\"TYPE\" x=\"100\" y=\"100\" inputs=\"1\" outputs=\"1\"/>";
-                qDebug() << "   SKIPPED: Node will not be loaded";
-                
-                if (idAttr) xmlFree(idAttr);
-                if (typeAttr) xmlFree(typeAttr);
-                if (xAttr) xmlFree(xAttr);
-                if (yAttr) xmlFree(yAttr);
+                // Clean up attributes
                 if (inputsAttr) xmlFree(inputsAttr);
                 if (outputsAttr) xmlFree(outputsAttr);
+                if (typeAttr) xmlFree(typeAttr);
+                if (idAttr) xmlFree(idAttr);
+                
+                xmlFreeDoc(doc);
+                return false;
             }
+            
+            // Validate node type against template system
+            QString nodeType = QString::fromUtf8((const char*)typeAttr);
+            if (!NodeTypeTemplates::hasNodeType(nodeType)) {
+                qCritical() << "XML VALIDATION FAILED: Invalid node type:" << nodeType;
+                qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
+                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
+                
+                xmlFree(inputsAttr);
+                xmlFree(outputsAttr);
+                xmlFree(typeAttr);
+                xmlFree(idAttr);
+                xmlFreeDoc(doc);
+                return false;
+            }
+            
+            validNodeElements.append(xmlNode);
+            
+            xmlFree(inputsAttr);
+            xmlFree(outputsAttr);
+            xmlFree(typeAttr);
+            xmlFree(idAttr);
         }
     }
     
-    // PHASE 2: Load edges (but don't resolve connections yet)
-    QVector<Edge*> allEdges;
-    qDebug() << "=== Loading Edges directly from root ===";
+    // Validate all edges without creating them
+    qDebug() << "Validating edges from root";
     for (xmlNodePtr xmlNode = root->children; xmlNode; xmlNode = xmlNode->next) {
         if (xmlNode->type == XML_ELEMENT_NODE && xmlStrcmp(xmlNode->name, (const xmlChar*)"edge") == 0) {
-            Edge* edge = createEdgeFromXml(xmlNode);
-            if (edge) {
-                allEdges.append(edge);
-                // qDebug() << "Loaded edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+            
+            // Validate edge format
+            xmlChar* idAttr = xmlGetProp(xmlNode, BAD_CAST "id");
+            xmlChar* fromNodeAttr = xmlGetProp(xmlNode, BAD_CAST "fromNode");
+            xmlChar* toNodeAttr = xmlGetProp(xmlNode, BAD_CAST "toNode");
+            xmlChar* fromIndexAttr = xmlGetProp(xmlNode, BAD_CAST "fromSocketIndex");
+            xmlChar* toIndexAttr = xmlGetProp(xmlNode, BAD_CAST "toSocketIndex");
+            
+            if (!idAttr || !fromNodeAttr || !toNodeAttr || !fromIndexAttr || !toIndexAttr) {
+                qCritical() << "XML VALIDATION FAILED: Edge missing required attributes";
+                qCritical() << "  Required: id, fromNode, toNode, fromSocketIndex, toSocketIndex";
+                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
+                
+                // Clean up attributes
+                if (idAttr) xmlFree(idAttr);
+                if (fromNodeAttr) xmlFree(fromNodeAttr);
+                if (toNodeAttr) xmlFree(toNodeAttr);
+                if (fromIndexAttr) xmlFree(fromIndexAttr);
+                if (toIndexAttr) xmlFree(toIndexAttr);
+                
+                xmlFreeDoc(doc);
+                return false;
             }
+            
+            validEdgeElements.append(xmlNode);
+            
+            xmlFree(idAttr);
+            xmlFree(fromNodeAttr);
+            xmlFree(toNodeAttr);
+            xmlFree(fromIndexAttr);
+            xmlFree(toIndexAttr);
         }
     }
     
-    qDebug() << "=== XML Loading Complete ===";
-    qDebug() << "Loaded" << allNodes.size() << "nodes and" << allEdges.size() << "edges";
+    qDebug() << "XML VALIDATION PASSED:" << validNodeElements.size() << "nodes," << validEdgeElements.size() << "edges";
+    
+    // PHASE 2: All validation passed - now safely modify the scene
+    qDebug() << "=== Phase 2: Creating Objects (Scene Will Be Modified) ===";
+    
+    // Enable batch mode to prevent observer storm during bulk loading
+    GraphSubject::beginBatch();
+    
+    // Create all validated nodes
+    QVector<Node*> allNodes;
+    for (xmlNodePtr xmlNode : validNodeElements) {
+        Node* node = createNodeFromXml(xmlNode);
+        if (node) {
+            allNodes.append(node);
+            qDebug() << "Created node:" << node->getNodeType() << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
+        } else {
+            qCritical() << "INTERNAL ERROR: Failed to create validated node";
+            // This shouldn't happen after validation, but cleanup anyway
+            GraphSubject::endBatch();
+            xmlFreeDoc(doc);
+            return false;
+        }
+    }
+    
+    // Create all validated edges (no connections yet)
+    QVector<Edge*> allEdges;
+    for (xmlNodePtr xmlNode : validEdgeElements) {
+        Edge* edge = createEdgeFromXml(xmlNode);
+        if (edge) {
+            allEdges.append(edge);
+            qDebug() << "Created edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+        } else {
+            qCritical() << "INTERNAL ERROR: Failed to create validated edge";
+            // This shouldn't happen after validation, but cleanup anyway
+            GraphSubject::endBatch();
+            xmlFreeDoc(doc);
+            return false;
+        }
+    }
     
     xmlFreeDoc(doc);
     
-    // PHASE 3: Resolve all edge connections now that all nodes exist
-    qDebug() << "=== Resolving Edge Connections ===";
-    int successfulConnections = 0;
+    // PHASE 3: Validate and resolve all edge connections
+    qDebug() << "=== Phase 3: Validating Edge Connections ===";
+    
+    // Track socket usage to detect duplicates BEFORE making connections
+    QHash<QString, QString> socketUsage; // "nodeId:socketIndex" -> "edgeId"
+    
     if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
         for (Edge* edge : allEdges) {
-            qDebug() << "Resolving edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+            QString edgeDebugId = edge->getId().toString(QUuid::WithoutBraces).left(8);
+            
+            // Get connection data
+            QString fromNodeId = edge->getFromNodeId();
+            QString toNodeId = edge->getToNodeId();
+            int fromSocketIndex = edge->getFromSocketIndex();
+            int toSocketIndex = edge->getToSocketIndex();
+            
+            // Create socket keys
+            QString fromSocketKey = QString("%1:%2").arg(fromNodeId).arg(fromSocketIndex);
+            QString toSocketKey = QString("%1:%2").arg(toNodeId).arg(toSocketIndex);
+            
+            // Check for duplicate output socket usage
+            if (socketUsage.contains(fromSocketKey)) {
+                qCritical() << "XML VALIDATION FAILED: Duplicate edge from output socket";
+                qCritical() << "  Output socket:" << fromSocketKey << "already used by edge:" << socketUsage[fromSocketKey];
+                qCritical() << "  Conflicting edge:" << edgeDebugId;
+                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
+                
+                GraphSubject::endBatch();
+                return false;
+            }
+            
+            // Check for duplicate input socket usage
+            if (socketUsage.contains(toSocketKey)) {
+                qCritical() << "XML VALIDATION FAILED: Duplicate edge to input socket";
+                qCritical() << "  Input socket:" << toSocketKey << "already used by edge:" << socketUsage[toSocketKey];
+                qCritical() << "  Conflicting edge:" << edgeDebugId;
+                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
+                
+                GraphSubject::endBatch();
+                return false;
+            }
+            
+            // Record socket usage
+            socketUsage[fromSocketKey] = edgeDebugId;
+            socketUsage[toSocketKey] = edgeDebugId;
+        }
+        
+        // All socket validation passed - now actually connect edges
+        qDebug() << "Socket validation passed - connecting edges";
+        int successfulConnections = 0;
+        
+        for (Edge* edge : allEdges) {
             if (edge->resolveConnections(typedScene)) {
                 successfulConnections++;
             } else {
-                qWarning() << "FAILED to resolve edge connections:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+                qCritical() << "INTERNAL ERROR: Edge connection failed after validation";
+                // This is unexpected after validation - log but don't abort
             }
         }
+        
+        qDebug() << "Graph loaded successfully:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
     }
     
-    qDebug() << "Graph loaded:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
-    
-    // OPTIMIZATION: End batch mode to resume normal observer notifications
+    // End batch mode to resume normal observer notifications
     GraphSubject::endBatch();
     
     // Validate graph integrity in debug builds

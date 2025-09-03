@@ -33,16 +33,13 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
         # Generate UUID in braces format like test.xml
         node_id = "{" + str(uuid.uuid4()) + "}"
         
-        # Use actual node types supported by the application
+        # Use ONLY node types supported by the NodeTypeTemplates system
         node_types = [
             ("SOURCE", 0, 1),    # Source: 0 inputs, 1 output
             ("SINK", 1, 0),      # Sink: 1 input, 0 outputs  
             ("TRANSFORM", 1, 1), # Transform: 1 input, 1 output
             ("MERGE", 2, 1),     # Merge: 2 inputs, 1 output
             ("SPLIT", 1, 2),     # Split: 1 input, 2 outputs
-            ("IN", 0, 2),        # Input: 0 inputs, 2 outputs (legacy)
-            ("OUT", 2, 0),       # Output: 2 inputs, 0 outputs (legacy)
-            ("PROC", 2, 2),      # Processor: 2 inputs, 2 outputs
         ]
         
         # Choose a random node type with proper socket configuration
@@ -60,11 +57,14 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
         node_line = f'  <node id="{node_id}" x="{x}" y="{y}" type="{node_type}" inputs="{inputs}" outputs="{outputs}"/>'
         xml_lines.append(node_line)
     
-    # Generate edges between nodes
+    # Generate edges between nodes with socket usage tracking
     num_edges = min(num_nodes * 2, num_nodes - 1)  # Reasonable number of edges
     edges_created = 0
     
-    for _ in range(num_edges * 3):  # Try multiple times to create edges
+    # Track used sockets to prevent duplicates: "nodeId:socketIndex" -> True
+    used_sockets = set()
+    
+    for _ in range(num_edges * 10):  # More attempts to find valid connections
         if edges_created >= num_edges:
             break
             
@@ -78,25 +78,38 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
         from_node = random.choice(from_nodes)
         to_node = random.choice(to_nodes)
         
-        # No self-loops and ensure valid socket connection
-        if from_node['id'] != to_node['id']:
-            edge_id = "{" + str(uuid.uuid4()) + "}"
+        # No self-loops
+        if from_node['id'] == to_node['id']:
+            continue
             
-            # CRITICAL FIX: Socket indexing follows C++ Node::createSocketsFromXml()
-            # Input sockets: indices 0, 1, 2, ..., (inputCount-1) 
-            # Output sockets: indices inputCount, inputCount+1, ..., (inputCount+outputCount-1)
-            
-            # fromSocket must be an OUTPUT socket (from fromNode)
-            output_start_idx = from_node['inputs']  # outputs start after inputs
-            from_socket_idx = random.randint(output_start_idx, output_start_idx + from_node['outputs'] - 1)
-            
-            # toSocket must be an INPUT socket (from toNode) 
-            to_socket_idx = random.randint(0, to_node['inputs'] - 1)
-            
-            # Create edge XML - exactly like test.xml format
-            edge_line = f'  <edge id="{edge_id}" fromNode="{from_node["id"]}" toNode="{to_node["id"]}" fromSocketIndex="{from_socket_idx}" toSocketIndex="{to_socket_idx}"/>'
-            xml_lines.append(edge_line)
-            edges_created += 1
+        # SOCKET INDEXING: follows C++ Node::createSocketsFromXml()
+        # Input sockets: indices 0, 1, 2, ..., (inputCount-1) 
+        # Output sockets: indices inputCount, inputCount+1, ..., (inputCount+outputCount-1)
+        
+        # fromSocket must be an OUTPUT socket (from fromNode)
+        output_start_idx = from_node['inputs']  # outputs start after inputs
+        from_socket_idx = random.randint(output_start_idx, output_start_idx + from_node['outputs'] - 1)
+        
+        # toSocket must be an INPUT socket (from toNode) 
+        to_socket_idx = random.randint(0, to_node['inputs'] - 1)
+        
+        # Create socket keys to check for duplicates
+        from_socket_key = f"{from_node['id']}:{from_socket_idx}"
+        to_socket_key = f"{to_node['id']}:{to_socket_idx}"
+        
+        # Check if either socket is already used
+        if from_socket_key in used_sockets or to_socket_key in used_sockets:
+            continue  # Skip this combination, try another
+        
+        # Mark sockets as used
+        used_sockets.add(from_socket_key)
+        used_sockets.add(to_socket_key)
+        
+        # Create valid edge
+        edge_id = "{" + str(uuid.uuid4()) + "}"
+        edge_line = f'  <edge id="{edge_id}" fromNode="{from_node["id"]}" toNode="{to_node["id"]}" fromSocketIndex="{from_socket_idx}" toSocketIndex="{to_socket_idx}"/>'
+        xml_lines.append(edge_line)
+        edges_created += 1
     
     xml_lines.append('</graph>')
     

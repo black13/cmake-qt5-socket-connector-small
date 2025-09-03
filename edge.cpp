@@ -480,9 +480,34 @@ bool Edge::resolveConnections(Scene* scene)
         return false;
     }
     
+    // SOCKET VALIDATION: Check for existing connections before modifying state
+    if (fromSocket->isConnected()) {
+        qCritical() << "Socket validation failed: Output socket already connected";
+        qCritical() << "- Node:" << m_fromNodeId.left(8) << "Socket:" << m_fromSocketIndex;
+        qCritical() << "- Current edge:" << (fromSocket->getConnectedEdge() ? 
+                         fromSocket->getConnectedEdge()->getId().toString(QUuid::WithoutBraces).left(8) : "unknown");
+        qCritical() << "- Attempting edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
+        qCritical() << "Solution: Only one edge allowed per socket. Check XML for duplicate connections.";
+        return false;
+    }
+    
+    if (toSocket->isConnected()) {
+        qCritical() << "Socket validation failed: Input socket already connected";
+        qCritical() << "- Node:" << m_toNodeId.left(8) << "Socket:" << m_toSocketIndex;
+        qCritical() << "- Current edge:" << (toSocket->getConnectedEdge() ? 
+                         toSocket->getConnectedEdge()->getId().toString(QUuid::WithoutBraces).left(8) : "unknown");
+        qCritical() << "- Attempting edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
+        qCritical() << "Solution: Only one edge allowed per socket. Check XML for duplicate connections.";
+        return false;
+    }
+    
     // Store socket references directly - NO UUIDs
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
+    
+    // Connect sockets to this edge (only after validation passes)
+    fromSocket->setConnectedEdge(this);
+    toSocket->setConnectedEdge(this);
     
     // Cache node pointers for safe destruction
     m_fromNode = fromNode;

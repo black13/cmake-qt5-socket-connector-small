@@ -198,7 +198,16 @@ QString ActionRegistry::dumpRegistry() const
     QString dump;
     dump += "=== Action Registry Dump ===\n";
     
-    RegistryStats stats = getStats();
+    // Calculate stats under existing lock to avoid deadlock
+    RegistryStats stats;
+    stats.nodeTypes = m_registry.size();
+    for (const auto& typeActions : m_registry) {
+        stats.totalActions += typeActions.size();
+        if (m_registry.key(typeActions) == "*") {
+            stats.globalActions = typeActions.size();
+        }
+    }
+    
     dump += QString("Total actions: %1, Node types: %2, Global actions: %3\n\n")
                 .arg(stats.totalActions)
                 .arg(stats.nodeTypes)
