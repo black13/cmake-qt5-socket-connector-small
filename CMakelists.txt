@@ -188,13 +188,6 @@ set(CORE_SOURCES
     ghost_edge.h
     ghost_edge.cpp
     
-    # Phase 11: Type-erasure facade system
-    node_facade.h
-    edge_facade.h
-    
-    # Node registry system
-    node_registry.h
-    node_registry.cpp
     
     # XML-first factory
     graph_factory.h
@@ -225,8 +218,7 @@ set(CORE_SOURCES
     # javascript_engine.cpp
     # javascript_console.h
     # javascript_console.cpp
-    # graph_controller.h
-    # graph_controller.cpp
+    
     
     # Observer pattern implementation
     graph_observer.h
@@ -245,17 +237,16 @@ set(MAIN_SOURCES
     icons.qrc
 )
 
-# Test application sources (only test files)
-set(TEST_SOURCES
-    tst_main.h
-    tst_main.cpp
-)
+# Test application sources DISABLED - GraphController testing via menu only
+# set(TEST_SOURCES
+#     tst_main.h
+#     tst_main.cpp
+# )
 
-
-# Facade test sources (Phase 11 experimental)
-set(FACADE_TEST_SOURCES
-    test_facade_core.cpp
-)
+# Facade test sources DISABLED
+# set(FACADE_TEST_SOURCES
+#     test_facade_core.cpp
+# )
 
 # ─────────────────────────────────────
 # 8.  Shared core library - compile once, use twice
@@ -269,39 +260,41 @@ add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
 target_link_libraries(NodeGraph NodeGraphCore)
 
 # ─────────────────────────────────────
-# 10. Test executable target
+# 10. Test executable target DISABLED - GraphController testing via menu only
 # ─────────────────────────────────────
-add_executable(NodeGraphTests ${TEST_SOURCES})
-target_link_libraries(NodeGraphTests NodeGraphCore)
+# add_executable(NodeGraphTests ${TEST_SOURCES})
+# target_link_libraries(NodeGraphTests NodeGraphCore)
 
 # ─────────────────────────────────────
-# 11. Phase 11 Facade Test executable (optional)
+# 11. Phase 11 Facade Test executable DISABLED
 # ─────────────────────────────────────
-option(BUILD_FACADE_TESTS "Build Phase 11 facade tests" OFF)
-if(BUILD_FACADE_TESTS)
-    add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
-    target_link_libraries(TestFacadeCore NodeGraphCore)
-    message(STATUS "Building Phase 11 facade tests")
-endif()
+# option(BUILD_FACADE_TESTS "Build Phase 11 facade tests" OFF)
+# if(BUILD_FACADE_TESTS)
+#     add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
+#     target_link_libraries(TestFacadeCore NodeGraphCore)
+#     message(STATUS "Building Phase 11 facade tests")
+# endif()
 
 # ─────────────────────────────────────
-# 12. Automatic Testing Setup
+# 12. Automatic Testing Setup DISABLED - GraphController testing via menu only
 # ─────────────────────────────────────
-option(ENABLE_AUTOMATIC_TESTS "Enable automatic test execution" ON)
-if(ENABLE_AUTOMATIC_TESTS)
-    enable_testing()
-    
-    # Add main test suite (now includes JavaScript engine tests)
-    add_test(NAME MainTests COMMAND NodeGraphTests)
-    
-    # Add facade tests if enabled
-    if(BUILD_FACADE_TESTS)
-        add_test(NAME FacadeTests COMMAND TestFacadeCore)
-    endif()
-    
-    message(STATUS "Automatic testing enabled - run 'ctest' to execute all tests")
-    message(STATUS "JavaScript engine tests integrated into MainTests")
-endif()
+# option(ENABLE_AUTOMATIC_TESTS "Enable automatic test execution" ON)
+# if(ENABLE_AUTOMATIC_TESTS)
+#     enable_testing()
+#     
+#     # Add main test suite (now includes JavaScript engine tests)
+#     add_test(NAME MainTests COMMAND NodeGraphTests)
+#     
+#     # Add facade tests if enabled
+#     if(BUILD_FACADE_TESTS)
+#         add_test(NAME FacadeTests COMMAND TestFacadeCore)
+#     endif()
+#     
+#     message(STATUS "Automatic testing enabled - run 'ctest' to execute all tests")
+#     message(STATUS "JavaScript engine tests integrated into MainTests")
+# endif()
+
+message(STATUS "Testing DISABLED - GraphController validation via menu system only")
 
 # Always use FetchContent libxml2 - Core library (shared by both main and test)
 target_link_libraries(NodeGraphCore
@@ -333,20 +326,20 @@ if(WIN32)
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
     
-    # Test application settings  
-    set_target_properties(NodeGraphTests PROPERTIES
-        WIN32_EXECUTABLE FALSE
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        
-        # Separate Debug and Release Qt paths for tests
-        VS_DEBUGGER_ENVIRONMENT_DEBUG
-            "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
-        VS_DEBUGGER_ENVIRONMENT_RELEASE
-            "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
-            
-        VS_DEBUGGER_WORKING_DIRECTORY
-            "${CMAKE_CURRENT_SOURCE_DIR}"
-    )
+    # Test application settings DISABLED
+    # set_target_properties(NodeGraphTests PROPERTIES
+    #     WIN32_EXECUTABLE FALSE
+    #     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    #     
+    #     # Separate Debug and Release Qt paths for tests
+    #     VS_DEBUGGER_ENVIRONMENT_DEBUG
+    #         "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
+    #     VS_DEBUGGER_ENVIRONMENT_RELEASE
+    #         "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+    #         
+    #     VS_DEBUGGER_WORKING_DIRECTORY
+    #         "${CMAKE_CURRENT_SOURCE_DIR}"
+    # )
     
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                  PROPERTY VS_STARTUP_PROJECT NodeGraph)
@@ -356,7 +349,7 @@ endif()
 # 13. Install rules (optional on Win)
 # ─────────────────────────────────────
 if(WIN32)
-    install(TARGETS NodeGraph NodeGraphTests RUNTIME DESTINATION .)
+    install(TARGETS NodeGraph RUNTIME DESTINATION .)
     install(FILES
         $<TARGET_FILE:Qt5::Core>
         $<TARGET_FILE:Qt5::Widgets>
