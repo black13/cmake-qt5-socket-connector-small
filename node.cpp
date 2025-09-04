@@ -230,7 +230,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
 void Node::positionAllSockets(int totalInputs, int totalOutputs)
 {
     // Parse-then-position architecture: Position all sockets with complete information
-    // Uses K/O formula: max((2*K + 1), (2*O + 1)) × socketSize with BALANCED CENTERING
+    // Uses K/O formula: max((2*K + 1), (2*O + 1)) * socketSize with BALANCED CENTERING
     
     // Get actual socket size from existing socket - no fallbacks or magic numbers
     if (m_sockets.isEmpty()) {
@@ -416,8 +416,8 @@ xmlNodePtr Node::write(xmlDocPtr doc, xmlNodePtr repr) const
     
     // Core attributes
     xmlSetProp(node, BAD_CAST "id", BAD_CAST m_id.toString(QUuid::WithoutBraces).toUtf8().constData());
-    xmlSetProp(node, BAD_CAST "x", BAD_CAST QString::number(pos().x()).toUtf8().constData());
-    xmlSetProp(node, BAD_CAST "y", BAD_CAST QString::number(pos().y()).toUtf8().constData());
+    xmlSetProp(node, BAD_CAST "x", BAD_CAST QString::number(m_lastPos.x()).toUtf8().constData());
+    xmlSetProp(node, BAD_CAST "y", BAD_CAST QString::number(m_lastPos.y()).toUtf8().constData());
     xmlSetProp(node, BAD_CAST "type", BAD_CAST m_nodeType.toUtf8().constData());
     
     // Count sockets by role

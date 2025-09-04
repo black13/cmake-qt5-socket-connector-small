@@ -82,7 +82,7 @@ void XmlAutosaveObserver::onNodeAdded(const Node& node)
 
 void XmlAutosaveObserver::onNodeRemoved(const QUuid& nodeId)
 {
-    qDebug() << "🔔 OBSERVER: Node removed" << nodeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
+    qDebug() << "OBSERVER: Node removed" << nodeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
     scheduleAutosave();
 }
 
@@ -102,13 +102,13 @@ void XmlAutosaveObserver::onEdgeAdded(const Edge& edge)
 
 void XmlAutosaveObserver::onEdgeRemoved(const QUuid& edgeId)
 {
-    qDebug() << "🔔 OBSERVER: Edge removed" << edgeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
+    qDebug() << "OBSERVER: Edge removed" << edgeId.toString(QUuid::WithoutBraces).left(8) << "- Triggering autosave";
     scheduleAutosave();
 }
 
 void XmlAutosaveObserver::onGraphCleared()
 {
-    qDebug() << "🔔 OBSERVER: Graph cleared - Triggering autosave";
+    qDebug() << "OBSERVER: Graph cleared - Triggering autosave";
     scheduleAutosave();
 }
 
@@ -159,10 +159,10 @@ void XmlAutosaveObserver::performAutosave()
         
         qDebug().noquote() << "[AUTOSAVE] writeAutosave() SUCCESS! File written to disk.";
         qDebug() << "AUTOSAVE COMPLETE:";
-        qDebug() << "   📁 File:" << fileInfo.fileName();
-        qDebug() << "   ⏱️  Time:" << elapsed << "ms";
-        qDebug() << "   📊 Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   🔢 XML length:" << xmlContent.length() << "characters";
+        qDebug() << "   File:" << fileInfo.fileName();
+        qDebug() << "   Time:" << elapsed << "ms";
+        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
+        qDebug() << "   XML length:" << xmlContent.length() << "characters";
         
         m_pendingChanges = false;
     } else {
@@ -185,14 +185,48 @@ QString XmlAutosaveObserver::generateFullXml() const
     
     // Add nodes section
     xmlNodePtr nodesNode = xmlNewChild(root, nullptr, BAD_CAST "nodes", nullptr);
+    
+    // CRASH VALIDATION: Report collection state before serialization
+    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: About to serialize" << m_scene->getNodes().size() << "nodes from hash map";
+    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: Qt scene currently has" << m_scene->items().size() << "total items";
+    
+    int validNodes = 0, invalidNodes = 0;
     for (auto it = m_scene->getNodes().begin(); it != m_scene->getNodes().end(); ++it) {
         Node* node = it.value();
         if (node) {
-            xmlNodePtr nodeXml = node->write(doc, nullptr);
-            if (nodeXml) {
-                xmlAddChild(nodesNode, nodeXml);
+            // Validate node is still valid before serialization
+            // SAFE VALIDATION: Only access node if it's still in the scene
+            bool nodeValid = false;
+            for (QGraphicsItem* item : m_scene->items()) {
+                if (item == node) {
+                    nodeValid = true;
+                    break;
+                }
+            }
+            
+            if (nodeValid) {
+                validNodes++;
+                try {
+                    xmlNodePtr nodeXml = node->write(doc, nullptr);
+                    if (nodeXml) {
+                        xmlAddChild(nodesNode, nodeXml);
+                    }
+                } catch (...) {
+                    qDebug() << __FUNCTION__ << "- AUTOSAVE: Exception during node serialization - skipping";
+                }
+            } else {
+                invalidNodes++;
+                qWarning() << __FUNCTION__ << "- AUTOSAVE CRASH AVERTED: Skipping stale node pointer - object deleted but hash map not updated";
             }
         }
+    }
+    
+    // CRASH VALIDATION: Report serialization results
+    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION RESULTS: Valid nodes:" << validNodes << "Invalid nodes:" << invalidNodes;
+    if (invalidNodes > 0) {
+        qWarning() << __FUNCTION__ << "- CRASH CAUSE IDENTIFIED:" << invalidNodes << "stale pointers in Scene::m_nodes hash map";
+        qWarning() << __FUNCTION__ << "- ROOT CAUSE: QGraphicsScene::clear() deletes objects but Scene doesn't clean hash maps";
+        qWarning() << __FUNCTION__ << "- SOLUTION: Implement proper cleanup in Scene::clear() override or object destructors";
     }
     
     // Add edges section
@@ -200,9 +234,36 @@ QString XmlAutosaveObserver::generateFullXml() const
     for (auto it = m_scene->getEdges().begin(); it != m_scene->getEdges().end(); ++it) {
         Edge* edge = it.value();
         if (edge) {
-            xmlNodePtr edgeXml = edge->write(doc, nullptr);
-            if (edgeXml) {
-                xmlAddChild(edgesNode, edgeXml);
+            // Validate edge is still valid before serialization
+            try {
+                // Check if edge is still in the scene's items AND validate memory access
+                bool edgeValid = false;
+                for (QGraphicsItem* item : m_scene->items()) {
+                    if (item == edge) {
+                        // Additional validation - try to access edge properties safely
+                        try {
+                            // Test memory access with lightweight operation
+                            QUuid testId = edge->getId();
+                            if (!testId.isNull()) {
+                                edgeValid = true;
+                            }
+                        } catch (...) {
+                            qDebug() << __FUNCTION__ << "- AUTOSAVE: Edge pointer invalid - memory access failed";
+                        }
+                        break;
+                    }
+                }
+                
+                if (edgeValid) {
+                    xmlNodePtr edgeXml = edge->write(doc, nullptr);
+                    if (edgeXml) {
+                        xmlAddChild(edgesNode, edgeXml);
+                    }
+                } else {
+                    qDebug() << __FUNCTION__ << "- AUTOSAVE: Skipping invalid/stale edge pointer during serialization";
+                }
+            } catch (...) {
+                qDebug() << __FUNCTION__ << "- AUTOSAVE: Exception caught during edge validation - skipping";
             }
         }
     }

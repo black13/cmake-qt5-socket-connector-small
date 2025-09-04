@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
     // Initialize GraphFactory with scene and XML document
     // Scene* scene = window.getScene(); // Already declared above
     if (!scene) {
-        qCritical() << "✗ Failed to get scene from window";
+        qCritical() << "Failed to get scene from window";
         return -1;
     }
     
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
         // File was attempted but failed to load (filename was cleared)
         QTimer::singleShot(500, [&window, originalFilename]() {
             QMessageBox::information(&window, "File Not Found", 
-                QString("The specified file could not be found or loaded:\n\n%1\n\nStarting with an empty graph instead.\n\nYou can create a new graph or open an existing file using File → Open.")
+                QString("The specified file could not be found or loaded:\n\n%1\n\nStarting with an empty graph instead.\n\nYou can create a new graph or open an existing file using File -> Open.")
                 .arg(originalFilename));
         });
     }
