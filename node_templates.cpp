@@ -9,16 +9,24 @@ bool NodeTypeTemplates::s_initialized = false;
 
 QString NodeTypeTemplates::getTemplate(const QString& nodeType)
 {
+    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Getting template for node type:" << nodeType;
     ensureInitialized();
     
     // Check registered templates first (allows overriding built-ins)
     if (s_registeredTemplates.contains(nodeType)) {
+        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Using registered template for" << nodeType;
         return s_registeredTemplates.value(nodeType);
     }
     
     // Fall back to built-in templates
     QHash<QString, QString> builtins = getBuiltinTemplates();
-    return builtins.value(nodeType);
+    QString result = builtins.value(nodeType);
+    if (!result.isEmpty()) {
+        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Using built-in template for" << nodeType;
+    } else {
+        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: No template found for" << nodeType;
+    }
+    return result;
 }
 
 QString NodeTypeTemplates::generateNodeXml(const QString& nodeType, 
@@ -26,17 +34,22 @@ QString NodeTypeTemplates::generateNodeXml(const QString& nodeType,
                                           const QVariantMap& parameters,
                                           const QUuid& nodeId)
 {
+    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Generating XML for" << nodeType << "at position" << position;
+    
     QString xmlTemplate = getTemplate(nodeType);
     if (xmlTemplate.isEmpty()) {
-        qWarning() << "NodeTypeTemplates::generateNodeXml - Unknown node type:" << nodeType;
+        qWarning() << __FUNCTION__ << "- TEMPLATE SYSTEM: FAILED - Unknown node type:" << nodeType;
         return QString();
     }
     
     // Generate UUID if not provided
     QUuid actualId = nodeId.isNull() ? QUuid::createUuid() : nodeId;
+    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Using UUID" << actualId.toString(QUuid::WithoutBraces);
     
     // Inject dynamic values into template
-    return injectDynamicValues(xmlTemplate, position, actualId, parameters);
+    QString result = injectDynamicValues(xmlTemplate, position, actualId, parameters);
+    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Generated XML node successfully";
+    return result;
 }
 
 void NodeTypeTemplates::registerTemplate(const QString& nodeType, const QString& xmlTemplate)

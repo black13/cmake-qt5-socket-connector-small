@@ -430,7 +430,7 @@ bool GraphController::isValidNodeType(const QString& type)
 {
     // Use template system instead of NodeRegistry
     bool isValid = NodeTypeTemplates::hasNodeType(type);
-    qDebug() << "GraphController: Type validation:" << type << "→" << (isValid ? "VALID" : "INVALID");
+    qDebug() << "GraphController: Type validation:" << type << "->" << (isValid ? "VALID" : "INVALID");
     return isValid;
 }
 
