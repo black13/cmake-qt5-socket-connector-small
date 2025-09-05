@@ -76,6 +76,12 @@ public slots:
     // Template System Tests - validate NodeTypeTemplates + GraphFactory
     void testTemplateNodeCreation();
     void testTemplateConnections();
+
+    // Diagnostics / Smoke tests (menu-triggered)
+    void testConnectSourceToSink();           // quick factory+scene path check
+    void testClearGraphRemovesEverything();   // verifies typed registries + items()
+    void testNewFileResetsState();            // asserts newFile clears scene + filename
+    void runAllSmokes();                      // runs the three above and summarizes
     
     // Node creation from palette (will be implemented with proper includes)
     void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 

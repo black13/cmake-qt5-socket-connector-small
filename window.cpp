@@ -604,6 +604,25 @@ void Window::createToolsMenu()
     connect(testTemplateConnectionsAction, &QAction::triggered, this, &Window::testTemplateConnections);
     templateTestMenu->addAction(testTemplateConnectionsAction);
     
+    // Diagnostics / Smoke Tests (non-QtTest, in-app)
+    m_toolsMenu->addSeparator();
+    QMenu* smokeMenu = m_toolsMenu->addMenu("Diagnostics / Smoke Tests");
+    auto* smokeConnect = new QAction("Smoke: Connect SOURCE → SINK", this);
+    connect(smokeConnect, &QAction::triggered, this, &Window::testConnectSourceToSink);
+    smokeMenu->addAction(smokeConnect);
+
+    auto* smokeClear = new QAction("Smoke: ClearGraph removes all", this);
+    connect(smokeClear, &QAction::triggered, this, &Window::testClearGraphRemovesEverything);
+    smokeMenu->addAction(smokeClear);
+
+    auto* smokeNewFile = new QAction("Smoke: New File resets", this);
+    connect(smokeNewFile, &QAction::triggered, this, &Window::testNewFileResetsState);
+    smokeMenu->addAction(smokeNewFile);
+
+    auto* smokeAll = new QAction("Run All Smoke Tests", this);
+    connect(smokeAll, &QAction::triggered, this, &Window::runAllSmokes);
+    smokeMenu->addAction(smokeAll);
+    
     // JavaScript test menu items removed - focusing on core C++ functionality
 }
 
@@ -1132,6 +1151,119 @@ void Window::testTemplateConnections()
         
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge test completed." << edgeSuccessCount << "edges created," << finalEdgeCount << "total in scene";
     qDebug() << __FUNCTION__ << "- API PATTERNS IDENTIFIED: createNode(type,x,y) + createEdge(fromNode,fromSocket,toNode,toSocket)";
+}
+
+// ============================================================================
+// Diagnostics / Smoke Tests
+// ============================================================================
+
+void Window::testConnectSourceToSink()
+{
+    if (!m_factory) {
+        QMessageBox::warning(this, "Smoke: Connect",
+                             "No GraphFactory available. Did Window::adoptFactory() run?");
+        return;
+    }
+    // Start from a clean scene
+    m_scene->clearGraph(); // safe, typed clear
+    // Create nodes
+    Node* src = m_factory->createNode("SOURCE", QPointF(-150, 0));
+    Node* snk = m_factory->createNode("SINK",   QPointF( 150, 0));
+    bool okCreated = (src && snk);
+    // Connect 0→0 via unified path
+    bool okEdge = false;
+    if (okCreated) {
+        Socket* out0 = src->getSocketByIndex(0);
+        Socket* in0  = snk->getSocketByIndex(0);
+        if (out0 && in0) {
+            auto* e = m_factory->connectSockets(out0, in0); // same in-memory path used by UI/ghost edge
+            okEdge = (e != nullptr);
+        }
+    }
+    updateStatusBar();
+    const QString verdict = (okCreated && okEdge) ? "PASS" : "FAIL";
+    QMessageBox::information(this, "Smoke: Connect SOURCE → SINK",
+        QString("Nodes created: %1\nEdge created: %2\n\nResult: %3")
+            .arg(okCreated ? "YES" : "NO")
+            .arg(okEdge ? "YES" : "NO")
+            .arg(verdict));
+}
+
+void Window::testClearGraphRemovesEverything()
+{
+    if (!m_factory) {
+        QMessageBox::warning(this, "Smoke: ClearGraph",
+                             "No GraphFactory available. Did Window::adoptFactory() run?");
+        return;
+    }
+    // Seed a few items
+    for (int i=0;i<5;++i) {
+        Node* a = m_factory->createNode("SOURCE", QPointF(-200, i*40));
+        Node* b = m_factory->createNode("SINK",   QPointF( 200, i*40));
+        if (!a || !b) continue;
+        Socket* out0 = a->getSocketByIndex(0);
+        Socket* in0  = b->getSocketByIndex(0);
+        if (out0 && in0) (void)m_factory->connectSockets(out0, in0);
+    }
+    int beforeNodes = m_scene->getNodes().size();
+    int beforeEdges = m_scene->getEdges().size();
+    int beforeItems = m_scene->items().size();
+
+    // Action
+    m_scene->clearGraph();  // your safe, typed clear
+
+    // Assert
+    int afterNodes = m_scene->getNodes().size();
+    int afterEdges = m_scene->getEdges().size();
+    bool itemsEmpty = m_scene->items().isEmpty();
+    updateStatusBar();
+    const bool pass = (afterNodes==0 && afterEdges==0 && itemsEmpty);
+    QMessageBox::information(this, "Smoke: ClearGraph removes all",
+        QString("Before: %1 nodes / %2 edges / %3 items\n"
+                "After:  %4 nodes / %5 edges / items empty=%6\n\nResult: %7")
+            .arg(beforeNodes).arg(beforeEdges).arg(beforeItems)
+            .arg(afterNodes).arg(afterEdges).arg(itemsEmpty ? "YES":"NO")
+            .arg(pass ? "PASS" : "FAIL"));
+}
+
+void Window::testNewFileResetsState()
+{
+    if (!m_factory) {
+        QMessageBox::warning(this, "Smoke: New File",
+                             "No GraphFactory available. Did Window::adoptFactory() run?");
+        return;
+    }
+    // Seed graph + set fake filename
+    Node* a = m_factory->createNode("SOURCE", QPointF(-60,0));
+    Node* b = m_factory->createNode("SINK",   QPointF( 60,0));
+    if (a && b) {
+        auto* e = m_factory->connectSockets(a->getSocketByIndex(0), b->getSocketByIndex(0));
+        Q_UNUSED(e);
+    }
+    setCurrentFile(QStringLiteral("temp_for_newfile_test.xml"));
+    updateStatusBar();
+
+    // Call the action under test
+    this->newFile(); // should clear scene, file, and update UI
+
+    // Expectations: scene empty + currentFile empty
+    const int nodes = m_scene->getNodes().size();
+    const int edges = m_scene->getEdges().size();
+    const bool fileCleared = getCurrentFile().isEmpty();
+    const bool pass = (nodes==0 && edges==0 && fileCleared);
+    QMessageBox::information(this, "Smoke: New File resets",
+        QString("After New:\nNodes=%1  Edges=%2  CurrentFile empty=%3\n\nResult: %4\n\n%5")
+            .arg(nodes).arg(edges).arg(fileCleared ? "YES":"NO")
+            .arg(pass ? "PASS" : "FAIL")
+            .arg(pass ? "" : "Hint: implement Window::newFile() to clear scene, clear current file, and update status bar."));
+}
+
+void Window::runAllSmokes()
+{
+    // Simple sequencer: run individual tests; each shows its own dialog.
+    testConnectSourceToSink();
+    testClearGraphRemovesEverything();
+    testNewFileResetsState();
 }
 
 // JavaScript test methods removed - focusing on core C++ functionality
