@@ -20,4 +20,4 @@ for ext in "${EXTENSIONS[@]}"; do
     done
 done
 
-echo "✅ Done: All top-level source files written to $OUTPUT"
+echo "Done: All top-level source files written to $OUTPUT"

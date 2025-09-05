@@ -5,7 +5,7 @@
 
 set -e  # Exit on any error
 
-echo "🚀 NodeGraph Linux Build Script"
+echo "NodeGraph Linux Build Script"
 echo "================================"
 
 # Parse build type and clean arguments
@@ -240,4 +240,4 @@ else
     exit 1
 fi
 
-print_success "🎉 Build script completed successfully!"
+print_success "Build script completed successfully!"

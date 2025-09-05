@@ -1,5 +1,42 @@
 # Qt5/C++ Node Graph Editor - Architectural Documentation
 
+## **CRITICAL ARCHITECTURAL REGRESSION IDENTIFIED**
+
+**Date**: August 28, 2025  
+**Issue**: GraphFactory validation system regressed from data-driven to hardcoded  
+**Status**: **IMMEDIATE FIX REQUIRED**
+
+### **Historical Context: What We Built Correctly**
+
+**Commit bacd68a (August 13, 2025)**: "XML-first unified node creation"
+
+**ORIGINAL ARCHITECTURE**:
+- **NodeTypeTemplates System**: Data-driven, runtime-extensible node type definitions
+- **XML-First Creation**: All node creation goes through template-generated XML
+- **Single Source of Truth**: Templates define what types exist, not hardcoded lists
+- **Future-Ready**: Built for JavaScript/AI/plugin extensibility
+
+**CURRENT REGRESSION**:
+```cpp
+// WRONG: Hardcoded validation in graph_factory.cpp
+QStringList templatedTypes = {"SOURCE", "SINK", "TRANSFORM", "MERGE", "SPLIT"};
+if (!templatedTypes.contains(nodeType)) {
+```
+
+**CORRECT IMPLEMENTATION**:
+```cpp
+// Use existing NodeTypeTemplates system
+if (!NodeTypeTemplates::hasNodeType(nodeType)) {
+    qCritical() << "Invalid node type:" << nodeType;
+    qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
+    return nullptr;
+}
+```
+
+**This regression violates the carefully designed XML-first, data-driven architecture and must be fixed immediately.**
+
+---
+
 ## Executive Summary
 
 This document describes the architecture of a Qt5/C++ node graph editor that achieved **100% JavaScript integration success** with 13/13 verification tests passing. The system demonstrates a modern, extensible architecture combining self-serializing nodes, XML-first persistence, JavaScript-driven automation, and observer-based change notification.
