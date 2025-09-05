@@ -282,53 +282,35 @@ bool Window::saveGraph(const QString& filename)
 
 bool Window::loadGraph(const QString& filename)
 {
-    qDebug() << "=== LOADING GRAPH ===" << filename;
-    
-    QElapsedTimer timer;
-    timer.start();
-    
-    // Clear current scene AND registries to prevent dangling pointers
-    qDebug() << "Clearing current graph...";
-    m_scene->clearGraph();
-    
-    // Use GraphFactory to load from XML file
-    qDebug() << "Starting GraphFactory XML load...";
-    if (m_factory->loadFromXmlFile(filename)) {
-        qint64 elapsed = timer.elapsed();
-        
-        // Set current file for Ctrl+S functionality
-        m_currentFile = filename;
-        setWindowTitle(QString("Node Editor - %1").arg(QFileInfo(filename).fileName()));
-        
-        qDebug() << "Graph loaded successfully in" << elapsed << "ms";
-        
-        // DEBUGGING: Detailed count verification
-        int nodeCount = m_scene->getNodes().size();
-        int edgeCount = m_scene->getEdges().size();
-        qDebug() << "DEBUG: Hash container sizes:";
-        qDebug() << "  m_scene->getNodes().size() =" << nodeCount;
-        qDebug() << "  m_scene->getEdges().size() =" << edgeCount;
-        qDebug() << "  Qt scene items count:" << m_scene->items().size();
-        qDebug() << "  Current file set to:" << m_currentFile;
-        
-        QMessageBox::information(this, "Load Complete", 
-            QString("Graph loaded successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\n\nCtrl+S will now save to this file.")
-            .arg(QFileInfo(filename).fileName())
-            .arg(nodeCount)
-            .arg(edgeCount)
-            .arg(elapsed));
-        return true;
-    } else {
-        qDebug() << "Failed to load graph";
-        QMessageBox::critical(this, "Load Error", 
-            QString("Failed to load graph from file.\n\nFile: %1")
-            .arg(QFileInfo(filename).fileName()));
+    if (!m_factory) {
+        QMessageBox::warning(this, "No Factory", "Cannot load without a GraphFactory.");
         return false;
     }
+
+    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+
+    GraphSubject::beginBatch();
+    m_scene->clearGraph();
+
+    const bool ok = m_factory->loadFromXmlFile(filename);
+    if (ok) {
+        setCurrentFile(filename);
+        updateStatusBar();
+    }
+    GraphSubject::endBatch();
+
+    if (m_autosaveObserver) {
+        m_autosaveObserver->saveNow();
+        m_autosaveObserver->setEnabled(true);
+    }
+
+    return ok;
 }
 
 void Window::createInputNode()
 {
+    if (!m_factory) { QMessageBox::warning(this,"No Factory","Adopt a factory first."); return; }
+    
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
     
@@ -349,6 +331,8 @@ void Window::createInputNode()
 
 void Window::createOutputNode()
 {
+    if (!m_factory) { QMessageBox::warning(this,"No Factory","Adopt a factory first."); return; }
+    
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
     
@@ -369,6 +353,8 @@ void Window::createOutputNode()
 
 void Window::createProcessorNode()
 {
+    if (!m_factory) { QMessageBox::warning(this,"No Factory","Adopt a factory first."); return; }
+    
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
     
@@ -623,6 +609,12 @@ void Window::createToolsMenu()
     connect(smokeAll, &QAction::triggered, this, &Window::runAllSmokes);
     smokeMenu->addAction(smokeAll);
     
+    // Template system smoke test runner
+    QAction* runSmoke = new QAction("Run Smoke Tests", this);
+    connect(runSmoke, &QAction::triggered, this, &Window::runSmokeTests);
+    m_toolsMenu->addSeparator();
+    m_toolsMenu->addAction(runSmoke);
+    
     // JavaScript test menu items removed - focusing on core C++ functionality
 }
 
@@ -805,14 +797,20 @@ void Window::newFile()
     qDebug() << "New file requested";
     if (!m_scene) return;
     
-    // Clear current scene
-    m_scene->clearGraph();
-    
-    // Reset file state
-    setCurrentFile(QString());
-    
-    // Update UI
+    // Suspend autosave during destructive ops
+    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+
+    GraphSubject::beginBatch();
+    m_scene->clearGraph();                        // hard clear
+    setCurrentFile(QString());                    // forget current file
     updateStatusBar();
+    GraphSubject::endBatch();
+
+    // Commit clean state and resume autosave
+    if (m_autosaveObserver) {
+        m_autosaveObserver->saveNow();
+        m_autosaveObserver->setEnabled(true);
+    }
 }
 
 void Window::openFile()
@@ -1264,6 +1262,28 @@ void Window::runAllSmokes()
     testConnectSourceToSink();
     testClearGraphRemovesEverything();
     testNewFileResetsState();
+}
+
+void Window::runSmokeTests()
+{
+    // Defensive: ensure factory present
+    if (!m_factory) {
+        QMessageBox::warning(this, "Factory Missing", "Adopt a GraphFactory before running tests.");
+        return;
+    }
+
+    // Batch tests to keep observers quiet; autosave suspended briefly
+    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    GraphSubject::beginBatch();
+
+    testTemplateNodeCreation();
+    testTemplateConnections();
+
+    GraphSubject::endBatch();
+    if (m_autosaveObserver) {
+        m_autosaveObserver->saveNow();
+        m_autosaveObserver->setEnabled(true);
+    }
 }
 
 // JavaScript test methods removed - focusing on core C++ functionality

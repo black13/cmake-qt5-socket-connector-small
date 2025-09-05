@@ -96,6 +96,9 @@ private slots:
     void exportGraph();
     void showAbout();
     
+    // Smoke test runner
+    void runSmokeTests();
+    
     // View actions
     void zoomIn();
     void zoomOut();

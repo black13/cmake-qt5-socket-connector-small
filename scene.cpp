@@ -334,6 +334,18 @@ void Scene::resetAllSocketStates()
 
 void Scene::finishGhostEdge(Socket* toSocket)
 {
+    if (!toSocket) {
+        cancelGhostEdge();
+        return;
+    }
+
+    // NEW: mirror the one-edge-per-socket rule here as user feedback
+    if (m_ghostFromSocket->isConnected() || toSocket->isConnected()) {
+        qWarning() << "Scene::finishGhostEdge: socket already connected; rejecting";
+        cancelGhostEdge();
+        return;
+    }
+
     if (m_ghostFromSocket && toSocket) {
         // Validate connection roles
         if (m_ghostFromSocket->getRole() == Socket::Output && 

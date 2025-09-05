@@ -199,7 +199,27 @@ Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode
 Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
 {
     if (!fromSocket || !toSocket) {
-        qCritical() << "GraphFactory::connectSockets - null socket(s)";
+        qWarning() << "GraphFactory::connectSockets: nullptr socket(s)";
+        return nullptr;
+    }
+
+    // NEW: direction check (Output -> Input only)
+    if (fromSocket->getRole() != Socket::Output || toSocket->getRole() != Socket::Input) {
+        qWarning() << "GraphFactory::connectSockets: invalid roles, expected Output->Input";
+        return nullptr;
+    }
+
+    // NEW: prevent multiple edges per socket (your Socket supports this)
+    if (fromSocket->isConnected() || toSocket->isConnected()) {
+        qWarning() << "GraphFactory::connectSockets: socket already connected"
+                   << " from:" << fromSocket->getIndex()
+                   << " to:"   << toSocket->getIndex();
+        return nullptr;
+    }
+
+    // Optional policy: block self-loops for now (easy to relax later)
+    if (fromSocket->getParentNode() == toSocket->getParentNode()) {
+        qWarning() << "GraphFactory::connectSockets: self-loop disallowed by policy";
         return nullptr;
     }
     
