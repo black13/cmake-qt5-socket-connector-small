@@ -7,6 +7,7 @@
 #include <QRandomGenerator>
 #include <QElapsedTimer>
 #include <QtMath>
+#include <cmath>
 
 // Static flag for clearing state
 bool Scene::s_clearingGraph = false;
@@ -533,6 +534,16 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
     emit sceneChanged();
     
     qDebug() << "Auto-layout complete:" << nodesList.size() << "nodes arranged";
+}
+
+void Scene::autoLayoutForceDirected(bool selectionOnly, int maxIters, double cooling)
+{
+    // Force-directed layout is just annealing with different parameters
+    // Convert cooling factor to t0/t1 for annealing algorithm
+    double t0 = 1.5;  // Higher initial temperature for more movement
+    double t1 = t0 * std::pow(cooling, maxIters);  // Final temperature based on cooling
+    
+    autoLayoutAnneal(selectionOnly, maxIters, t0, t1);
 }
 
 QPointF Scene::snapPoint(const QPointF& scenePos) const

@@ -123,6 +123,11 @@ public:
                           double t0 = 1.0,
                           double t1 = 0.01);
     
+    // Force-directed layout (using same annealing algorithm with different parameters)
+    void autoLayoutForceDirected(bool selectionOnly = true,
+                                 int maxIters = 350,
+                                 double cooling = 0.92);
+    
     // Grid and snap helpers (for auto-layout integration)
     QPointF snapPoint(const QPointF& scenePos) const;
     bool isSnapToGrid() const { return false; } // TODO: implement snap-to-grid system

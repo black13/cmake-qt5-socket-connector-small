@@ -108,6 +108,10 @@ private slots:
     void arrangeAutoAnnealSelection();
     void arrangeAutoAnnealAll();
     
+    // Auto layout (annealing / force-directed) – load-time smoke test
+    void toggleForceLayoutTestOnLoad(bool on);
+    void runForceLayoutSmokeNow();
+    
     // View actions
     void zoomIn();
     void zoomOut();
@@ -183,6 +187,13 @@ private:
     // Status bar helpers
     void createStatusBarWidgets();
     void connectStatusBarSignals();
+    
+    // Helpers for force-layout smoke test
+    void runForceLayoutSmokeInternal(int nodeCount, bool connectSequential);
+    void restoreJustLoadedFile();
+    
+    // Force-layout smoke test state
+    bool m_runForceLayoutTestOnLoad = false;
 
     // JavaScript integration (enabled only when ENABLE_JS=ON)
 #if ENABLE_JS

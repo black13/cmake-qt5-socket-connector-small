@@ -30,7 +30,9 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QUrl>
-// QJSValue include removed - focusing on core C++ functionality
+#include <QRandomGenerator>
+#include <QFileInfo>
+#include <QStatusBar>
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
 
@@ -314,6 +316,14 @@ bool Window::loadGraph(const QString& filename)
     if (ok) {
         setCurrentFile(filename);
         updateStatusBar();
+        
+        // Optional smoke test immediately after a successful load
+        if (m_runForceLayoutTestOnLoad) {
+            // modest size and a chain so attraction works
+            runForceLayoutSmokeInternal(/*nodeCount*/ 30, /*connectSequential*/ true);
+            // Restore the just-loaded file so the smoke test has no lasting effect
+            restoreJustLoadedFile();
+        }
     }
     GraphSubject::endBatch();
 
@@ -646,6 +656,18 @@ void Window::createToolsMenu()
     autoAnnealAll->setStatusTip("Spread out all nodes using simulated annealing");
     connect(autoAnnealAll, &QAction::triggered, this, &Window::arrangeAutoAnnealAll);
     arrangeMenu->addAction(autoAnnealAll);
+    
+    // Load-time Force-Directed Layout Smoke Test
+    arrangeMenu->addSeparator();
+    QAction* forceOnLoad = new QAction("Enable Force-Layout Smoke Test on &Load", this);
+    forceOnLoad->setCheckable(true);
+    forceOnLoad->setChecked(false);
+    connect(forceOnLoad, &QAction::toggled, this, &Window::toggleForceLayoutTestOnLoad);
+    arrangeMenu->addAction(forceOnLoad);
+
+    QAction* forceRunNow = new QAction("Run Force-Layout Smoke Test &Now...", this);
+    connect(forceRunNow, &QAction::triggered, this, &Window::runForceLayoutSmokeNow);
+    arrangeMenu->addAction(forceRunNow);
     
 #if ENABLE_JS
     // JavaScript console and scripting (only when enabled)
@@ -1354,6 +1376,113 @@ void Window::arrangeAutoAnnealAll()
         m_autosaveObserver->saveNow(); 
         m_autosaveObserver->setEnabled(true); 
     }
+    updateStatusBar();
+}
+
+void Window::toggleForceLayoutTestOnLoad(bool on)
+{
+    m_runForceLayoutTestOnLoad = on;
+    statusBar()->showMessage(QString("Force-layout smoke test on load: %1")
+                             .arg(on ? "ENABLED" : "DISABLED"), 1500);
+}
+
+void Window::runForceLayoutSmokeNow()
+{
+    // Pick a modest default (change to a dialog later if you want)
+    const int N = 40;               // number of random nodes
+    const bool connectChain = true; // connect as a simple chain so edges exist
+    runForceLayoutSmokeInternal(N, connectChain);
+}
+
+void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
+{
+    if (!m_factory || !m_scene) {
+        QMessageBox::warning(this, "Smoke Test", "Factory/Scene not ready.");
+        return;
+    }
+
+    // Keep autosave quiet; batch edits
+    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    GraphSubject::beginBatch();
+
+    // Start from a clean slate (we'll restore the file if we were called from load)
+    m_scene->clearGraph();
+
+    // Random drop: mix of SOURCE / TRANSFORM / SINK (adjust to your template names)
+    static const QStringList types = { "SOURCE", "TRANSFORM", "SINK" };
+    QRandomGenerator* rng = QRandomGenerator::global();
+
+    const int N = qMax(2, nodeCount);
+    const QRectF box(-400, -300, 800, 600); // initial scatter area
+    QVector<Node*> created; created.reserve(N);
+
+    for (int i=0; i<N; ++i) {
+        const QString& t = types.at(rng->bounded(types.size()));
+        const qreal x = box.left() + rng->generateDouble() * box.width();
+        const qreal y = box.top()  + rng->generateDouble() * box.height();
+        if (Node* n = m_factory->createNode(t, QPointF(x, y))) {
+            created.push_back(n);
+        }
+    }
+
+    // Optionally connect nodes as a simple chain so force-directed has attractions
+    int edgesMade = 0;
+    if (connectSequential && created.size() > 1) {
+        for (int i=0; i<created.size()-1; ++i) {
+            Node* a = created[i];
+            Node* b = created[i+1];
+            if (!a || !b) continue;
+            Socket* out0 = a->getSocketByIndex(0);
+            Socket* in0  = b->getSocketByIndex(0);
+            if (out0 && in0) {
+                if (m_factory->connectSockets(out0, in0)) ++edgesMade;
+            }
+        }
+    }
+
+    GraphSubject::endBatch();
+
+    // Run the force-directed layout over ALL nodes
+    // (uses your Scene::autoLayoutForceDirected; snaps at end if snap-to-grid is enabled)
+    m_scene->autoLayoutForceDirected(/*selectionOnly*/ false, /*iters*/ 350, /*cooling*/ 0.92);
+
+    // Summarize
+    const int nodes = m_scene->getNodes().size();
+    const int edges = m_scene->getEdges().size();
+    QMessageBox::information(this, "Force-Layout Smoke Test",
+        QString("Created %1 nodes and %2 edges.\n"
+                "Applied force-directed layout.\n"
+                "This scene will %3 be persisted.")
+            .arg(nodes)
+            .arg(edges)
+            .arg(m_runForceLayoutTestOnLoad ? "NOT" : "only if you save"));
+
+    // If this was a manual run, do nothing further.
+    // If called from loadGraph with 'on load' toggle, restoreJustLoadedFile() will be called by the caller.
+    if (m_autosaveObserver) { m_autosaveObserver->saveNow(); m_autosaveObserver->setEnabled(true); }
+}
+
+void Window::restoreJustLoadedFile()
+{
+    // If there's a "current file", reload it to leave no side effects from the smoke test
+    const QString path = getCurrentFile();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        // No file to restore — just clear to a blank scene
+        GraphSubject::beginBatch();
+        m_scene->clearGraph();
+        setCurrentFile(QString());
+        GraphSubject::endBatch();
+        updateStatusBar();
+        return;
+    }
+
+    // Reload the file silently (autosave gated)
+    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    GraphSubject::beginBatch();
+    m_scene->clearGraph();
+    m_factory->loadFromXmlFile(path);
+    GraphSubject::endBatch();
+    if (m_autosaveObserver) { m_autosaveObserver->saveNow(); m_autosaveObserver->setEnabled(true); }
     updateStatusBar();
 }
 
