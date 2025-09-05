@@ -1,45 +1,79 @@
 #pragma once
+
+#if ENABLE_JS
+
 #include <QObject>
 #include <QJSEngine>
 #include <QJSValue>
-#include <QUuid>
-#include <QPointF>
-#include "scene.h"
-#include "graph_factory.h"
-#include "node.h"
-#include "edge.h"
 
-class ScriptHost : public QObject {
+class Scene;
+class GraphFactory;
+class GraphScriptApi;
+
+/**
+ * ScriptHost - JavaScript engine wrapper for graph automation
+ * 
+ * This class owns the QJSEngine and provides safe script evaluation.
+ * It registers the GraphScriptApi and handles error reporting.
+ * 
+ * Only compiled when ENABLE_JS=ON.
+ */
+class ScriptHost : public QObject
+{
     Q_OBJECT
+    
 public:
-    explicit ScriptHost(Scene* scene, GraphFactory* factory, QObject* parent=nullptr)
-      : QObject(parent), m_scene(scene), m_factory(factory) {
-        m_engine.installExtensions(QJSEngine::ConsoleExtension);
-        // expose this API as "nodegraph"
-        m_engine.globalObject().setProperty("nodegraph", m_engine.newQObject(this));
-    }
-
-    Q_INVOKABLE QString createNode(const QString& type, double x, double y) {
-        if (!m_factory) return {};
-        Node* n = m_factory->createNode(type, QPointF(x,y));
-        return n ? n->getId().toString(QUuid::WithoutBraces) : QString{};
-    }
-
-    Q_INVOKABLE bool connect(const QString& fromUuid, int outIdx,
-                             const QString& toUuid,   int inIdx) {
-        if (!m_factory) return false;
-        QUuid fromId(QString("{%1}").arg(fromUuid));
-        QUuid toId(QString("{%1}").arg(toUuid));
-        Edge* e = m_factory->connectByIds(fromId, outIdx, toId, inIdx);
-        return e != nullptr;
-    }
-
-    Q_INVOKABLE QJSValue eval(const QString& code) {
-        return m_engine.evaluate(code, QStringLiteral("<console>"));
-    }
-
+    explicit ScriptHost(Scene* scene, GraphFactory* factory, QObject* parent = nullptr);
+    ~ScriptHost();
+    
+    // Script evaluation
+    Q_INVOKABLE QJSValue eval(const QString& code);
+    Q_INVOKABLE QJSValue evalFile(const QString& filename);
+    
+    // Engine access for advanced use
+    QJSEngine* getEngine() const { return m_engine; }
+    
+    // Batch wrapper for scripts
+    Q_INVOKABLE QJSValue batch(const QJSValue& function);
+    
+signals:
+    // Emitted when script execution completes (success or error)
+    void scriptExecuted(const QString& code, bool success, const QString& result);
+    void scriptError(const QString& error, int lineNumber);
+    
+private slots:
+    void handleConsoleMessage(const QString& message);
+    
 private:
-    QJSEngine m_engine;
-    Scene* m_scene = nullptr;
-    GraphFactory* m_factory = nullptr;
+    QJSEngine* m_engine;
+    GraphScriptApi* m_api;
+    
+    // Error handling
+    bool checkForErrors(const QJSValue& result);
+    QString formatError(const QJSValue& error) const;
 };
+
+#else
+
+#include <QObject>
+#include <QString>
+
+class Scene;
+class GraphFactory;
+
+// Stub implementation when JavaScript is disabled
+class ScriptHost : public QObject
+{
+    Q_OBJECT
+    
+public:
+    explicit ScriptHost(Scene*, GraphFactory*, QObject* parent = nullptr)
+        : QObject(parent) {}
+    
+    // Empty methods - no JavaScript functionality (return QString instead of QJSValue)
+    Q_INVOKABLE QString eval(const QString&) { return QString("JavaScript disabled"); }
+    Q_INVOKABLE QString evalFile(const QString&) { return QString("JavaScript disabled"); }
+    Q_INVOKABLE bool batch(const QString&) { return false; }
+};
+
+#endif // ENABLE_JS

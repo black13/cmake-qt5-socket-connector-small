@@ -115,5 +115,18 @@ private:
     // Factory for consistent edge creation (non-owning)
     GraphFactory* m_graphFactory;
     
+public:
+    // ===== Auto layout (Simulated Annealing) =====
+    // If selectionOnly==true and no nodes are selected, falls back to all nodes.
+    void autoLayoutAnneal(bool selectionOnly = true,
+                          int maxIters = 2000,
+                          double t0 = 1.0,
+                          double t1 = 0.01);
+    
+    // Grid and snap helpers (for auto-layout integration)
+    QPointF snapPoint(const QPointF& scenePos) const;
+    bool isSnapToGrid() const { return false; } // TODO: implement snap-to-grid system
+    int gridSize() const { return 40; }          // TODO: make configurable
+    
     // JavaScript engine removed - focusing on core C++ functionality
 };

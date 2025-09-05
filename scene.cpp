@@ -3,8 +3,10 @@
 #include "edge.h"
 #include "socket.h"
 #include "graph_factory.h"
-// JavaScript engine include removed
 #include "ghost_edge.h"
+#include <QRandomGenerator>
+#include <QElapsedTimer>
+#include <QtMath>
 
 // Static flag for clearing state
 bool Scene::s_clearingGraph = false;
@@ -408,6 +410,140 @@ void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
         return;
     }
     QGraphicsScene::mouseMoveEvent(event);
+}
+
+// ============================================================================
+// Auto Layout (Simulated Annealing) Implementation
+// ============================================================================
+
+namespace {
+    inline qreal sqr(qreal v) { return v*v; }
+    
+    // Simple energy for "even spread":
+    //  E = sum_{i<j} [ wRep/(d^2+eps) + wOverlap * max(0, minSpacing-d)^2 ]
+    //    + wGrav * sum_i ||p_i - centroid||^2
+    static double computeEnergy(const QVector<QPointF>& P,
+                                double minSpacing,
+                                double wRep, double wOverlap, double wGrav,
+                                const QPointF& centroid)
+    {
+        const int n = P.size();
+        if (n <= 1) return 0.0;
+        const double eps = 1e-6;
+        double E = 0.0;
+        for (int i = 0; i < n; ++i) {
+            // gravity (keeps system from drifting to infinity)
+            const QPointF dC = P[i] - centroid;
+            E += wGrav * (sqr(dC.x()) + sqr(dC.y()));
+            for (int j = i+1; j < n; ++j) {
+                const QPointF d = P[i] - P[j];
+                const double d2 = d.x()*d.x() + d.y()*d.y() + eps;
+                const double dlen = std::sqrt(d2);
+                E += wRep / d2;
+                if (dlen < minSpacing) {
+                    const double pen = (minSpacing - dlen);
+                    E += wOverlap * pen * pen;
+                }
+            }
+        }
+        return E;
+    }
+}
+
+void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double t1)
+{
+    // Collect nodes: selection, else all
+    QList<Node*> nodesList;
+    if (selectionOnly) {
+        for (QGraphicsItem* gi : selectedItems())
+            if (Node* n = qgraphicsitem_cast<Node*>(gi)) nodesList.push_back(n);
+    }
+    if (nodesList.isEmpty()) {
+        for (auto it = m_nodes.begin(); it != m_nodes.end(); ++it) // uses your typed registry
+            nodesList.push_back(it.value());
+    }
+    if (nodesList.size() < 2) return;
+
+    // Initial positions and centroid
+    QVector<QPointF> P; P.reserve(nodesList.size());
+    QPointF centroid(0,0);
+    for (Node* n : nodesList) { P.push_back(n->pos()); centroid += n->pos(); }
+    centroid /= qreal(nodesList.size());
+
+    // Parameters (tweakable): minSpacing uses grid size if snapping is on
+    const double minSpacing = qMax(40, isSnapToGrid() ? gridSize()*2 : gridSize()*2);
+    const double wRep = 2000.0;     // repulsion strength
+    const double wOverlap = 4.0;    // overlap penalty when too close
+    const double wGrav = 0.001;     // weak gravity toward initial centroid
+    const double moveBase = qMax(20, gridSize()*2);
+
+    auto energy = [&](const QVector<QPointF>& X){
+        return computeEnergy(X, minSpacing, wRep, wOverlap, wGrav, centroid);
+    };
+
+    // Annealing loop
+    QRandomGenerator* rng = QRandomGenerator::global();
+    double E = energy(P);
+    const int N = P.size();
+    if (maxIters <= 0) maxIters = 2000;
+
+    GraphSubject::beginBatch();
+    QElapsedTimer timer; timer.start();
+    for (int k = 0; k < maxIters; ++k) {
+        // geometric cooling
+        const double alpha = (maxIters>1) ? double(k) / double(maxIters-1) : 1.0;
+        const double T = t0 * std::pow(t1 / t0, alpha);
+        const double step = moveBase * (0.25 + 0.75 * T); // smaller steps as we cool
+
+        // pick a random node and propose a small move
+        const int i = rng->bounded(N);
+        const QPointF oldP = P[i];
+        const double dx = (rng->generateDouble() - 0.5) * 2.0 * step;
+        const double dy = (rng->generateDouble() - 0.5) * 2.0 * step;
+        P[i] = oldP + QPointF(dx, dy);
+
+        // Evaluate
+        const double En = energy(P);
+        const double dE = En - E;
+        bool accept = false;
+        if (dE <= 0.0) accept = true;
+        else {
+            const double u = rng->generateDouble(); // [0,1)
+            const double prob = std::exp(-dE / qMax(1e-9, T));
+            accept = (u < prob);
+        }
+        if (accept) {
+            E = En; // keep P[i]
+        } else {
+            P[i] = oldP; // revert
+        }
+
+        // Time guard: ~50ms default budget to keep UI snappy
+        if (timer.elapsed() > 50 && k > N*50) break;
+    }
+
+    // Commit final positions
+    for (int i = 0; i < N; ++i) nodesList[i]->setPos(P[i]);
+
+    // Snap at the end if enabled
+    if (isSnapToGrid()) {
+        for (Node* n : nodesList) n->setPos(snapPoint(n->pos()));
+    }
+    GraphSubject::endBatch();
+    emit sceneChanged();
+    
+    qDebug() << "Auto-layout complete:" << nodesList.size() << "nodes arranged";
+}
+
+QPointF Scene::snapPoint(const QPointF& scenePos) const
+{
+    // Simple grid snapping (when snap-to-grid system is implemented)
+    int grid = gridSize();
+    if (grid <= 1) return scenePos;
+    
+    qreal x = qRound(scenePos.x() / grid) * grid;
+    qreal y = qRound(scenePos.y() / grid) * grid;
+    return QPointF(x, y);
 }
 
 void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)

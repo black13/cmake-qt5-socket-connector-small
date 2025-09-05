@@ -16,11 +16,16 @@
 class View;
 class Scene;
 class GraphFactory;
-class ScriptHost;
-// GraphController removed - using template system directly
 class XmlAutosaveObserver;
 class NodePaletteWidget;
-// JavaScript console class removed
+
+#if ENABLE_JS
+class ScriptHost;
+class GraphScriptApi;
+#else
+#include "script_api_stub.h"
+class ScriptHost;
+#endif
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -99,6 +104,10 @@ private slots:
     // Smoke test runner
     void runSmokeTests();
     
+    // Auto layout (annealing)
+    void arrangeAutoAnnealSelection();
+    void arrangeAutoAnnealAll();
+    
     // View actions
     void zoomIn();
     void zoomOut();
@@ -175,6 +184,12 @@ private:
     void createStatusBarWidgets();
     void connectStatusBarSignals();
 
-    // Optional JavaScript host (created after factory adoption)
-    ScriptHost* m_scriptHost = nullptr;
+    // JavaScript integration (enabled only when ENABLE_JS=ON)
+#if ENABLE_JS
+    ScriptHost* m_scriptHost;
+    GraphScriptApi* m_scriptApi;
+#else
+    ScriptHost* m_scriptHost;               // Stub implementation
+    GraphScriptApiStub* m_scriptApi;       // Stub implementation  
+#endif
 };
