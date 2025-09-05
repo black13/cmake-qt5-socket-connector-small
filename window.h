@@ -52,6 +52,10 @@ public:
     // Update status bar with current graph information
     void updateStatusBar();
     
+    // Visual, automatic tests (no new layout required yet)
+    void runVisualSmokeTest();     // builds a sample graph, snapshots, restores
+    void saveSceneSnapshot();      // snapshot current scene to PNG
+    
     // Create node at specific position (disabled for now)
     // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
     
@@ -187,6 +191,10 @@ private:
     // Status bar helpers
     void createStatusBarWidgets();
     void connectStatusBarSignals();
+    
+    // Helpers for visual tests
+    QImage renderSceneImage(const QRectF& viewRect, const QSize& size) const;
+    void restoreCurrentFile();     // reload m_currentFile if set, else clear
     
     // Helpers for force-layout smoke test
     void runForceLayoutSmokeInternal(int nodeCount, bool connectSequential);

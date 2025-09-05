@@ -33,6 +33,12 @@
 #include <QRandomGenerator>
 #include <QFileInfo>
 #include <QStatusBar>
+#include <QImage>
+#include <QPainter>
+#include <QStandardPaths>
+#include <QDir>
+#include <QDateTime>
+#include <QFileDialog>
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
 
@@ -617,6 +623,16 @@ void Window::createToolsMenu()
     testTemplateConnectionsAction->setStatusTip("Test edge creation between template-generated nodes");
     connect(testTemplateConnectionsAction, &QAction::triggered, this, &Window::testTemplateConnections);
     templateTestMenu->addAction(testTemplateConnectionsAction);
+    
+    // Automatic but visual tests
+    m_toolsMenu->addSeparator();
+    QMenu* testsMenu = m_toolsMenu->addMenu("&Tests");
+    QAction* smokeAction = new QAction("Visual Smoke Test (build → snapshot → restore)", this);
+    connect(smokeAction, &QAction::triggered, this, &Window::runVisualSmokeTest);
+    testsMenu->addAction(smokeAction);
+    QAction* snapAction = new QAction("Save Scene Snapshot...", this);
+    connect(snapAction, &QAction::triggered, this, &Window::saveSceneSnapshot);
+    testsMenu->addAction(snapAction);
     
     // Diagnostics / Smoke Tests (non-QtTest, in-app)
     m_toolsMenu->addSeparator();
@@ -1484,6 +1500,104 @@ void Window::restoreJustLoadedFile()
     GraphSubject::endBatch();
     if (m_autosaveObserver) { m_autosaveObserver->saveNow(); m_autosaveObserver->setEnabled(true); }
     updateStatusBar();
+}
+
+// Renders the scene deterministically (antialiasing off) to an image
+QImage Window::renderSceneImage(const QRectF& viewRect, const QSize& size) const
+{
+    QImage img(size, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::white);
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, false);
+    m_scene->render(&p, QRectF(QPointF(0,0), QSizeF(size)), viewRect);
+    p.end();
+    return img;
+}
+
+// Reload current file (if any) so tests leave no trace; else clear
+void Window::restoreCurrentFile()
+{
+    if (m_currentFile.isEmpty()) {
+        m_scene->clearGraph();                    // safe clear (typed registries first)
+        updateStatusBar();
+        return;
+    }
+    // Silently reload
+    m_scene->clearGraph();
+    (void)loadGraph(m_currentFile);               // already sets title & status inside
+}
+
+// Visual Smoke Test: build a small deterministic graph, snapshot it, then restore
+void Window::runVisualSmokeTest()
+{
+    if (!m_factory || !m_scene) {
+        QMessageBox::warning(this, "Smoke Test", "Factory/Scene not ready.");
+        return;
+    }
+
+    // 1) remember what's open
+    const QString fileBefore = m_currentFile;
+
+    // 2) start clean
+    m_scene->clearGraph();
+
+    // 3) build a deterministic sample (no random needed)
+    QList<Node*> nodes;
+    const QRectF box(-400, -300, 800, 600);
+    const QStringList types = {"SOURCE","TRANSFORM","SINK","MERGE","SPLIT"};
+    for (int i=0; i<30; ++i) {
+        const QString t = types.at(i % types.size());
+        // deterministic "random-ish" scatter using a tiny LCG
+        quint32 r = 1664525u * (1234u + i*977u) + 1013904223u;
+        qreal rx = (r % 10000) / 10000.0; r = 1664525u * r + 1013904223u;
+        qreal ry = (r % 10000) / 10000.0;
+        QPointF pos(box.left() + rx*box.width(), box.top() + ry*box.height());
+        if (Node* n = m_factory->createNode(t, pos)) nodes.push_back(n);
+    }
+    // simple chain so edges exist (if sockets permit index 0)
+    int edgesMade = 0;
+    for (int i=0; i+1<nodes.size(); ++i) {
+        Edge* e = m_factory->createEdge(nodes[i], 0, nodes[i+1], 0);
+        if (e) ++edgesMade;
+    }
+
+    // 4) render snapshot
+    const QRectF viewRect(-500, -400, 1000, 800);
+    QImage img = renderSceneImage(viewRect, QSize(1000, 800));
+
+    // 5) save to a predictable place
+    QDir out(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    if (!out.exists("NodeGraphTests")) out.mkdir("NodeGraphTests");
+    const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    const QString path = out.filePath(QString("NodeGraphTests/smoke_%1_nodes%2_edges%3.png")
+                                      .arg(ts).arg(nodes.size()).arg(edgesMade));
+    img.save(path);
+
+    // 6) show a quick summary
+    QMessageBox::information(this, "Visual Smoke Test",
+        QString("Built %1 nodes, %2 edges.\nSaved snapshot:\n%3\n\nScene will be restored now.")
+            .arg(nodes.size()).arg(edgesMade).arg(path));
+
+    // 7) restore previous state (no dirt)
+    restoreCurrentFile();
+}
+
+// Snapshot current scene as-is to a user-chosen PNG
+void Window::saveSceneSnapshot()
+{
+    const QRectF rect = m_scene->itemsBoundingRect().marginsAdded(QMarginsF(50,50,50,50));
+    const QSize   size( std::max<int>(800, int(rect.width())),
+                        std::max<int>(600, int(rect.height())) );
+
+    QImage img = renderSceneImage(rect, size);
+    const QString fn = QFileDialog::getSaveFileName(this, "Save Scene Snapshot",
+                        "scene.png", "PNG Image (*.png)");
+    if (fn.isEmpty()) return;
+    if (img.save(fn)) {
+        QMessageBox::information(this, "Snapshot Saved", QString("Saved: %1").arg(fn));
+    } else {
+        QMessageBox::warning(this, "Snapshot Failed", "Could not save PNG.");
+    }
 }
 
 // JavaScript test methods removed - focusing on core C++ functionality
