@@ -133,13 +133,25 @@ int main(int argc, char *argv[])
     
     // Command line parsing
     
-    // Create main window
-    // Template system doesn't require registration - clean startup
+    // Create main window first (so Scene exists)
     Window window;
-    qDebug() << "Window created successfully";
-    
-    // JavaScript engine initialization removed - focusing on core C++ functionality
     Scene* scene = window.getScene();
+    
+    // Create XML document for GraphFactory
+    qDebug() << "Creating unified XML document for GraphFactory";
+    xmlDocPtr xmlDoc = xmlNewDoc(BAD_CAST "1.0");
+    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+    xmlDocSetRootElement(xmlDoc, root);
+    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
+    xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
+    
+    // Create single GraphFactory instance
+    GraphFactory factory(scene, xmlDoc);
+    qDebug() << "GraphFactory created with unified XML document";
+    
+    // Hand factory to window (non-owning)
+    window.adoptFactory(&factory);
+    qDebug() << "Window adopted factory - single source of truth established";
     
     // Handle file loading
     QString filename;
@@ -156,32 +168,9 @@ int main(int argc, char *argv[])
     bool fileLoadAttempted = !filename.isEmpty();
     QString originalFilename = filename; // Store original filename for user message
     
-    // Create empty XML document for GraphFactory
-    // GraphFactory will handle all file loading - single XML authority
-    // qDebug() << "=== Creating Empty XML Document ===";
-    xmlDocPtr xmlDoc = xmlNewDoc(BAD_CAST "1.0");
-    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-    xmlDocSetRootElement(xmlDoc, root);
-    
-    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
-    xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
-    
-    qDebug() << "Empty XML document created - GraphFactory will handle file loading";
-    
-    // Use template system instead of NodeRegistry - fixing dual registry problem
-    qDebug() << "=== Using Template-Driven Node Creation (No NodeRegistry) ===";
+    qDebug() << "=== Using Template-Driven Node Creation (Single Source of Truth) ===";
     qDebug() << "Available node types from templates:" << NodeTypeTemplates::getAvailableTypes();
-    qDebug() << "Template system ready - GraphFactory will handle all node creation";
-    
-    // Initialize GraphFactory with scene and XML document
-    // Scene* scene = window.getScene(); // Already declared above
-    if (!scene) {
-        qCritical() << "Failed to get scene from window";
-        return -1;
-    }
-    
-    GraphFactory factory(scene, xmlDoc);
-    qDebug() << "GraphFactory initialized with empty XML document";
+    qDebug() << "Single GraphFactory will handle all XML operations";
     
     if (!filename.isEmpty()) {
         // GraphFactory is now the single XML authority
@@ -233,11 +222,9 @@ int main(int argc, char *argv[])
     // Final status before exit
     qDebug() << "=== NodeGraph Application Ending ===";
     
-    // Cleanup XML document
-    if (xmlDoc) {
-        xmlFreeDoc(xmlDoc);
-        qDebug() << "XML document cleaned up";
-    }
+    // Cleanup XML document (main is the owner)
+    xmlFreeDoc(xmlDoc);
+    qDebug() << "XML document cleaned up";
     
     return result;
 }

@@ -8,6 +8,7 @@
 class Node;
 class Edge;
 class Socket;
+class GraphFactory;
 // JavaScript engine forward declaration removed
 class GhostEdge;
 
@@ -26,6 +27,17 @@ signals:
     void sceneChanged();
 
 public:
+    // RAII guard to mark clearing state
+    class ScopedClearing {
+    public:
+        explicit ScopedClearing(bool& flag) : f(flag) { f = true; }
+        ~ScopedClearing() { f = false; }
+    private:
+        bool& f;
+    };
+
+    static bool isClearingGraph() { return s_clearingGraph; }
+
     explicit Scene(QObject* parent = nullptr);
     
     // Typed item management - QElectroTech style
@@ -70,6 +82,9 @@ public:
     
     // Critical destruction safety flag
     static bool isClearing() { return s_clearingGraph; }
+    
+    // Factory integration for consistent edge creation
+    void setGraphFactory(GraphFactory* factory) { m_graphFactory = factory; }
 
 protected:
     // Mouse event handling for ghost edge interactions
@@ -96,6 +111,9 @@ private:
     
     // Shutdown coordination flag
     bool m_shutdownInProgress;
+    
+    // Factory for consistent edge creation (non-owning)
+    GraphFactory* m_graphFactory;
     
     // JavaScript engine removed - focusing on core C++ functionality
 };

@@ -16,6 +16,8 @@
 class View;
 class Scene;
 class GraphFactory;
+class ScriptHost;
+// GraphController removed - using template system directly
 class XmlAutosaveObserver;
 class NodePaletteWidget;
 // JavaScript console class removed
@@ -35,6 +37,9 @@ class Window : public QMainWindow
 public:
     explicit Window(QWidget* parent = nullptr);
     ~Window();
+    
+    // Adopt an external factory (non-owning)
+    void adoptFactory(GraphFactory* factory);
     
     // Access to scene for testing
     Scene* getScene() const { return m_scene; }
@@ -68,6 +73,10 @@ public slots:
     void createOutputNode();
     void createProcessorNode();
     
+    // Template System Tests - validate NodeTypeTemplates + GraphFactory
+    void testTemplateNodeCreation();
+    void testTemplateConnections();
+    
     // Node creation from palette (will be implemented with proper includes)
     void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
                               const QString& name, int inputSockets, int outputSockets);
@@ -96,12 +105,18 @@ private slots:
 protected:
     // Handle keyboard shortcuts
     void keyPressEvent(QKeyEvent* event) override;
+    
+    // UI initialization that doesn't need m_factory
+    void initializeUi();
+    
+    // Setup that depends on m_factory
+    void initializeWithFactory();
 
 private:
     Scene* m_scene;
     View* m_view;
-    GraphFactory* m_factory;
-    xmlDocPtr m_xmlDocument;
+    GraphFactory* m_factory;  // non-owning
+    // GraphController removed - using template system directly
     XmlAutosaveObserver* m_autosaveObserver;
     
     // UI elements
@@ -150,4 +165,7 @@ private:
     // Status bar helpers
     void createStatusBarWidgets();
     void connectStatusBarSignals();
+
+    // Optional JavaScript host (created after factory adoption)
+    ScriptHost* m_scriptHost = nullptr;
 };

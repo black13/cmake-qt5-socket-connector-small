@@ -12,6 +12,7 @@
 
 class Node;
 class Edge;
+class Scene;
 
 /**
  * GraphFactory - XML-First Object Creation with NodeRegistry
@@ -48,8 +49,15 @@ public:
     // Socket factory method - prevents manual socket creation
     Socket* createSocket(Socket::Role role, Node* parentNode, int index);
     
+    // Access to managed scene
+    Scene* getScene() const { return qobject_cast<Scene*>(m_scene); }
+    
     // Utility to get XML property
     static QString getXmlProperty(xmlNodePtr node, const QString& name);
+
+    // Unified in-memory edge creation by node UUIDs and socket indices
+    Edge* connectByIds(const QUuid& fromNodeId, int fromSocketIndex,
+                       const QUuid& toNodeId,   int toSocketIndex);
 
 private:
     QGraphicsScene* m_scene;

@@ -81,7 +81,7 @@ endif()
 # ─────────────────────────────────────
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test)
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test Qml)
 
 # ─────────────────────────────────────
 # Find or build libxml2 for cross-platform XML handling
@@ -213,6 +213,10 @@ set(CORE_SOURCES
     node_palette_widget.h
     node_palette_widget.cpp
     
+    # Minimal JavaScript host for safe scripting
+    script_host.h
+    script_host.cpp
+    
     # JavaScript engine integration removed - focusing on core C++ functionality
     # javascript_engine.h
     # javascript_engine.cpp
@@ -302,6 +306,7 @@ target_link_libraries(NodeGraphCore
     Qt5::Widgets
     Qt5::Gui
     Qt5::Test
+    Qt5::Qml
     LibXml2::LibXml2
 )
 

@@ -2,8 +2,12 @@
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
+#include "graph_factory.h"
 // JavaScript engine include removed
 #include "ghost_edge.h"
+
+// Static flag for clearing state
+bool Scene::s_clearingGraph = false;
 #include <QDebug>
 #include <QTimer>
 #include <QGraphicsPathItem>
@@ -14,16 +18,12 @@ Scene::Scene(QObject* parent)
     , m_ghostFromSocket(nullptr)
     , m_ghostEdgeActive(false)
     , m_shutdownInProgress(false)
+    , m_graphFactory(nullptr)
     // JavaScript engine initialization removed
 {
     setSceneRect(-1000, -1000, 2000, 2000);
     
-    // JavaScript engine initialization removed
-    if (m_jsEngine) {
-        m_jsEngine->registerNodeAPI(this);
-        m_jsEngine->registerGraphAPI();
-        // GraphController will be registered when GraphFactory is available
-    }
+    // JavaScript engine initialization removed - focusing on core C++ functionality
 }
 
 // QElectroTech-style QHash implementation with SIMPLE_FIX logging
@@ -197,6 +197,8 @@ void Scene::deleteEdge(const QUuid& edgeId)
 
 void Scene::clearGraph()
 {
+    ScopedClearing _guard(s_clearingGraph);
+    
     qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
     
     // SIMPLE FIX: Clear registries FIRST to prevent dangling pointers
@@ -337,33 +339,17 @@ void Scene::finishGhostEdge(Socket* toSocket)
         if (m_ghostFromSocket->getRole() == Socket::Output && 
             toSocket->getRole() == Socket::Input) {
             
-            // Create real edge using existing system
-            Edge* newEdge = new Edge(QUuid::createUuid(), QUuid(), QUuid());
-            
-            Node* fromNode = m_ghostFromSocket->getParentNode();
-            Node* toNode = toSocket->getParentNode();
-            
-            if (fromNode && toNode) {
-                newEdge->setConnectionData(
-                    fromNode->getId().toString(QUuid::WithoutBraces),
-                    toNode->getId().toString(QUuid::WithoutBraces),
-                    m_ghostFromSocket->getIndex(),
-                    toSocket->getIndex()
-                );
-                
-                addEdge(newEdge);
-                newEdge->resolveConnections(this);
-                
-                // Brief success feedback - flash the connected sockets green (disabled)
-                // m_ghostFromSocket->setVisualState(Socket::ValidTarget);
-                // toSocket->setVisualState(Socket::ValidTarget);
-                // QTimer::singleShot(300, [this, toSocket]() {
-                //     // Reset to normal appearance after brief success flash
-                //     if (m_ghostFromSocket) m_ghostFromSocket->setVisualState(Socket::Normal);
-                //     toSocket->setVisualState(Socket::Normal);
-                // });
-                
-                qDebug() << "GHOST: Created edge" << m_ghostFromSocket->getIndex() << "->" << toSocket->getIndex();
+            if (m_graphFactory) {
+                Q_ASSERT(m_ghostFromSocket && toSocket); // Ghost edge requires both sockets
+                // Use factory for consistent edge creation
+                Edge* newEdge = m_graphFactory->connectSockets(m_ghostFromSocket, toSocket);
+                if (newEdge) {
+                    qDebug() << "GHOST: Created edge via factory" << m_ghostFromSocket->getIndex() << "->" << toSocket->getIndex();
+                } else {
+                    qWarning() << "GHOST: Factory failed to create edge";
+                }
+            } else {
+                qWarning() << "GHOST: No factory available - cannot create edge";
             }
         } else {
             qDebug() << "GHOST: Invalid connection - wrong socket roles";

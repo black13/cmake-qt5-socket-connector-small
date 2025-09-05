@@ -6,6 +6,7 @@
 #include "graph_factory.h"
 // GraphController removed - unnecessary complexity
 #include "xml_autosave_observer.h"
+#include "script_host.h"
 // JavaScript engine include removed
 #include "node_palette_widget.h"
 // #include "javascript_console.h"  // Disabled for now
@@ -34,6 +35,46 @@ Window::Window(QWidget* parent)
     : QMainWindow(parent)
     , m_scene(new Scene(this))
     , m_view(new View(m_scene, this))
+    , m_factory(nullptr)
+{
+    initializeUi(); // Setup UI that doesn't depend on factory
+}
+    
+
+Window::~Window()
+{
+    // Clean up autosave observer
+    if (m_autosaveObserver) {
+        m_scene->detach(m_autosaveObserver);
+        delete m_autosaveObserver;
+    }
+    
+    // DO NOT delete m_factory (non-owning)
+}
+
+void Window::adoptFactory(GraphFactory* factory)
+{
+    Q_ASSERT(factory); // Null factory is a programming error
+    m_factory = factory; // non-owning: main owns factory lifetime
+    
+    // ISSUE 4: Inject factory into scene for consistent edge creation
+    m_scene->setGraphFactory(factory);
+    
+    // Now that a factory exists, wire things that depend on it:
+    // ISSUE 2: Centralize autosave timing - using 1200ms as compromise
+    m_autosaveObserver = new XmlAutosaveObserver(m_scene, "autosave.xml");
+    m_autosaveObserver->setDelay(1200); // Centralized autosave policy
+    
+    // CRITICAL: Attach observer to scene to receive notifications
+    m_scene->attach(m_autosaveObserver);
+    
+    // Initialize optional JavaScript host
+    m_scriptHost = new ScriptHost(m_scene, m_factory, this);
+    
+    initializeWithFactory(); // actions that depend on m_factory
+}
+
+void Window::initializeUi()
 {
     setWindowTitle("NodeGraph - Self-Serializing Node Editor");
     resize(1400, 900);
@@ -41,8 +82,6 @@ Window::Window(QWidget* parent)
     // Initialize UI components to nullptr
     m_nodePaletteDock = nullptr;
     m_nodePalette = nullptr;
-    // m_javaScriptConsoleDock = nullptr;
-    // m_javaScriptConsole = nullptr;
     m_fileInfoLabel = nullptr;
     m_graphStatsLabel = nullptr;
     m_selectionLabel = nullptr;
@@ -50,30 +89,14 @@ Window::Window(QWidget* parent)
     m_zoomLabel = nullptr;
     m_operationProgress = nullptr;
     
-    // Create XML document for factory
-    m_xmlDocument = xmlNewDoc(BAD_CAST "1.0");
-    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-    xmlDocSetRootElement(m_xmlDocument, root);
-    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
-    
-    // Initialize factory for interactive node creation
-    m_factory = new GraphFactory(m_scene, m_xmlDocument);
-    
-    // GraphController removed - focus on template system validation
-    
-    // Initialize autosave observer for automatic XML saving
-    m_autosaveObserver = new XmlAutosaveObserver(m_scene, "autosave.xml");
-    m_autosaveObserver->setDelay(750); // 750ms delay after changes
-    
-    // CRITICAL: Attach observer to scene to receive notifications
-    m_scene->attach(m_autosaveObserver);
+    // Autosave will be initialized when factory is adopted
     
     // Setup enhanced UI
     setupUI();
     setupActions();
     setupMenus();
     setupStatusBar();
-    setupDockWidgets(); // JavaScript console disabled for now
+    setupDockWidgets();
     
     // Connect scene signals for status updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
@@ -88,21 +111,10 @@ Window::Window(QWidget* parent)
     setFocusPolicy(Qt::StrongFocus);
 }
 
-Window::~Window()
+void Window::initializeWithFactory()
 {
-    // Clean up autosave observer
-    if (m_autosaveObserver) {
-        m_scene->detach(m_autosaveObserver);
-        delete m_autosaveObserver;
-    }
-    
-    // GraphController removed - using template system directly
-    
-    // Clean up XML document
-    if (m_xmlDocument) {
-        xmlFreeDoc(m_xmlDocument);
-        m_xmlDocument = nullptr;
-    }
+    // Actions or connections that require m_factory can go here if needed
+    // Currently most UI elements work without factory, so this might be minimal
 }
 
 void Window::setupActions()
@@ -771,8 +783,17 @@ void Window::updateSelectionInfo()
 
 void Window::newFile()
 {
-    // TODO: Clear current scene and reset
     qDebug() << "New file requested";
+    if (!m_scene) return;
+    
+    // Clear current scene
+    m_scene->clearGraph();
+    
+    // Reset file state
+    setCurrentFile(QString());
+    
+    // Update UI
+    updateStatusBar();
 }
 
 void Window::openFile()
@@ -908,9 +929,9 @@ void Window::testTemplateNodeCreation()
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
     
-    // Clear existing graph for clean test
-    m_scene->clear();
-    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene for testing";
+    // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering
+    m_scene->clearGraph();
+    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene safely for testing";
     
     // Show collection state AFTER clearing  
     qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
@@ -996,9 +1017,9 @@ void Window::testTemplateConnections()
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
     
-    // Clear existing graph for clean test
-    m_scene->clear();
-    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene for edge testing";
+    // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering  
+    m_scene->clearGraph();
+    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene safely for edge testing";
     
     // Show collection state AFTER clearing  
     qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";

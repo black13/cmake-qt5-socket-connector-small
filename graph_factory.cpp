@@ -235,11 +235,16 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
         m_scene->addItem(edge);
     }
     
-    // Create XML for persistence (lazy serialization)
+    // DESIGN DECISION: Treat m_xmlDocument as scratch pad, not live sync
+    // Runtime edges are created in-memory only. Full serialization happens via:
+    // 1. Manual save (Window::saveGraph() - creates new XML doc from scene)  
+    // 2. Autosave (XmlAutosaveObserver - also serializes from scene)
+    // This prevents XML/scene drift without expensive live sync overhead
     xmlNodePtr xmlEdge = createXmlEdgeNodeIndex(fromNode->getId(), fromSocket->getIndex(), 
                                                 toNode->getId(), toSocket->getIndex());
     if (!xmlEdge) {
         qWarning() << "GraphFactory::connectSockets - XML serialization failed (edge still created)";
+        qWarning() << "Note: Full graph serialization will occur during save/autosave";
     }
     
     // Connect sockets atomically
@@ -251,6 +256,29 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
              << "to index" << toSocket->getIndex();
     
     return edge;
+}
+
+Edge* GraphFactory::connectByIds(const QUuid& fromNodeId, int fromSocketIndex,
+                                 const QUuid& toNodeId,   int toSocketIndex)
+{
+    Scene* typedScene = static_cast<Scene*>(m_scene);
+    if (!typedScene) {
+        qCritical() << "GraphFactory::connectByIds - scene is not typed Scene";
+        return nullptr;
+    }
+    Node* fromNode = typedScene->getNode(fromNodeId);
+    Node* toNode   = typedScene->getNode(toNodeId);
+    if (!fromNode || !toNode) {
+        qCritical() << "GraphFactory::connectByIds - invalid node id(s)";
+        return nullptr;
+    }
+    Socket* fromSocket = fromNode->getSocketByIndex(fromSocketIndex);
+    Socket* toSocket   = toNode->getSocketByIndex(toSocketIndex);
+    if (!fromSocket || !toSocket) {
+        qCritical() << "GraphFactory::connectByIds - invalid socket index(es)";
+        return nullptr;
+    }
+    return connectSockets(fromSocket, toSocket); // unify on in-memory creation
 }
 
 bool GraphFactory::loadFromXmlFile(const QString& filePath)
