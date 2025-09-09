@@ -78,14 +78,20 @@ public:
     
     // Connection state
     bool isConnected() const { return m_connectedEdge != nullptr; }
-    void setConnectedEdge(Edge* edge) { m_connectedEdge = edge; updateConnectionState(); }
+    void setConnectedEdge(Edge* edge) {
+        m_connectedEdge = edge;
+        updateConnectionState();
+    }
     Edge* getConnectedEdge() const { return m_connectedEdge; }
     
     // Visual connection state
     ConnectionState getConnectionState() const { return m_connectionState; }
-    void setConnectionState(ConnectionState state) { m_connectionState = state; update(); }
-    void updateConnectionState() { 
-        setConnectionState(m_connectedEdge ? Connected : Disconnected); 
+    void setConnectionState(ConnectionState state) {
+        m_connectionState = state;
+        update();
+    }
+    void updateConnectionState() {
+        setConnectionState(m_connectedEdge ? Connected : Disconnected);
     }
     
     // Direct position assignment - no calculations, just assignment

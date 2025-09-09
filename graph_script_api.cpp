@@ -143,8 +143,9 @@ QJSValue GraphScriptApi::getAllNodes()
     QJSValue result = engine->newArray(nodes.size());
     
     int index = 0;
-    for (auto it = nodes.begin(); it != nodes.end(); ++it, ++index) {
+    for (auto it = nodes.begin(); it != nodes.end(); ++it) {
         result.setProperty(index, formatUuid(it.key()));
+        ++index;
     }
     
     return result;
@@ -164,8 +165,9 @@ QJSValue GraphScriptApi::getAllEdges()
     QJSValue result = engine->newArray(edges.size());
     
     int index = 0;
-    for (auto it = edges.begin(); it != edges.end(); ++it, ++index) {
+    for (auto it = edges.begin(); it != edges.end(); ++it) {
         result.setProperty(index, formatUuid(it.key()));
+        ++index;
     }
     
     return result;
