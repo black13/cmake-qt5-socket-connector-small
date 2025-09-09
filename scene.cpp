@@ -14,6 +14,8 @@ bool Scene::s_clearingGraph = false;
 #include <QDebug>
 #include <QTimer>
 #include <QGraphicsPathItem>
+#include <QApplication>
+#include <QThread>
 
 Scene::Scene(QObject* parent)
     : QGraphicsScene(parent)
@@ -32,13 +34,17 @@ Scene::Scene(QObject* parent)
 // QElectroTech-style QHash implementation with SIMPLE_FIX logging
 void Scene::addNode(Node* node)
 {
-    if (!node) return;
+    if (!node) {
+        return;
+    }
     
     QUuid nodeId = node->getId();
     m_nodes.insert(nodeId, node);
     addItem(node);
     
-    qDebug() << "+" << nodeId.toString(QUuid::WithoutBraces).left(8);
+    // Scene stats logging as suggested by ChatGPT analysis
+    qDebug() << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size() 
+             << "(added node" << node->getNodeType() << ")";
     
     // Notify observers of node addition
     notifyNodeAdded(*node);
@@ -49,13 +55,17 @@ void Scene::addNode(Node* node)
 
 void Scene::addEdge(Edge* edge)
 {
-    if (!edge) return;
+    if (!edge) {
+        return;
+    }
     
     QUuid edgeId = edge->getId();
     m_edges.insert(edgeId, edge);
     addItem(edge);
     
-    qDebug() << "+" << edgeId.toString(QUuid::WithoutBraces).left(8);
+    // Scene stats logging as suggested by ChatGPT analysis  
+    qDebug() << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size()
+             << "(added edge" << edgeId.toString(QUuid::WithoutBraces).left(8) << ")";
     
     // Notify observers of edge addition
     notifyEdgeAdded(*edge);
@@ -68,7 +78,9 @@ void Scene::addEdge(Edge* edge)
 
 void Scene::addSocket(Socket* socket)
 {
-    if (!socket) return;
+    if (!socket) {
+        return;
+    }
     
     // Clean design: sockets are managed by their parent nodes, not scene
     // Socket is automatically added to scene as child of parent node
@@ -77,7 +89,9 @@ void Scene::addSocket(Socket* socket)
 void Scene::removeNode(const QUuid& nodeId)
 {
     Node* node = m_nodes.value(nodeId, nullptr);
-    if (!node) return;
+    if (!node) {
+        return;
+    }
     
     // Clean design: sockets are children of nodes - no separate tracking needed
     
@@ -106,7 +120,9 @@ void Scene::removeNode(const QUuid& nodeId)
 void Scene::removeEdge(const QUuid& edgeId)
 {
     Edge* edge = m_edges.value(edgeId, nullptr);
-    if (!edge) return;
+    if (!edge) {
+        return;
+    }
     
     // Clean design: edges manage their own socket disconnection via direct pointers
     // Socket cleanup handled automatically when edge is destroyed
@@ -279,7 +295,9 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
 
 void Scene::updateGhostEdge(const QPointF& currentPos)
 {
-    if (!m_ghostEdge || !m_ghostFromSocket) return;
+    if (!m_ghostEdge || !m_ghostFromSocket) {
+        return;
+    }
     
     QPointF start = m_ghostFromSocket->scenePos();
     QPainterPath path;
@@ -429,7 +447,9 @@ namespace {
                                 const QPointF& centroid)
     {
         const int n = P.size();
-        if (n <= 1) return 0.0;
+        if (n <= 1) {
+            return 0.0;
+        }
         const double eps = 1e-6;
         double E = 0.0;
         for (int i = 0; i < n; ++i) {
@@ -457,18 +477,26 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
     QList<Node*> nodesList;
     if (selectionOnly) {
         for (QGraphicsItem* gi : selectedItems())
-            if (Node* n = qgraphicsitem_cast<Node*>(gi)) nodesList.push_back(n);
+            if (Node* n = qgraphicsitem_cast<Node*>(gi)) {
+                nodesList.push_back(n);
+            }
     }
     if (nodesList.isEmpty()) {
         for (auto it = m_nodes.begin(); it != m_nodes.end(); ++it) // uses your typed registry
             nodesList.push_back(it.value());
     }
-    if (nodesList.size() < 2) return;
+    if (nodesList.size() < 2) {
+        return;
+    }
 
     // Initial positions and centroid
-    QVector<QPointF> P; P.reserve(nodesList.size());
+    QVector<QPointF> P;
+    P.reserve(nodesList.size());
     QPointF centroid(0,0);
-    for (Node* n : nodesList) { P.push_back(n->pos()); centroid += n->pos(); }
+    for (Node* n : nodesList) {
+        P.push_back(n->pos());
+        centroid += n->pos();
+    }
     centroid /= qreal(nodesList.size());
 
     // Parameters (tweakable): minSpacing uses grid size if snapping is on
@@ -486,10 +514,13 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
     QRandomGenerator* rng = QRandomGenerator::global();
     double E = energy(P);
     const int N = P.size();
-    if (maxIters <= 0) maxIters = 2000;
+    if (maxIters <= 0) {
+        maxIters = 2000;
+    }
 
     GraphSubject::beginBatch();
-    QElapsedTimer timer; timer.start();
+    QElapsedTimer timer;
+    timer.start();
     for (int k = 0; k < maxIters; ++k) {
         // geometric cooling
         const double alpha = (maxIters>1) ? double(k) / double(maxIters-1) : 1.0;
@@ -507,7 +538,9 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
         const double En = energy(P);
         const double dE = En - E;
         bool accept = false;
-        if (dE <= 0.0) accept = true;
+        if (dE <= 0.0) {
+            accept = true;
+        }
         else {
             const double u = rng->generateDouble(); // [0,1)
             const double prob = std::exp(-dE / qMax(1e-9, T));
@@ -520,7 +553,9 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
         }
 
         // Time guard: ~50ms default budget to keep UI snappy
-        if (timer.elapsed() > 50 && k > N*50) break;
+        if (timer.elapsed() > 50 && k > N*50) {
+            break;
+        }
     }
 
     // Commit final positions
@@ -528,7 +563,10 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
 
     // Snap at the end if enabled
     if (isSnapToGrid()) {
-        for (Node* n : nodesList) n->setPos(snapPoint(n->pos()));
+        for (Node* n : nodesList) {
+            const QPointF snappedScene = snapPoint(n->scenePos());
+            n->setPos(snappedScene); // top-level items: scenePos == pos
+        }
     }
     GraphSubject::endBatch();
     emit sceneChanged();
@@ -538,19 +576,358 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
 
 void Scene::autoLayoutForceDirected(bool selectionOnly, int maxIters, double cooling)
 {
-    // Force-directed layout is just annealing with different parameters
-    // Convert cooling factor to t0/t1 for annealing algorithm
-    double t0 = 1.5;  // Higher initial temperature for more movement
-    double t1 = t0 * std::pow(cooling, maxIters);  // Final temperature based on cooling
+    // 1) Collect nodes
+    QList<Node*> nodes;
+    if (selectionOnly) {
+        for (QGraphicsItem* gi : selectedItems()) {
+            if (auto* n = qgraphicsitem_cast<Node*>(gi)) {
+                nodes.push_back(n);
+            }
+        }
+    }
+    if (nodes.isEmpty()) {
+        for (auto it = m_nodes.begin(); it != m_nodes.end(); ++it) {
+            nodes.push_back(it.value());
+        }
+    }
+    const int N = nodes.size();
+    if (N < 2) {
+        return;
+    }
+
+    // 2) Build sized geometry: center, size, radius, origin-offset
+    struct Geom {
+        Node* n;
+        QPointF center;     // scene-space center
+        QSizeF  size;       // sceneBoundingRect size
+        double  radius;     // 0.5 * diagonal (circle approx)
+        QPointF centerMinusScenePos; // center - scenePos() to convert center->pos
+    };
+    QVector<Geom> G;
+    G.reserve(N);
+    QRectF bbox;
+    for (int i = 0; i < N; ++i) {
+        Node* n = nodes[i];
+        const QRectF r = n->sceneBoundingRect();   // true visual size in scene coords
+        const QPointF c = r.center();
+        const QSizeF  s = r.size();
+        const double  rad = 0.5 * std::hypot(s.width(), s.height());
+        const QPointF offset = c - n->scenePos();  // how far the node's center is from its origin
+        G.push_back({n, c, s, rad, offset});
+        bbox |= r;
+    }
+    if (bbox.width() < 1) {
+        bbox.setWidth(200);
+    }
+    if (bbox.height() < 1) {
+        bbox.setHeight(200);
+    }
+
+    // 3) Edge list (optional attraction). Adapt to your Edge API if needed.
+    // If you have Scene::getEdges() and Edge::getFromNode()/getToNode(), keep this; otherwise leave 'edges' empty.
+    QVector<QPair<int,int>> edges;
+    {
+        QHash<QUuid,int> idx;
+        idx.reserve(N);
+        for (int i = 0; i < N; ++i) {
+            idx.insert(G[i].n->getId(), i);
+        }
+        for (Edge* e : getEdges()) {
+            Node* a = e->getFromNode();
+            Node* b = e->getToNode();
+            if (!a || !b) {
+                continue;
+            }
+            int ia = idx.value(a->getId(), -1);
+            int ib = idx.value(b->getId(), -1);
+            if (ia >= 0 && ib >= 0 && ia != ib) {
+                edges.push_back({ia, ib});
+            }
+        }
+    }
+
+    // 4) Positions are node centers; displacements in scene space
+    QVector<QPointF> pos(N), disp(N, QPointF(0,0));
+    for (int i = 0; i < N; ++i) {
+        pos[i] = G[i].center;
+    }
+
+    // 5) Constants: ideal edge length base, snap-aware margin
+    const double area = std::max(1.0, bbox.width() * bbox.height());
+    const double kBase = std::sqrt(area / double(N));           // classic FR scale
+    const double margin = std::max<double>( (isSnapToGrid() ? gridSize() * 0.5 : 8.0), 6.0 ); // extra buffer
+    double t = std::max(bbox.width(), bbox.height());           // temperature (step cap)
+    if (maxIters <= 0) {
+        maxIters = 300;
+    }
+    if (cooling <= 0.0 || cooling >= 1.0) {
+        cooling = 0.92;
+    }
+
+    auto safeDistance = [&](int i, int j)->double {
+        return G[i].radius + G[j].radius + margin;
+    };
+
+    GraphSubject::beginBatch();
+
+    for (int iter = 0; iter < maxIters; ++iter) {
+        std::fill(disp.begin(), disp.end(), QPointF(0,0));
+
+        // Repulsion (size-aware): use d_eff = |delta| - (r_i + r_j + margin), clamp to epsilon
+        for (int i = 0; i < N; ++i) {
+            for (int j = i + 1; j < N; ++j) {
+                QPointF delta = pos[i] - pos[j];
+                double d = std::hypot(delta.x(), delta.y());
+                const double dSafe = safeDistance(i,j);
+                double d_eff = d - dSafe;
+                if (d_eff < 1e-6) {
+                    d_eff = 1e-6; // overlapping/too close -> strong repel
+                }
+                // classic FR repulsion with size-aware distance
+                const double Fr = (kBase * kBase) / d_eff;
+                QPointF dir = (d > 1e-9) ? (delta / d) : QPointF( (i & 1) ? 1 : -1, (j & 1) ? 1 : -1 );
+                QPointF force = dir * Fr;
+                disp[i] += force;
+                disp[j] -= force;
+            }
+        }
+
+        // Attraction along edges: target length includes node sizes
+        for (auto e : edges) {
+            int i = e.first, j = e.second;
+            QPointF delta = pos[i] - pos[j];
+            double d = std::hypot(delta.x(), delta.y());
+            const double target = kBase + safeDistance(i,j);  // longer springs if nodes are big
+            // classic FR attraction with target length
+            const double Fa = (d * d) / std::max(1e-9, target);
+            QPointF dir = (d > 1e-9) ? (delta / d) : QPointF(0,0);
+            QPointF force = dir * Fa;
+            disp[i] -= force;
+            disp[j] += force;
+        }
+
+        // Move centers, capping by temperature 't'
+        for (int i = 0; i < N; ++i) {
+            QPointF d = disp[i];
+            double len = std::hypot(d.x(), d.y());
+            if (len > 1e-9) {
+                pos[i] += d * (std::min(t, len) / len);
+            }
+        }
+
+        t *= cooling;
+        if (t < 0.5) {
+            break;
+        }
+    }
+
+    // 6) Commit: convert center targets back to node->setPos(origin)
+    for (int i = 0; i < N; ++i) {
+        QPointF center = pos[i];
+        if (isSnapToGrid()) {
+            center = snapPoint(center);
+        }
+        // origin scene position so that center lands at 'center'
+        QPointF newScenePos = center - G[i].centerMinusScenePos;
+        G[i].n->setPos(newScenePos);
+    }
+
+    GraphSubject::endBatch();
+    emit sceneChanged();
     
-    autoLayoutAnneal(selectionOnly, maxIters, t0, t1);
+    qDebug() << "Size-aware force layout complete:" << nodes.size() << "nodes arranged";
+}
+
+void Scene::debugForceLayout3Nodes()
+{
+    qDebug() << "\n=== DEBUG: 3-Node Animated Force Layout ===";
+    
+    // Clear scene and create exactly 3 nodes: source -> transfer -> sink
+    clearGraph();
+    
+    if (!m_graphFactory) {
+        qDebug() << "ERROR: No graph factory available";
+        return;
+    }
+    
+    qDebug() << "Step 1: Creating 3 test nodes...";
+    
+    // Create nodes with specific positions to see geometry mapping
+    Node* source = m_graphFactory->createNode("Input", QPointF(-200, 0));
+    Node* transfer = m_graphFactory->createNode("Process", QPointF(0, 0)); 
+    Node* sink = m_graphFactory->createNode("Output", QPointF(200, 0));
+    
+    if (!source || !transfer || !sink) {
+        qDebug() << "ERROR: Failed to create test nodes";
+        return;
+    }
+    
+    qDebug() << "Step 2: Connecting nodes with edges...";
+    
+    // Connect: source -> transfer -> sink
+    Socket* sourceOut = nullptr;
+    Socket* transferIn = nullptr;
+    Socket* transferOut = nullptr;
+    Socket* sinkIn = nullptr;
+    
+    // Find sockets (assuming first output/input sockets)
+    for (QGraphicsItem* child : source->childItems()) {
+        if (Socket* s = qgraphicsitem_cast<Socket*>(child)) {
+            if (s->getRole() == Socket::Output && !sourceOut) {
+                sourceOut = s;
+                break;
+            }
+        }
+    }
+    
+    for (QGraphicsItem* child : transfer->childItems()) {
+        if (Socket* s = qgraphicsitem_cast<Socket*>(child)) {
+            if (s->getRole() == Socket::Input && !transferIn) {
+                transferIn = s;
+            } else if (s->getRole() == Socket::Output && !transferOut) {
+                transferOut = s;
+            }
+        }
+    }
+    
+    for (QGraphicsItem* child : sink->childItems()) {
+        if (Socket* s = qgraphicsitem_cast<Socket*>(child)) {
+            if (s->getRole() == Socket::Input && !sinkIn) {
+                sinkIn = s;
+                break;
+            }
+        }
+    }
+    
+    // Create connections
+    if (sourceOut && transferIn) {
+        m_graphFactory->connectSockets(sourceOut, transferIn);
+        qDebug() << "Connected: source -> transfer";
+    }
+    if (transferOut && sinkIn) {
+        m_graphFactory->connectSockets(transferOut, sinkIn);
+        qDebug() << "Connected: transfer -> sink";
+    }
+    
+    qDebug() << "Step 3: Analyzing initial geometry...";
+    
+    QList<Node*> nodes = {source, transfer, sink};
+    for (int i = 0; i < nodes.size(); ++i) {
+        Node* n = nodes[i];
+        QRectF bounds = n->sceneBoundingRect();
+        QPointF pos = n->scenePos();
+        QPointF center = bounds.center();
+        QSizeF size = bounds.size();
+        
+        qDebug() << QString("Node %1:").arg(i);
+        qDebug() << QString("  scenePos: (%1, %2)").arg(pos.x()).arg(pos.y());
+        qDebug() << QString("  sceneBounds: (%1, %2) %3x%4")
+                    .arg(bounds.x()).arg(bounds.y()).arg(size.width()).arg(size.height());
+        qDebug() << QString("  center: (%1, %2)").arg(center.x()).arg(center.y());
+        qDebug() << QString("  center - pos: (%1, %2)")
+                    .arg(center.x() - pos.x()).arg(center.y() - pos.y());
+    }
+    
+    // Start with positions that definitely overlap to see force behavior
+    qDebug() << "Step 4: Moving nodes to overlapping positions for force test...";
+    source->setPos(QPointF(-50, 0));
+    transfer->setPos(QPointF(0, 0));
+    sink->setPos(QPointF(50, 0));
+    
+    qDebug() << "Step 5: Starting animated force simulation...";
+    
+    // Simple animated force test - just repulsion, no edges for now
+    struct DebugGeom {
+        Node* n;
+        QPointF center;
+        double radius;
+        QPointF centerOffset;
+    };
+    
+    QVector<DebugGeom> G;
+    for (Node* n : nodes) {
+        QRectF r = n->sceneBoundingRect();
+        QPointF c = r.center();
+        double rad = 0.5 * std::hypot(r.width(), r.height());
+        QPointF offset = c - n->scenePos();
+        G.push_back({n, c, rad, offset});
+    }
+    
+    qDebug() << "Initial positions for force simulation:";
+    for (int i = 0; i < 3; ++i) {
+        qDebug() << QString("Node %1: center=(%2,%3) radius=%4 offset=(%5,%6)")
+                    .arg(i).arg(G[i].center.x()).arg(G[i].center.y()).arg(G[i].radius)
+                    .arg(G[i].centerOffset.x()).arg(G[i].centerOffset.y());
+    }
+    
+    // Run a few iterations and show the process
+    const double kBase = 100.0;
+    const double margin = 20.0;
+    
+    for (int iter = 0; iter < 5; ++iter) {
+        qDebug() << QString("\n--- Force Iteration %1 ---").arg(iter + 1);
+        
+        QVector<QPointF> forces(3, QPointF(0,0));
+        
+        // Calculate repulsion forces
+        for (int i = 0; i < 3; ++i) {
+            for (int j = i + 1; j < 3; ++j) {
+                QPointF delta = G[i].center - G[j].center;
+                double d = std::hypot(delta.x(), delta.y());
+                double dSafe = G[i].radius + G[j].radius + margin;
+                double d_eff = d - dSafe;
+                
+                if (d_eff < 1e-6) {
+                    d_eff = 1e-6; // overlapping
+                }
+                
+                double Fr = (kBase * kBase) / d_eff;
+                QPointF dir = (d > 1e-9) ? (delta / d) : QPointF(1, 0);
+                QPointF force = dir * Fr;
+                
+                qDebug() << QString("Force %1<->%2: d=%3 dSafe=%4 d_eff=%5 Fr=%6")
+                            .arg(i).arg(j).arg(d).arg(dSafe).arg(d_eff).arg(Fr);
+                qDebug() << QString("  delta=(%1,%2) force=(%3,%4)")
+                            .arg(delta.x()).arg(delta.y()).arg(force.x()).arg(force.y());
+                
+                forces[i] += force;
+                forces[j] -= force;
+            }
+        }
+        
+        // Apply forces (small step for debugging)
+        double step = 2.0;
+        for (int i = 0; i < 3; ++i) {
+            QPointF newCenter = G[i].center + forces[i] * step;
+            QPointF newScenePos = newCenter - G[i].centerOffset;
+            
+            qDebug() << QString("Node %1: force=(%2,%3) newCenter=(%4,%5) newPos=(%6,%7)")
+                        .arg(i).arg(forces[i].x()).arg(forces[i].y())
+                        .arg(newCenter.x()).arg(newCenter.y())
+                        .arg(newScenePos.x()).arg(newScenePos.y());
+            
+            G[i].n->setPos(newScenePos);
+            G[i].center = newCenter;
+        }
+        
+        // Update the view
+        emit sceneChanged();
+        
+        // Brief pause so we can see the animation
+        QApplication::processEvents();
+        QThread::msleep(500);
+    }
+    
+    qDebug() << "=== Debug session complete ===\n";
 }
 
 QPointF Scene::snapPoint(const QPointF& scenePos) const
 {
     // Simple grid snapping (when snap-to-grid system is implemented)
     int grid = gridSize();
-    if (grid <= 1) return scenePos;
+    if (grid <= 1) {
+        return scenePos;
+    }
     
     qreal x = qRound(scenePos.x() / grid) * grid;
     qreal y = qRound(scenePos.y() / grid) * grid;

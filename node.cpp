@@ -435,8 +435,6 @@ xmlNodePtr Node::write(xmlDocPtr doc, xmlNodePtr repr) const
     
     if (repr) {
         xmlAddChild(repr, node);
-    } else {
-        xmlDocSetRootElement(doc, node);
     }
     
     return node;

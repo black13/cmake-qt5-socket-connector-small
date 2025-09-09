@@ -10,7 +10,7 @@ GhostEdge::GhostEdge(QGraphicsItem* parent)
     setAcceptedMouseButtons(Qt::NoButton);
     setAcceptTouchEvents(false);
     setCacheMode(QGraphicsItem::NoCache);
-    setZValue(-10);
+    setZValue(3);  // Above normal edges for visibility during drag
 }
 
 void GhostEdge::setPath(const QPainterPath& path)

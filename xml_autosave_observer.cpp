@@ -56,7 +56,7 @@ void XmlAutosaveObserver::setFilename(const QString& filename)
 void XmlAutosaveObserver::setDelay(int milliseconds)
 {
     m_saveTimer->setInterval(milliseconds);
-    qDebug() << "Autosave:" << milliseconds << "ms";
+    logAutosaveState();
 }
 
 void XmlAutosaveObserver::setEnabled(bool enabled)
@@ -65,7 +65,7 @@ void XmlAutosaveObserver::setEnabled(bool enabled)
     if (!enabled) {
         m_saveTimer->stop();
     }
-    qDebug() << "Autosave enabled:" << m_enabled;
+    logAutosaveState();
 }
 
 void XmlAutosaveObserver::saveNow()
@@ -114,7 +114,9 @@ void XmlAutosaveObserver::onGraphCleared()
 
 void XmlAutosaveObserver::scheduleAutosave()
 {
-    if (!m_enabled) return;
+    if (!m_enabled) {
+        return;
+    }
     
     // OPTIMIZATION: Skip autosave scheduling during batch operations
     if (GraphSubject::isInBatch()) {
@@ -157,12 +159,15 @@ void XmlAutosaveObserver::performAutosave()
         QFileInfo fileInfo(m_filename);
         qint64 fileSize = fileInfo.size();
         
-        qDebug().noquote() << "[AUTOSAVE] writeAutosave() SUCCESS! File written to disk.";
-        qDebug() << "AUTOSAVE COMPLETE:";
-        qDebug() << "   File:" << fileInfo.fileName();
-        qDebug() << "   Time:" << elapsed << "ms";
-        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   XML length:" << xmlContent.length() << "characters";
+        // Get scene stats for logging
+        int nodeCount = m_scene->getNodes().size();
+        int edgeCount = m_scene->getEdges().size();
+        
+        // Unified autosave success log as suggested by ChatGPT analysis
+        qDebug() << "Autosave: wrote" << fileInfo.fileName() 
+                 << "(" << QString::number(fileSize / 1024.0, 'f', 1) << "KB)"
+                 << "in" << elapsed << "ms"
+                 << "(nodes=" << nodeCount << "edges=" << edgeCount << ")";
         
         m_pendingChanges = false;
     } else {
@@ -280,4 +285,13 @@ QString XmlAutosaveObserver::generateFullXml() const
     xmlFreeDoc(doc);
     
     return result;
+}
+
+void XmlAutosaveObserver::logAutosaveState()
+{
+    if (m_enabled) {
+        qDebug() << "Autosave: enabled (period=" << m_saveTimer->interval() << "ms)";
+    } else {
+        qDebug() << "Autosave: disabled (interval=" << m_saveTimer->interval() << "ms)";
+    }
 }

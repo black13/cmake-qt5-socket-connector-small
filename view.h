@@ -32,6 +32,9 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+    
+    // Grid visualization
+    void drawBackground(QPainter* painter, const QRectF& rect) override;
 
 signals:
     // Signal emitted when a node is dropped

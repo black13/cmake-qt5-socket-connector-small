@@ -7,6 +7,7 @@
 #include "graph_observer.h"
 #include "node_templates.h"
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QDebug>
 
 GraphFactory::GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc)
@@ -110,6 +111,11 @@ Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge)
 
 Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position, int inputs, int outputs)
 {
+    #ifdef QT_DEBUG
+    QElapsedTimer timer;
+    timer.start();
+    #endif
+    
     qDebug() << "GraphFactory::createNode - UNIFIED XML-FIRST CREATION for type:" << nodeType;
     
     // Generate XML specification from template system (ignores inputs/outputs params - template has correct config)
@@ -141,8 +147,13 @@ Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position,
     xmlFreeDoc(tempDoc);
     
     if (node) {
-        qDebug() << "GraphFactory::createNode - SUCCESS: Created" << nodeType 
-                 << "node:" << node->getId().toString(QUuid::WithoutBraces).left(8);
+        #ifdef QT_DEBUG
+        qint64 elapsed = timer.elapsed();
+        int sockets = node->getSocketCount();
+        qDebug() << "createNode(type=" << nodeType << "):" << elapsed << "ms"
+                 << "(uuid=" << node->getId().toString(QUuid::WithoutBraces).left(8) 
+                 << "sockets=" << sockets << ")";
+        #endif
     } else {
         qCritical() << "GraphFactory::createNode - FAILED to create node from XML";
     }

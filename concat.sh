@@ -7,7 +7,7 @@ OUTPUT="concatenated_code.txt"
 rm -f "$OUTPUT"
 
 # Define which extensions to include
-EXTENSIONS=("*.h" "*.cpp" "*.cmake" "*.py")
+EXTENSIONS=("*.h" "*.cpp" "*.cmake" "*.py" "*.md")
 
 # Concatenate each matching top-level file
 for ext in "${EXTENSIONS[@]}"; do
@@ -20,4 +20,4 @@ for ext in "${EXTENSIONS[@]}"; do
     done
 done
 
-echo "Done: All top-level source files written to $OUTPUT"
+echo "Done: All top-level source files and documentation written to $OUTPUT"

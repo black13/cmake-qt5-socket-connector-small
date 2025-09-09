@@ -10,6 +10,7 @@
 #include <QDateTime>
 #include <QMutex>
 #include <QTimer>
+#include <QUuid>
 #include <QMessageBox>
 #include <iostream>
 #include "window.h"
@@ -41,11 +42,21 @@ void setupLogging()
         QString typeStr;
         
         switch (type) {
-        case QtDebugMsg:    typeStr = "DEBUG"; break;
-        case QtInfoMsg:     typeStr = "INFO "; break;
-        case QtWarningMsg:  typeStr = "WARN "; break;
-        case QtCriticalMsg: typeStr = "ERROR"; break;
-        case QtFatalMsg:    typeStr = "FATAL"; break;
+        case QtDebugMsg:
+            typeStr = "DEBUG";
+            break;
+        case QtInfoMsg:
+            typeStr = "INFO ";
+            break;
+        case QtWarningMsg:
+            typeStr = "WARN ";
+            break;
+        case QtCriticalMsg:
+            typeStr = "ERROR";
+            break;
+        case QtFatalMsg:
+            typeStr = "FATAL";
+            break;
         }
         
         QString logEntry = QString("[%1] %2: %3").arg(timestamp, typeStr, msg);
@@ -69,6 +80,9 @@ int main(int argc, char *argv[])
     // Setup file logging
     setupLogging();
     
+    // Session identification for log correlation (ChatGPT suggestion)
+    QString sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
+    qDebug() << "Session:" << sessionId << "Graph: empty (0 nodes, 0 edges)";
     
     // Set application metadata for Qt command line tools
     QCoreApplication::setApplicationName("NodeGraph");

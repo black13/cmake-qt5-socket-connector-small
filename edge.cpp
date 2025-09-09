@@ -190,29 +190,37 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
 
 void Edge::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    #ifdef QT_DEBUG
     qDebug() << "=== EDGE MOUSE PRESS START ===";
     qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mousePressEvent at" << event->pos();
     qDebug() << "Edge was selected BEFORE mouse press:" << isSelected();
     qDebug() << "Mouse button:" << (event->button() == Qt::LeftButton ? "LEFT" : "OTHER");
     qDebug() << "Modifiers:" << event->modifiers();
+    #endif
     
     QGraphicsItem::mousePressEvent(event);
     
+    #ifdef QT_DEBUG
     qDebug() << "Edge is selected AFTER mouse press:" << isSelected();
     qDebug() << "=== EDGE MOUSE PRESS END ===";
+    #endif
 }
 
 void Edge::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
+    #ifdef QT_DEBUG
     qDebug() << "=== EDGE MOUSE RELEASE START ===";
     qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mouseReleaseEvent at" << event->pos();
     qDebug() << "Edge is selected BEFORE mouse release:" << isSelected();
+    #endif
     
     QGraphicsItem::mouseReleaseEvent(event);
     
+    #ifdef QT_DEBUG
     qDebug() << "Edge is selected AFTER mouse release:" << isSelected();
     qDebug() << "Edge turns orange (selected):" << (isSelected() ? "YES" : "NO");
     qDebug() << "=== EDGE MOUSE RELEASE END ===";
+    #endif
 }
 
 void Edge::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
@@ -344,8 +352,6 @@ xmlNodePtr Edge::write(xmlDocPtr doc, xmlNodePtr repr) const
     
     if (repr) {
         xmlAddChild(repr, node);
-    } else {
-        xmlDocSetRootElement(doc, node);
     }
     
     return node;

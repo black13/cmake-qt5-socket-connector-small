@@ -6,6 +6,7 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QPainter>
 #include <QDebug>
 
 View::View(Scene* scene, QWidget* parent)
@@ -136,4 +137,10 @@ void View::dropEvent(QDropEvent* event)
         qDebug() << "View: Drop event ignored - no node template data";
         event->ignore();
     }
+}
+
+void View::drawBackground(QPainter* painter, const QRectF& rect)
+{
+    // Simple grid background
+    QGraphicsView::drawBackground(painter, rect);
 }

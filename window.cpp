@@ -313,7 +313,9 @@ bool Window::loadGraph(const QString& filename)
         return false;
     }
 
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
 
     GraphSubject::beginBatch();
     m_scene->clearGraph();
@@ -343,7 +345,10 @@ bool Window::loadGraph(const QString& filename)
 
 void Window::createInputNode()
 {
-    if (!m_factory) { QMessageBox::warning(this,"No Factory","Adopt a factory first."); return; }
+    if (!m_factory) {
+        QMessageBox::warning(this,"No Factory","Adopt a factory first.");
+        return;
+    }
     
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
@@ -365,7 +370,10 @@ void Window::createInputNode()
 
 void Window::createOutputNode()
 {
-    if (!m_factory) { QMessageBox::warning(this,"No Factory","Adopt a factory first."); return; }
+    if (!m_factory) {
+        QMessageBox::warning(this,"No Factory","Adopt a factory first.");
+        return;
+    }
     
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
@@ -387,7 +395,10 @@ void Window::createOutputNode()
 
 void Window::createProcessorNode()
 {
-    if (!m_factory) { QMessageBox::warning(this,"No Factory","Adopt a factory first."); return; }
+    if (!m_factory) {
+        QMessageBox::warning(this,"No Factory","Adopt a factory first.");
+        return;
+    }
     
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
@@ -587,6 +598,21 @@ void Window::createViewMenu()
     
     m_viewMenu->addSeparator();
     
+    // Snap to Grid toggle
+    QAction* snapToGridAction = new QAction("&Snap to Grid", this);
+    snapToGridAction->setCheckable(true);
+    snapToGridAction->setChecked(false);
+    snapToGridAction->setStatusTip("Enable snap to grid for node positioning and layout");
+    connect(snapToGridAction, &QAction::toggled, this, [this](bool checked) {
+        if (m_scene) {
+            m_scene->setSnapToGrid(checked);
+            qDebug() << "Snap to grid:" << (checked ? "enabled" : "disabled");
+        }
+    });
+    m_viewMenu->addAction(snapToGridAction);
+    
+    m_viewMenu->addSeparator();
+    
     // Dock widget toggles will be added after dock widgets are created
 }
 
@@ -684,6 +710,17 @@ void Window::createToolsMenu()
     QAction* forceRunNow = new QAction("Run Force-Layout Smoke Test &Now...", this);
     connect(forceRunNow, &QAction::triggered, this, &Window::runForceLayoutSmokeNow);
     arrangeMenu->addAction(forceRunNow);
+    
+    // Debug Force Layout with 3 Nodes
+    arrangeMenu->addSeparator();
+    QAction* debugForce3Action = new QAction("Debug Force Layout (3 Nodes)...", this);
+    debugForce3Action->setStatusTip("Animated debug of force layout with 3 test nodes");
+    connect(debugForce3Action, &QAction::triggered, this, [this]() {
+        if (m_scene) {
+            m_scene->debugForceLayout3Nodes();
+        }
+    });
+    arrangeMenu->addAction(debugForce3Action);
     
 #if ENABLE_JS
     // JavaScript console and scripting (only when enabled)
@@ -801,7 +838,9 @@ void Window::setupDockWidgets()
 
 void Window::updateStatusBar()
 {
-    if (!m_scene) return;
+    if (!m_scene) {
+        return;
+    }
     
     // Update graph statistics
     int nodeCount = m_scene->getNodes().size();
@@ -841,7 +880,9 @@ void Window::onSelectionChanged()
 
 void Window::updateSelectionInfo()
 {
-    if (!m_scene) return;
+    if (!m_scene) {
+        return;
+    }
     
     QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
     if (selectedItems.isEmpty()) {
@@ -878,10 +919,14 @@ void Window::updateSelectionInfo()
 void Window::newFile()
 {
     qDebug() << "New file requested";
-    if (!m_scene) return;
+    if (!m_scene) {
+        return;
+    }
     
     // Suspend autosave during destructive ops
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
 
     GraphSubject::beginBatch();
     m_scene->clearGraph();                        // hard clear
@@ -1281,10 +1326,14 @@ void Window::testClearGraphRemovesEverything()
     for (int i=0;i<5;++i) {
         Node* a = m_factory->createNode("SOURCE", QPointF(-200, i*40));
         Node* b = m_factory->createNode("SINK",   QPointF( 200, i*40));
-        if (!a || !b) continue;
+        if (!a || !b) {
+            continue;
+        }
         Socket* out0 = a->getSocketByIndex(0);
         Socket* in0  = b->getSocketByIndex(0);
-        if (out0 && in0) (void)m_factory->connectSockets(out0, in0);
+        if (out0 && in0) {
+            (void)m_factory->connectSockets(out0, in0);
+        }
     }
     int beforeNodes = m_scene->getNodes().size();
     int beforeEdges = m_scene->getEdges().size();
@@ -1356,7 +1405,9 @@ void Window::runSmokeTests()
     }
 
     // Batch tests to keep observers quiet; autosave suspended briefly
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
     GraphSubject::beginBatch();
 
     testTemplateNodeCreation();
@@ -1371,9 +1422,13 @@ void Window::runSmokeTests()
 
 void Window::arrangeAutoAnnealSelection()
 {
-    if (!m_scene) return;
+    if (!m_scene) {
+        return;
+    }
     
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
     m_scene->autoLayoutAnneal(/*selectionOnly=*/true, /*iters=*/2000, /*t0=*/1.0, /*t1=*/0.01);
     if (m_autosaveObserver) { 
         m_autosaveObserver->saveNow(); 
@@ -1384,9 +1439,13 @@ void Window::arrangeAutoAnnealSelection()
 
 void Window::arrangeAutoAnnealAll()
 {
-    if (!m_scene) return;
+    if (!m_scene) {
+        return;
+    }
     
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
     m_scene->autoLayoutAnneal(/*selectionOnly=*/false, /*iters=*/2500, /*t0=*/1.2, /*t1=*/0.02);
     if (m_autosaveObserver) { 
         m_autosaveObserver->saveNow(); 
@@ -1418,7 +1477,9 @@ void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
     }
 
     // Keep autosave quiet; batch edits
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
     GraphSubject::beginBatch();
 
     // Start from a clean slate (we'll restore the file if we were called from load)
@@ -1447,11 +1508,15 @@ void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
         for (int i=0; i<created.size()-1; ++i) {
             Node* a = created[i];
             Node* b = created[i+1];
-            if (!a || !b) continue;
+            if (!a || !b) {
+            continue;
+        }
             Socket* out0 = a->getSocketByIndex(0);
             Socket* in0  = b->getSocketByIndex(0);
             if (out0 && in0) {
-                if (m_factory->connectSockets(out0, in0)) ++edgesMade;
+                if (m_factory->connectSockets(out0, in0)) {
+                    ++edgesMade;
+                }
             }
         }
     }
@@ -1493,7 +1558,9 @@ void Window::restoreJustLoadedFile()
     }
 
     // Reload the file silently (autosave gated)
-    if (m_autosaveObserver) m_autosaveObserver->setEnabled(false);
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
     GraphSubject::beginBatch();
     m_scene->clearGraph();
     m_factory->loadFromXmlFile(path);
@@ -1552,13 +1619,17 @@ void Window::runVisualSmokeTest()
         qreal rx = (r % 10000) / 10000.0; r = 1664525u * r + 1013904223u;
         qreal ry = (r % 10000) / 10000.0;
         QPointF pos(box.left() + rx*box.width(), box.top() + ry*box.height());
-        if (Node* n = m_factory->createNode(t, pos)) nodes.push_back(n);
+        if (Node* n = m_factory->createNode(t, pos)) {
+            nodes.push_back(n);
+        }
     }
     // simple chain so edges exist (if sockets permit index 0)
     int edgesMade = 0;
     for (int i=0; i+1<nodes.size(); ++i) {
         Edge* e = m_factory->createEdge(nodes[i], 0, nodes[i+1], 0);
-        if (e) ++edgesMade;
+        if (e) {
+            ++edgesMade;
+        }
     }
 
     // 4) render snapshot
@@ -1567,7 +1638,9 @@ void Window::runVisualSmokeTest()
 
     // 5) save to a predictable place
     QDir out(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
-    if (!out.exists("NodeGraphTests")) out.mkdir("NodeGraphTests");
+    if (!out.exists("NodeGraphTests")) {
+        out.mkdir("NodeGraphTests");
+    }
     const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
     const QString path = out.filePath(QString("NodeGraphTests/smoke_%1_nodes%2_edges%3.png")
                                       .arg(ts).arg(nodes.size()).arg(edgesMade));
@@ -1592,7 +1665,9 @@ void Window::saveSceneSnapshot()
     QImage img = renderSceneImage(rect, size);
     const QString fn = QFileDialog::getSaveFileName(this, "Save Scene Snapshot",
                         "scene.png", "PNG Image (*.png)");
-    if (fn.isEmpty()) return;
+    if (fn.isEmpty()) {
+        return;
+    }
     if (img.save(fn)) {
         QMessageBox::information(this, "Snapshot Saved", QString("Saved: %1").arg(fn));
     } else {

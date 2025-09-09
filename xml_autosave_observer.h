@@ -43,5 +43,6 @@ private:
     
     void scheduleAutosave();
     void performAutosave();
+    void logAutosaveState();
     QString generateFullXml() const;
 };
