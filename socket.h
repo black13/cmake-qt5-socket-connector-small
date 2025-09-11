@@ -11,10 +11,15 @@
 #include <QKeyEvent>
 #include <QColor>
 #include <QRectF>
-#include <libxml/tree.h>
 
 class Node;
 class Edge;
+
+// Forward declarations for libxml types (reduces header pollution)
+typedef struct _xmlNode xmlNode;
+typedef xmlNode* xmlNodePtr;
+typedef struct _xmlDoc xmlDoc;
+typedef xmlDoc* xmlDocPtr;
 
 /**
  * Socket - QGraphicsItem connection point on a node
@@ -53,10 +58,10 @@ public:
     Socket(Role role, Node* parentNode, int index);
     
     // Core identity - NO UUID, just index within parent node
-    int getIndex() const { return m_index; }
-    Role getRole() const { return m_role; }
+    [[nodiscard]] int getIndex() const { return m_index; }
+    [[nodiscard]] Role getRole() const { return m_role; }
     // Access parent node via Qt's system  
-    Node* getParentNode() const;
+    [[nodiscard]] Node* getParentNode() const;
     
     // Self-serialization interface
     xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const;
@@ -68,7 +73,7 @@ public:
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     
     // Event handling - proper Qt architecture
-    void keyPressEvent(QKeyEvent *event) override;
+    // Note: Delete key handling centralized in Scene::keyPressEvent()
     
     // Mouse events for connection creation
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -77,15 +82,15 @@ public:
     void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
     
     // Connection state
-    bool isConnected() const { return m_connectedEdge != nullptr; }
+    [[nodiscard]] bool isConnected() const { return m_connectedEdge != nullptr; }
     void setConnectedEdge(Edge* edge) {
         m_connectedEdge = edge;
         updateConnectionState();
     }
-    Edge* getConnectedEdge() const { return m_connectedEdge; }
+    [[nodiscard]] Edge* getConnectedEdge() const { return m_connectedEdge; }
     
     // Visual connection state
-    ConnectionState getConnectionState() const { return m_connectionState; }
+    [[nodiscard]] ConnectionState getConnectionState() const { return m_connectionState; }
     void setConnectionState(ConnectionState state) {
         m_connectionState = state;
         update();
@@ -98,8 +103,8 @@ public:
     void setDirectPosition(qreal x, qreal y) { setPos(x, y); }
     
     // Size properties for edge connection calculations
-    qreal getRadius() const { return m_radius; }
-    QSizeF getSocketSize() const { return boundingRect().size(); }
+    [[nodiscard]] qreal getRadius() const { return m_radius; }
+    [[nodiscard]] QSizeF getSocketSize() const { return boundingRect().size(); }
     
     // Visual state for drag-and-drop feedback (disabled)
     // VisualState getVisualState() const { return m_visualState; }

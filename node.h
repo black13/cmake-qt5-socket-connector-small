@@ -14,11 +14,16 @@
 #include <QColor>
 #include <QSet>
 #include <QKeyEvent>
-#include <libxml/tree.h>
 
 // Forward declarations to avoid circular includes
 class Socket;
 class Edge;
+
+// Forward declarations for libxml types (reduces header pollution)
+typedef struct _xmlNode xmlNode;
+typedef xmlNode* xmlNodePtr;
+typedef struct _xmlDoc xmlDoc;
+typedef xmlDoc* xmlDocPtr;
 
 /**
  * Node - A self-serializing visual node
@@ -38,7 +43,7 @@ public:
     ~Node(); // Destructor for safe edge invalidation
     
     // Core identity
-    const QUuid& getId() const { return m_id; }
+    [[nodiscard]] const QUuid& getId() const { return m_id; }
     
     // Self-serialization interface
     xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const;
@@ -48,24 +53,24 @@ public:
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
     
-    // Event handling - proper Qt architecture
-    void keyPressEvent(QKeyEvent *event) override;
+    // Event handling - proper Qt architecture  
+    // Note: Delete key handling centralized in Scene::keyPressEvent()
     
     // Movement tracking for live XML updates
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     
     // Node properties
     void setNodeSize(qreal width, qreal height);
-    QSizeF getNodeSize() const { return QSizeF(m_width, m_height); }
+    [[nodiscard]] QSizeF getNodeSize() const { return QSizeF(m_width, m_height); }
     
     // Visual state - using Qt's selection system
     // Use QGraphicsItem::isSelected() and setSelected()
     
     // Socket management - O(1) performance
-    Socket* getSocketByIndex(int index) const;
-    int getSocketCount() const;
+    [[nodiscard]] Socket* getSocketByIndex(int index) const;
+    [[nodiscard]] int getSocketCount() const;
     void setNodeType(const QString& type);
-    QString getNodeType() const { return m_nodeType; }
+    [[nodiscard]] QString getNodeType() const { return m_nodeType; }
     
     // Socket registration for performance cache
     void registerSocket(Socket* socket, int index);
@@ -81,8 +86,8 @@ public:
     
     // Observer interface for GraphFactory - contract enforcement
     void setObserver(void* observer) { m_observer = observer; }
-    bool hasObserver() const { return m_observer != nullptr; }
-    void* getObserver() const { return m_observer; }
+    [[nodiscard]] bool hasObserver() const { return m_observer != nullptr; }
+    [[nodiscard]] void* getObserver() const { return m_observer; }
     
     // Edge connection management - O(degree) performance optimization
     void registerEdge(Edge* edge);
@@ -90,7 +95,7 @@ public:
     void updateConnectedEdges();
     
     // Debug/testing helper
-    int getIncidentEdgeCount() const { return m_incidentEdges.size(); }
+    [[nodiscard]] int getIncidentEdgeCount() const { return m_incidentEdges.size(); }
 
 private:
     QUuid m_id;

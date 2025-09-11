@@ -75,6 +75,55 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     Q_UNUSED(widget)
     Q_UNUSED(option) // Don't use Qt's default drawing options
     
+    // Cached pens for performance - created once, reused every frame
+    static const QPen selectionGlowPen = []() {
+        QPen pen(QColor(255, 69, 0, 100), 12);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen selectionPen = []() {
+        QPen pen(QColor(255, 69, 0), 6);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen hoverGlowPen = []() {
+        QPen pen(QColor(100, 150, 255, 80), 8);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen hoverPen = []() {
+        QPen pen(QColor(100, 150, 255), 4);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen shadowPen = []() {
+        QPen pen(QColor(0, 0, 0, 60), 5);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen outlinePen = []() {
+        QPen pen(QColor(40, 40, 40), 4);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen mainPen = []() {
+        QPen pen(QColor(85, 85, 85), 3);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
+    static const QPen highlightPen = []() {
+        QPen pen(QColor(120, 120, 120), 1);
+        pen.setCapStyle(Qt::RoundCap);
+        return pen;
+    }();
+    
     painter->setRenderHint(QPainter::Antialiasing);
     
     // Save painter state to ensure no side effects
@@ -83,54 +132,38 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     // Make sure no brush is set (no fill)
     painter->setBrush(Qt::NoBrush);
     
-    // IMPROVED: Multi-layer cable-like rendering with depth
+    // IMPROVED: Multi-layer cable-like rendering with depth using cached pens
     if (isSelected()) {
         // Selection: bright orange with glow effect
-        QPen glowPen(QColor(255, 69, 0, 100), 12);
-        glowPen.setCapStyle(Qt::RoundCap);
-        painter->setPen(glowPen);
+        painter->setPen(selectionGlowPen);
         painter->drawPath(m_path);
         
-        QPen selectionPen(QColor(255, 69, 0), 6);
-        selectionPen.setCapStyle(Qt::RoundCap);
         painter->setPen(selectionPen);
         painter->drawPath(m_path);
     } else if (m_hovered) {
         // Hover: blue with subtle glow
-        QPen hoverGlowPen(QColor(100, 150, 255, 80), 8);
-        hoverGlowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(hoverGlowPen);
         painter->drawPath(m_path);
         
-        QPen hoverPen(QColor(100, 150, 255), 4);
-        hoverPen.setCapStyle(Qt::RoundCap);
         painter->setPen(hoverPen);
         painter->drawPath(m_path);
     } else {
         // Normal: layered cable appearance with depth
         // Layer 1: Shadow for depth
-        QPen shadowPen(QColor(0, 0, 0, 60), 5);
-        shadowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(shadowPen);
         QPainterPath shadowPath = m_path;
         shadowPath.translate(1.5, 1.5);
         painter->drawPath(shadowPath);
         
         // Layer 2: Dark outline for definition
-        QPen outlinePen(QColor(40, 40, 40), 4);
-        outlinePen.setCapStyle(Qt::RoundCap);
         painter->setPen(outlinePen);
         painter->drawPath(m_path);
         
         // Layer 3: Main cable body with subtle gradient effect
-        QPen mainPen(QColor(85, 85, 85), 3);
-        mainPen.setCapStyle(Qt::RoundCap);
         painter->setPen(mainPen);
         painter->drawPath(m_path);
         
         // Layer 4: Highlight for 3D cable effect
-        QPen highlightPen(QColor(120, 120, 120), 1);
-        highlightPen.setCapStyle(Qt::RoundCap);
         painter->setPen(highlightPen);
         painter->drawPath(m_path);
     }
@@ -141,9 +174,13 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
 
 QPainterPath Edge::shape() const
 {
+    // Unified pick radius constant - prevents drift between shape() and boundingRect()
+    constexpr qreal kPickWidth = 20.0;
+    constexpr qreal kPickRadius = kPickWidth / 2.0;  // 10.0
+    
     // Create a much wider path for easier selection - very generous selection area
     QPainterPathStroker stroker;
-    stroker.setWidth(20);  // Very wide selection area for easy clicking
+    stroker.setWidth(kPickWidth);  // Very wide selection area for easy clicking
     stroker.setCapStyle(Qt::RoundCap);
     stroker.setJoinStyle(Qt::RoundJoin);
     QPainterPath selectionPath = stroker.createStroke(m_path);
@@ -166,24 +203,13 @@ QPainterPath Edge::shape() const
 QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == ItemSelectedHasChanged) {
-        // Selection tracking logging - what has been selected
-        bool wasSelected = isSelected();
-        bool willBeSelected = value.toBool();
-        qDebug() << "=== EDGE SELECTION CHANGE ===";
-        qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << "changing from" << (wasSelected ? "SELECTED" : "NOT_SELECTED")
-                 << "to" << (willBeSelected ? "SELECTED" : "NOT_SELECTED");
-        qDebug() << "Edge will" << (willBeSelected ? "turn ORANGE" : "turn NORMAL");
-        
-        // CRITICAL: When selected, take keyboard focus for delete key events
-        if (willBeSelected) {
+        // Take keyboard focus when selected for delete key handling
+        if (value.toBool()) {
             setFocus(Qt::MouseFocusReason);
-            qDebug() << "Edge: Taking keyboard focus for delete key handling";
         }
         
         // Trigger visual update when selection changes
         update();
-        qDebug() << "=== EDGE SELECTION CHANGE COMPLETE ===";
     }
     return QGraphicsItem::itemChange(change, value);
 }
@@ -327,14 +353,17 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Notify Qt's BSP cache before changing bounding rectangle
     prepareGeometryChange();
     
+    // Unified pick radius constant (matches shape() method)
+    constexpr qreal kPickRadius = 10.0;  // Half of kPickWidth from shape()
+    
     // Update bounding rectangle with validation
     QRectF pathBounds = m_path.boundingRect();
     if (pathBounds.isValid()) {
-        // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
-        m_boundingRect = pathBounds.adjusted(-10, -10, 10, 10);
+        // Inflate by pick radius to match stroker width in shape()
+        m_boundingRect = pathBounds.adjusted(-kPickRadius, -kPickRadius, kPickRadius, kPickRadius);
     } else {
-        // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
-        m_boundingRect = QRectF(start, end).normalized().adjusted(-10, -10, 10, 10);
+        // Inflate by pick radius to match stroker width in shape()
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-kPickRadius, -kPickRadius, kPickRadius, kPickRadius);
     }
 }
 
@@ -565,8 +594,34 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
         return;
     }
     
+    // SOCKET VALIDATION: Check for existing connections (consistent with resolveConnections)
+    if (fromSocket->isConnected()) {
+        qCritical() << "Socket validation failed: Output socket already connected";
+        qCritical() << "- Socket:" << fromSocket->getIndex() << "on node" << fromSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8);
+        qCritical() << "- Current edge:" << (fromSocket->getConnectedEdge() ? 
+                         fromSocket->getConnectedEdge()->getId().toString(QUuid::WithoutBraces).left(8) : "unknown");
+        qCritical() << "- Attempting edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
+        qCritical() << "Solution: Only one edge allowed per socket. Check connection logic.";
+        return;
+    }
+    
+    if (toSocket->isConnected()) {
+        qCritical() << "Socket validation failed: Input socket already connected";
+        qCritical() << "- Socket:" << toSocket->getIndex() << "on node" << toSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8);
+        qCritical() << "- Current edge:" << (toSocket->getConnectedEdge() ? 
+                         toSocket->getConnectedEdge()->getId().toString(QUuid::WithoutBraces).left(8) : "unknown");
+        qCritical() << "- Attempting edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
+        qCritical() << "Solution: Only one edge allowed per socket. Check connection logic.";
+        return;
+    }
+    
+    // Store socket references and update their connection state
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
+    
+    // Connect sockets to this edge (only after validation passes)
+    fromSocket->setConnectedEdge(this);
+    toSocket->setConnectedEdge(this);
     
     // Cache node pointers for safe destruction
     Node* fromNode = fromSocket->getParentNode();
@@ -583,23 +638,4 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     updatePath();
 }
 
-void Edge::keyPressEvent(QKeyEvent *event)
-{
-    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        qDebug() << "=== EDGE SELF-DELETION START ===";
-        qDebug() << "Edge" << getId().toString(QUuid::WithoutBraces).left(8) << "handling its own delete key";
-        
-        // Proper Qt approach: Edge handles its own deletion
-        // Get the scene to call proper deletion method
-        Scene* scene = qobject_cast<Scene*>(this->scene());
-        if (scene) {
-            scene->deleteEdge(getId());
-        } else {
-            qWarning() << "Edge: No scene found for deletion";
-        }
-        return;
-    }
-    
-    // Pass unhandled keys to parent
-    QGraphicsItem::keyPressEvent(event);
-}
+// Note: Delete key handling moved to Scene::keyPressEvent() for centralized multi-selection support

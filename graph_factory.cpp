@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QDebug>
+#include <libxml/tree.h>
 
 GraphFactory::GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc)
     : m_scene(scene)

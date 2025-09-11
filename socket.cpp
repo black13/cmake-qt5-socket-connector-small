@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QDateTime>
 #include <QtMath>
+#include <libxml/tree.h>
 
 Socket::Socket(Role role, Node* parentNode, int index)
     : QGraphicsItem(parentNode)
@@ -258,28 +259,6 @@ QVariant Socket::itemChange(GraphicsItemChange change, const QVariant &value)
     return QGraphicsItem::itemChange(change, value);
 }
 
-void Socket::keyPressEvent(QKeyEvent *event)
-{
-    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        qDebug() << "=== SOCKET SELF-DELETION START ===";
-        qDebug() << "Socket" << roleToString(m_role) << "index" << m_index << "handling its own delete key";
-        
-        // NOTE: Sockets are typically not deleted individually - they're part of nodes
-        // But we can disconnect any connected edges
-        if (m_connectedEdge) {
-            Scene* scene = qobject_cast<Scene*>(this->scene());
-            if (scene) {
-                qDebug() << "Socket: Disconnecting edge" << m_connectedEdge->getId().toString(QUuid::WithoutBraces).left(8);
-                scene->deleteEdge(m_connectedEdge->getId());
-            }
-        } else {
-            qDebug() << "Socket: No connected edge to delete";
-        }
-        return;
-    }
-    
-    // Pass unhandled keys to parent
-    QGraphicsItem::keyPressEvent(event);
-}
+// Note: Delete key handling moved to Scene::keyPressEvent() for centralized multi-selection support
 
 

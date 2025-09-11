@@ -19,6 +19,7 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "node_templates.h"
+#include <libxml/tree.h>
 
 void setupLogging()
 {

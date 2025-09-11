@@ -6,13 +6,18 @@
 #include <QPointF>
 #include <QDebug>
 #include <QVariantMap>
-#include <libxml/tree.h>
 #include "socket.h"
 #include "node_templates.h"
 
 class Node;
 class Edge;
 class Scene;
+
+// Forward declarations for libxml types (reduces header pollution)
+typedef struct _xmlNode xmlNode;
+typedef xmlNode* xmlNodePtr;
+typedef struct _xmlDoc xmlDoc;
+typedef xmlDoc* xmlDocPtr;
 
 /**
  * GraphFactory - XML-First Object Creation with NodeRegistry

@@ -49,12 +49,12 @@ public:
     void removeEdge(const QUuid& edgeId);
     
     // Fast UUID-based lookups O(1) - no searching, no casting
-    Node* getNode(const QUuid& nodeId) const;
-    Edge* getEdge(const QUuid& edgeId) const;
+    [[nodiscard]] Node* getNode(const QUuid& nodeId) const;
+    [[nodiscard]] Edge* getEdge(const QUuid& edgeId) const;
     
     // Type-safe iteration - never need qgraphicsitem_cast
-    const QHash<QUuid, Node*>& getNodes() const { return m_nodes; }
-    const QHash<QUuid, Edge*>& getEdges() const { return m_edges; }
+    [[nodiscard]] const QHash<QUuid, Node*>& getNodes() const { return m_nodes; }
+    [[nodiscard]] const QHash<QUuid, Edge*>& getEdges() const { return m_edges; }
     // Clean design: sockets accessed via nodes, not scene
     
     // Deletion methods - maintain integrity
@@ -66,7 +66,7 @@ public:
     
     // PHASE 1.2: Safe shutdown preparation
     void prepareForShutdown();
-    bool isShutdownInProgress() const { return m_shutdownInProgress; }
+    [[nodiscard]] bool isShutdownInProgress() const { return m_shutdownInProgress; }
     
     // Public observer notifications (for Node movement)
     using GraphSubject::notifyNodeMoved;
@@ -76,7 +76,7 @@ public:
     void updateGhostEdge(const QPointF& currentPos);
     void finishGhostEdge(Socket* toSocket = nullptr);
     void cancelGhostEdge();
-    bool ghostEdgeActive() const { return m_ghostEdgeActive; }
+    [[nodiscard]] bool ghostEdgeActive() const { return m_ghostEdgeActive; }
     
     // JavaScript engine methods removed - focusing on core C++ functionality
     
@@ -90,6 +90,9 @@ protected:
     // Mouse event handling for ghost edge interactions
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
+    
+    // Centralized key handling for consistent multi-selection deletion
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     // QElectroTech-style typed collections with UUID keys

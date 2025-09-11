@@ -532,23 +532,4 @@ void Node::calculateNodeSize(int inputCount, int outputCount)
              << "for" << inputCount << "inputs," << outputCount << "outputs";
 }
 
-void Node::keyPressEvent(QKeyEvent *event)
-{
-    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        qDebug() << "=== NODE SELF-DELETION START ===";
-        qDebug() << "Node" << getId().toString(QUuid::WithoutBraces).left(8) << "handling its own delete key";
-        
-        // Proper Qt approach: Node handles its own deletion
-        // Get the scene to call proper deletion method
-        Scene* scene = qobject_cast<Scene*>(this->scene());
-        if (scene) {
-            scene->deleteNode(getId());
-        } else {
-            qWarning() << "Node: No scene found for deletion";
-        }
-        return;
-    }
-    
-    // Pass unhandled keys to parent
-    QGraphicsItem::keyPressEvent(event);
-}
+// Note: Delete key handling moved to Scene::keyPressEvent() for centralized multi-selection support

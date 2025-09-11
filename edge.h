@@ -12,10 +12,15 @@
 #include <QPointF>
 #include <QKeyEvent>
 #include <functional>
-#include <libxml/tree.h>
 
 class Socket;
 class Node;
+
+// Forward declarations for libxml types (reduces header pollution)
+typedef struct _xmlNode xmlNode;
+typedef xmlNode* xmlNodePtr;
+typedef struct _xmlDoc xmlDoc;
+typedef xmlDoc* xmlDocPtr;
 
 /**
  * Edge - Connection between two sockets
@@ -35,7 +40,7 @@ public:
     ~Edge(); // Destructor for node unregistration
     
     // Core identity
-    const QUuid& getId() const { return m_id; }
+    [[nodiscard]] const QUuid& getId() const { return m_id; }
     
     // Self-serialization interface
     xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const;
@@ -48,7 +53,7 @@ public:
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     
     // Event handling - proper Qt architecture
-    void keyPressEvent(QKeyEvent *event) override;
+    // Note: Delete key handling centralized in Scene::keyPressEvent()
     
     // Connection management - clean design uses node+index only
     // No socket UUIDs - edges resolved via resolveConnections() method
@@ -81,16 +86,16 @@ public:
     void invalidateNode(const Node* node);
     
     // Public accessors for layout engine
-    Node* getFromNode() const { return m_fromNode; }
-    Node* getToNode() const { return m_toNode; }
-    Socket* getFromSocket() const { return m_fromSocket; }
-    Socket* getToSocket() const { return m_toSocket; }
+    [[nodiscard]] Node* getFromNode() const { return m_fromNode; }
+    [[nodiscard]] Node* getToNode() const { return m_toNode; }
+    [[nodiscard]] Socket* getFromSocket() const { return m_fromSocket; }
+    [[nodiscard]] Socket* getToSocket() const { return m_toSocket; }
     
     // Connection data accessors (for validation)
-    QString getFromNodeId() const { return m_fromNodeId; }
-    QString getToNodeId() const { return m_toNodeId; }
-    int getFromSocketIndex() const { return m_fromSocketIndex; }
-    int getToSocketIndex() const { return m_toSocketIndex; }
+    [[nodiscard]] QString getFromNodeId() const { return m_fromNodeId; }
+    [[nodiscard]] QString getToNodeId() const { return m_toNodeId; }
+    [[nodiscard]] int getFromSocketIndex() const { return m_fromSocketIndex; }
+    [[nodiscard]] int getToSocketIndex() const { return m_toSocketIndex; }
 
 private:
     QUuid m_id;

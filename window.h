@@ -11,10 +11,15 @@
 #include <QProgressBar>
 #include <QSpinBox>
 #include <QComboBox>
-#include <libxml/tree.h>
 
 class View;
 class Scene;
+
+// Forward declarations for libxml types (reduces header pollution)
+typedef struct _xmlNode xmlNode;
+typedef xmlNode* xmlNodePtr;
+typedef struct _xmlDoc xmlDoc;
+typedef xmlDoc* xmlDocPtr;
 class GraphFactory;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
@@ -49,7 +54,7 @@ public:
     void adoptFactory(GraphFactory* factory);
     
     // Access to scene for testing
-    Scene* getScene() const { return m_scene; }
+    [[nodiscard]] Scene* getScene() const { return m_scene; }
     
     // Update status bar with current graph information
     void updateStatusBar();
@@ -77,7 +82,7 @@ public slots:
     
     // File management
     void setCurrentFile(const QString& filename);
-    QString getCurrentFile() const { return m_currentFile; }
+    [[nodiscard]] QString getCurrentFile() const { return m_currentFile; }
     
     // Interactive node creation
     void createInputNode();
