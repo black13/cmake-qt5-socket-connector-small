@@ -8,6 +8,7 @@
 #include <QElapsedTimer>
 #include <QtMath>
 #include <QKeyEvent>
+#include <QMetaObject>
 #include <cmath>
 
 // Static flag for clearing state
@@ -461,15 +462,22 @@ void Scene::keyPressEvent(QKeyEvent* event)
         }
         
         // Delete edges first (they reference nodes/sockets)
+        // Use queued connections to avoid deletion during event processing
         for (Edge* edge : edgesToDelete) {
-            qDebug() << "Scene deleting edge" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            deleteEdge(edge->getId());
+            qDebug() << "Scene queuing edge deletion" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+            QUuid edgeId = edge->getId();
+            QMetaObject::invokeMethod(this, [this, edgeId]() {
+                deleteEdge(edgeId);
+            }, Qt::QueuedConnection);
         }
         
         // Delete nodes (this will handle their sockets automatically)
         for (Node* node : nodesToDelete) {
-            qDebug() << "Scene deleting node" << node->getId().toString(QUuid::WithoutBraces).left(8);
-            deleteNode(node->getId());
+            qDebug() << "Scene queuing node deletion" << node->getId().toString(QUuid::WithoutBraces).left(8);
+            QUuid nodeId = node->getId();
+            QMetaObject::invokeMethod(this, [this, nodeId]() {
+                deleteNode(nodeId);
+            }, Qt::QueuedConnection);
         }
         
         // Note: Sockets are typically deleted with their parent nodes

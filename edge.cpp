@@ -2,6 +2,7 @@
 #include "socket.h"
 #include "node.h"
 #include "scene.h"
+#include "constants.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -43,15 +44,33 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
+    // Clear socket back-references to avoid dangling edge pointers
+    if (m_fromSocket) {
+        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
+                 << "clearing from-socket connection";
+        m_fromSocket->setConnectedEdge(nullptr);
+        m_fromSocket->updateConnectionState();
+    }
+    if (m_toSocket) {
+        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
+                 << "clearing to-socket connection";
+        m_toSocket->setConnectedEdge(nullptr);
+        m_toSocket->updateConnectionState();
+    }
+    
     // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
     if (m_fromNode) {
+        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
+                 << "unregistering from from-node";
         m_fromNode->unregisterEdge(this);
     }
     if (m_toNode) {
+        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
+                 << "unregistering from to-node";
         m_toNode->unregisterEdge(this);
     }
     
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "cleanup complete";
 }
 
 void Edge::invalidateNode(const Node* node)
@@ -174,13 +193,12 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
 
 QPainterPath Edge::shape() const
 {
-    // Unified pick radius constant - prevents drift between shape() and boundingRect()
-    constexpr qreal kPickWidth = 20.0;
-    constexpr qreal kPickRadius = kPickWidth / 2.0;  // 10.0
+    // Use centralized pick radius constants
+    using namespace GraphConstants;
     
     // Create a much wider path for easier selection - very generous selection area
     QPainterPathStroker stroker;
-    stroker.setWidth(kPickWidth);  // Very wide selection area for easy clicking
+    stroker.setWidth(PICK_WIDTH);  // Very wide selection area for easy clicking
     stroker.setCapStyle(Qt::RoundCap);
     stroker.setJoinStyle(Qt::RoundJoin);
     QPainterPath selectionPath = stroker.createStroke(m_path);
@@ -353,17 +371,17 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Notify Qt's BSP cache before changing bounding rectangle
     prepareGeometryChange();
     
-    // Unified pick radius constant (matches shape() method)
-    constexpr qreal kPickRadius = 10.0;  // Half of kPickWidth from shape()
+    // Use centralized pick radius constant (matches shape() method)
+    using namespace GraphConstants;
     
     // Update bounding rectangle with validation
     QRectF pathBounds = m_path.boundingRect();
     if (pathBounds.isValid()) {
         // Inflate by pick radius to match stroker width in shape()
-        m_boundingRect = pathBounds.adjusted(-kPickRadius, -kPickRadius, kPickRadius, kPickRadius);
+        m_boundingRect = pathBounds.adjusted(-PICK_RADIUS, -PICK_RADIUS, PICK_RADIUS, PICK_RADIUS);
     } else {
         // Inflate by pick radius to match stroker width in shape()
-        m_boundingRect = QRectF(start, end).normalized().adjusted(-kPickRadius, -kPickRadius, kPickRadius, kPickRadius);
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-PICK_RADIUS, -PICK_RADIUS, PICK_RADIUS, PICK_RADIUS);
     }
 }
 
