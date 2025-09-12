@@ -8,6 +8,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QDebug>
+#include <cmath>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -141,6 +142,48 @@ void View::dropEvent(QDropEvent* event)
 
 void View::drawBackground(QPainter* painter, const QRectF& rect)
 {
-    // Simple grid background
+    // Draw the base background
     QGraphicsView::drawBackground(painter, rect);
+    
+    // Only draw grid if scene supports it and grid is enabled
+    if (!m_scene) return;
+    
+    // Check if grid should be visible (we'll add a toggle later)
+    static bool gridVisible = true;
+    if (!gridVisible) return;
+    
+    const int gridSize = m_scene->gridSize();
+    if (gridSize <= 1) return;
+    
+    // Configure grid appearance
+    QPen gridPen(QColor(200, 200, 200, 100)); // Light gray, semi-transparent
+    gridPen.setWidth(1);
+    painter->setPen(gridPen);
+    
+    // Calculate grid bounds based on visible rect
+    const int left = static_cast<int>(std::floor(rect.left() / gridSize)) * gridSize;
+    const int right = static_cast<int>(std::ceil(rect.right() / gridSize)) * gridSize;
+    const int top = static_cast<int>(std::floor(rect.top() / gridSize)) * gridSize;
+    const int bottom = static_cast<int>(std::ceil(rect.bottom() / gridSize)) * gridSize;
+    
+    // Draw vertical lines
+    for (int x = left; x <= right; x += gridSize) {
+        painter->drawLine(x, rect.top(), x, rect.bottom());
+    }
+    
+    // Draw horizontal lines  
+    for (int y = top; y <= bottom; y += gridSize) {
+        painter->drawLine(rect.left(), y, rect.right(), y);
+    }
+    
+    // Draw origin indicator (darker lines at 0,0)
+    if (rect.contains(QPointF(0, 0))) {
+        QPen originPen(QColor(150, 150, 150, 150));
+        originPen.setWidth(2);
+        painter->setPen(originPen);
+        
+        // Draw origin cross
+        painter->drawLine(-20, 0, 20, 0);   // Horizontal origin line
+        painter->drawLine(0, -20, 0, 20);   // Vertical origin line
+    }
 }
