@@ -57,8 +57,10 @@ void Scene::addNode(Node* node)
     // Notify observers of node addition
     notifyNodeAdded(*node);
     
-    // Emit signal for UI updates
-    emit sceneChanged();
+    // Emit signal for UI updates (unless clearing)
+    if (!m_isClearing) {
+        emit sceneChanged();
+    }
 }
 
 void Scene::addEdge(Edge* edge)
@@ -78,8 +80,10 @@ void Scene::addEdge(Edge* edge)
     // Notify observers of edge addition
     notifyEdgeAdded(*edge);
     
-    // Emit signal for UI updates
-    emit sceneChanged();
+    // Emit signal for UI updates (unless clearing)
+    if (!m_isClearing) {
+        emit sceneChanged();
+    }
     
     // Clean design: edges manage their own socket connections via resolveConnections()
 }
@@ -187,8 +191,10 @@ void Scene::deleteNode(const QUuid& nodeId)
     
     delete node;
     
-    // Emit signal for UI updates
-    emit sceneChanged();
+    // Emit signal for UI updates (unless clearing)
+    if (!m_isClearing) {
+        emit sceneChanged();
+    }
     
     qDebug() << "Node deleted with" << edgesToDelete.size() << "connected edges - Observer notified";
 }
@@ -212,8 +218,10 @@ void Scene::deleteEdge(const QUuid& edgeId)
     
     delete edge;
     
-    // Emit signal for UI updates
-    emit sceneChanged();
+    // Emit signal for UI updates (unless clearing)
+    if (!m_isClearing) {
+        emit sceneChanged();
+    }
     
     qDebug() << "Edge deleted - Observer notified";
 }
@@ -257,7 +265,6 @@ void Scene::clearGraphControlled()
     notifyGraphCleared();
     GraphSubject::endBatch();
     
-    emit sceneChanged();
     qDebug() << "Controlled clearing complete";
 
     m_isClearing = false;
@@ -696,7 +703,9 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
         }
     }
     GraphSubject::endBatch();
-    emit sceneChanged();
+    if (!m_isClearing) {
+        emit sceneChanged();
+    }
     
     qDebug() << "Auto-layout complete:" << nodesList.size() << "nodes arranged";
 }
@@ -860,7 +869,9 @@ void Scene::autoLayoutForceDirected(bool selectionOnly, int maxIters, double coo
     }
 
     GraphSubject::endBatch();
-    emit sceneChanged();
+    if (!m_isClearing) {
+        emit sceneChanged();
+    }
     
     qDebug() << "Size-aware force layout complete:" << nodes.size() << "nodes arranged";
 }
@@ -1037,8 +1048,10 @@ void Scene::debugForceLayout3Nodes()
             G[i].center = newCenter;
         }
         
-        // Update the view
-        emit sceneChanged();
+        // Update the view (unless clearing)
+        if (!m_isClearing) {
+            emit sceneChanged();
+        }
         
         // Brief pause so we can see the animation
         QApplication::processEvents();
