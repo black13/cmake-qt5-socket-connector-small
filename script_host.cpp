@@ -105,7 +105,8 @@ QJSValue ScriptHost::batch(const QJSValue& function)
     
     QJSValue result;
     try {
-        result = function.call();
+        QJSValue funcCopy = function; // Create non-const copy
+        result = funcCopy.call();
         m_api->endBatch();
     } catch (...) {
         m_api->endBatch();
