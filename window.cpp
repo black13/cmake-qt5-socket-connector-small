@@ -61,6 +61,12 @@ Window::Window(QWidget* parent)
 
 Window::~Window()
 {
+    // Ensure the scene is empty before child widgets/scene start tearing down.
+    // This avoids QGraphicsScene::~QGraphicsScene() deleting items in an arbitrary order.
+    if (m_scene) {
+        m_scene->clearGraphControlled();
+    }
+    
     // Clean up autosave observer
     if (m_autosaveObserver) {
         m_scene->detach(m_autosaveObserver);

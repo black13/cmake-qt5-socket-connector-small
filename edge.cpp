@@ -44,33 +44,21 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
-    // Clear socket back-references to avoid dangling edge pointers
-    if (m_fromSocket) {
-        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << "clearing from-socket connection";
-        m_fromSocket->setConnectedEdge(nullptr);
-        m_fromSocket->updateConnectionState();
-    }
-    if (m_toSocket) {
-        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << "clearing to-socket connection";
-        m_toSocket->setConnectedEdge(nullptr);
-        m_toSocket->updateConnectionState();
-    }
+    // Destructors are boring: no cross-item calls. The controller/scene
+    // must have already detached sockets and unregistered nodes via removeEdgeImmediate().
+#if defined(QT_DEBUG)
+    // Optional asserts to enforce invariants (uncomment if desired)
+    // Q_ASSERT(m_fromSocket == nullptr || !m_fromSocket->getConnectedEdge());
+    // Q_ASSERT(m_toSocket == nullptr || !m_toSocket->getConnectedEdge());
+#endif
     
-    // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
-    if (m_fromNode) {
-        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << "unregistering from from-node";
-        m_fromNode->unregisterEdge(this);
-    }
-    if (m_toNode) {
-        qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << "unregistering from to-node";
-        m_toNode->unregisterEdge(this);
-    }
+    // Just null the pointers - detachment already handled by scene
+    m_fromSocket = nullptr;
+    m_toSocket = nullptr;
+    m_fromNode = nullptr;
+    m_toNode = nullptr;
     
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "cleanup complete";
+    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "destructor complete";
 }
 
 void Edge::invalidateNode(const Node* node)

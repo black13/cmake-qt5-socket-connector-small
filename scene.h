@@ -37,8 +37,11 @@ public:
     };
 
     static bool isClearingGraph() { return s_clearingGraph; }
+    // Instance-scoped guard for controlled teardown
+    bool isClearing() const noexcept { return m_isClearing; }
 
     explicit Scene(QObject* parent = nullptr);
+    ~Scene() override;
     
     // Typed item management - QElectroTech style
     void addNode(Node* node);
@@ -64,6 +67,9 @@ public:
     // Clear both graphics items AND registries - prevents dangling pointers
     void clearGraph();
     
+    // Controlled teardown - edges first, then nodes. Safe to call multiple times.
+    void clearGraphControlled();
+    
     // PHASE 1.2: Safe shutdown preparation
     void prepareForShutdown();
     [[nodiscard]] bool isShutdownInProgress() const { return m_shutdownInProgress; }
@@ -80,8 +86,7 @@ public:
     
     // JavaScript engine methods removed - focusing on core C++ functionality
     
-    // Critical destruction safety flag
-    static bool isClearing() { return s_clearingGraph; }
+    // Critical destruction safety flag (removed - using instance method instead)
     
     // Factory integration for consistent edge creation
     void setGraphFactory(GraphFactory* factory) { m_graphFactory = factory; }
@@ -109,11 +114,18 @@ private:
     QPen ghostPen() const;
     void resetAllSocketStates();
     
+    // Internal immediate removal helpers for controlled teardown
+    void removeEdgeImmediate(const QUuid& id);
+    void removeNodeImmediate(const QUuid& id);
+    
     // Grid and snap state
     bool m_snapToGrid = false;
     
     // Static flag to prevent socket cleanup during clearGraph
     static bool s_clearingGraph;
+    
+    // Instance-scoped guard replacing static teardown flag
+    bool m_isClearing = false;
     
     // Shutdown coordination flag
     bool m_shutdownInProgress;

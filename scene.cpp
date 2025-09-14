@@ -33,6 +33,12 @@ Scene::Scene(QObject* parent)
     // JavaScript engine initialization removed - focusing on core C++ functionality
 }
 
+Scene::~Scene()
+{
+    // Ensure scene is empty before base dtor invokes QGraphicsScene::clear()
+    clearGraphControlled();
+}
+
 // QElectroTech-style QHash implementation with SIMPLE_FIX logging
 void Scene::addNode(Node* node)
 {
@@ -218,28 +224,83 @@ void Scene::deleteEdge(const QUuid& edgeId)
 
 void Scene::clearGraph()
 {
-    ScopedClearing _guard(s_clearingGraph);
+    // Keep symbol compatibility; forward to controlled clear
+    clearGraphControlled();
+}
+
+void Scene::clearGraphControlled()
+{
+    if (m_isClearing) return;       // re-entrancy safe
+    m_isClearing = true;
+
+    qDebug() << "Controlled clearing: removing" << m_edges.size() << "edges and" << m_nodes.size() << "nodes";
     
-    qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
-    
-    // SIMPLE FIX: Clear registries FIRST to prevent dangling pointers
-    // This prevents hash lookups during Qt's destruction sequence
-    qDebug() << "SIMPLE_FIX: Clearing hash registries first";
-    m_nodes.clear();
-    m_edges.clear();
-    m_sockets.clear();  // Clear deprecated socket registry too
-    
-    // Then clear Qt graphics scene (safe now - no hash references)
-    qDebug() << "SIMPLE_FIX: Clearing Qt scene items";
-    QGraphicsScene::clear();
-    
-    // Notify observers of graph clearing
+    GraphSubject::beginBatch();
+
+    // 1) Remove all edges FIRST (safe detach from sockets/nodes while all alive)
+    const auto edgeIds = m_edges.keys();
+    for (const auto& eid : edgeIds) {
+        removeEdgeImmediate(eid);
+        notifyEdgeRemoved(eid);
+    }
+
+    // 2) Remove all nodes AFTER edges
+    const auto nodeIds = m_nodes.keys();
+    for (const auto& nid : nodeIds) {
+        removeNodeImmediate(nid);
+        notifyNodeRemoved(nid);
+    }
+
+    // Clear deprecated socket registry
+    m_sockets.clear();
+
     notifyGraphCleared();
+    GraphSubject::endBatch();
     
-    // Emit signal for UI updates
     emit sceneChanged();
-    
-    qDebug() << "SIMPLE_FIX: Graph cleared safely - hash cleared before Qt cleanup";
+    qDebug() << "Controlled clearing complete";
+
+    m_isClearing = false;
+}
+
+void Scene::removeEdgeImmediate(const QUuid& id)
+{
+    Edge* e = m_edges.take(id);
+    if (!e) return;
+
+    // Detach from sockets and update visuals (no cross-calls in destructors)
+    if (auto s = e->getFromSocket()) { 
+        s->setConnectedEdge(nullptr); 
+        if (s->scene()) s->updateConnectionState(); 
+    }
+    if (auto s = e->getToSocket()) { 
+        s->setConnectedEdge(nullptr); 
+        if (s->scene()) s->updateConnectionState(); 
+    }
+
+    // Unregister from nodes
+    if (auto n = e->getFromNode()) n->unregisterEdge(e);
+    if (auto n = e->getToNode()) n->unregisterEdge(e);
+
+    removeItem(e);
+    delete e;
+}
+
+void Scene::removeNodeImmediate(const QUuid& id)
+{
+    // Delete incident edges first (defensive if any remain)
+    QList<QUuid> incident;
+    for (auto it = m_edges.constBegin(); it != m_edges.constEnd(); ++it) {
+        Edge* e = it.value();
+        if (!e) continue;
+        if (e->isConnectedToNode(id)) incident.push_back(it.key());
+    }
+    for (const auto& eid : incident) removeEdgeImmediate(eid);
+
+    Node* n = m_nodes.take(id);
+    if (!n) return;
+    removeItem(n);
+    delete n;
 }
 
 // ============================================================================
