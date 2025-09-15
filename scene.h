@@ -86,7 +86,6 @@ public:
     
     // JavaScript engine methods removed - focusing on core C++ functionality
     
-    // Critical destruction safety flag (removed - using instance method instead)
     
     // Factory integration for consistent edge creation
     void setGraphFactory(GraphFactory* factory) { m_graphFactory = factory; }

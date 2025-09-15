@@ -81,7 +81,7 @@ endif()
 # ─────────────────────────────────────
 # 5.  Build-time feature flags
 # ─────────────────────────────────────
-option(ENABLE_JS "Enable in-app JavaScript engine" OFF)
+option(ENABLE_JS "Enable in-app JavaScript engine" ON)
 
 # ─────────────────────────────────────
 # 6.  Find Qt5 modules  

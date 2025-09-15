@@ -75,4 +75,5 @@ current_status_*.md
 
 # Cleanup scripts
 cleanup_repo.sh
-remove_claude_coauthor.sh
+remove_claude_coauthor.sh.claude/
+concatenated_code.txt

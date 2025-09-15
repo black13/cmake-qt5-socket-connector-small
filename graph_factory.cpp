@@ -217,15 +217,15 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
 
     // NEW: direction check (Output -> Input only)
     if (fromSocket->getRole() != Socket::Output || toSocket->getRole() != Socket::Input) {
-        qWarning() << "GraphFactory::connectSockets: invalid roles, expected Output->Input";
+        qDebug() << "GraphFactory::connectSockets: invalid roles, expected Output->Input";
         return nullptr;
     }
 
     // NEW: prevent multiple edges per socket (your Socket supports this)
     if (fromSocket->isConnected() || toSocket->isConnected()) {
-        qWarning() << "GraphFactory::connectSockets: socket already connected"
-                   << " from:" << fromSocket->getIndex()
-                   << " to:"   << toSocket->getIndex();
+        qDebug() << "GraphFactory::connectSockets: socket already connected"
+                  << " from:" << fromSocket->getIndex()
+                  << " to:"   << toSocket->getIndex();
         return nullptr;
     }
 

@@ -341,17 +341,15 @@ static const QUuid GHOST_EDGE_UUID = QUuid("{00000000-0000-0000-C000-00000000004
 
 void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
 {
-    if (m_ghostEdge) {
-        removeItem(m_ghostEdge);
-        delete m_ghostEdge;
+    if (!m_ghostEdge) {
+        m_ghostEdge = new GhostEdge();
+        m_ghostEdge->setData(0, GHOST_EDGE_UUID); // IUnknown UUID marker
+        m_ghostEdge->setZValue(3); // above real edges for clarity
+        addItem(m_ghostEdge);
     }
     
+    m_ghostEdge->setVisible(true);
     m_ghostFromSocket = fromSocket;
-    
-    m_ghostEdge = new GhostEdge();
-    m_ghostEdge->setData(0, GHOST_EDGE_UUID); // IUnknown UUID marker
-    
-    addItem(m_ghostEdge);
     m_ghostEdgeActive = true;
     
     // Set source socket to connecting state
@@ -470,9 +468,8 @@ void Scene::cancelGhostEdge()
     resetAllSocketStates();
     
     if (m_ghostEdge) {
-        removeItem(m_ghostEdge);
-        delete m_ghostEdge;
-        m_ghostEdge = nullptr;
+        m_ghostEdge->setVisible(false);
+        m_ghostEdge->setPath(QPainterPath()); // Clear the path
     }
     m_ghostFromSocket = nullptr;
     m_ghostEdgeActive = false;

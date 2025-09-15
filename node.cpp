@@ -117,6 +117,15 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
         
         // Trigger visual update when selection changes
         update();
+    } else if (change == ItemPositionChange) {
+        // Snap to grid if enabled
+        if (Scene* typedScene = static_cast<Scene*>(scene())) {
+            if (typedScene->isSnapToGrid()) {
+                QPointF newPos = value.toPointF();
+                QPointF snappedPos = typedScene->snapPoint(newPos);
+                return snappedPos;
+            }
+        }
     } else if (change == ItemPositionHasChanged) {
         // Only update edges when position actually changes significantly
         QPointF currentPos = value.toPointF();
