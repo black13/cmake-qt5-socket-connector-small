@@ -12,7 +12,6 @@
 #include <cmath>
 
 // Static flag for clearing state
-bool Scene::s_clearingGraph = false;
 #include <QDebug>
 #include <QTimer>
 #include <QGraphicsPathItem>

@@ -36,7 +36,7 @@ public:
         bool& f;
     };
 
-    static bool isClearingGraph() { return s_clearingGraph; }
+    bool isClearing() const noexcept { return m_isClearing; }
     // Instance-scoped guard for controlled teardown
     bool isClearing() const noexcept { return m_isClearing; }
 
@@ -121,7 +121,6 @@ private:
     bool m_snapToGrid = false;
     
     // Static flag to prevent socket cleanup during clearGraph
-    static bool s_clearingGraph;
     
     // Instance-scoped guard replacing static teardown flag
     bool m_isClearing = false;
