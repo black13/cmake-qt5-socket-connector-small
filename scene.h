@@ -37,8 +37,6 @@ public:
     };
 
     bool isClearing() const noexcept { return m_isClearing; }
-    // Instance-scoped guard for controlled teardown
-    bool isClearing() const noexcept { return m_isClearing; }
 
     explicit Scene(QObject* parent = nullptr);
     ~Scene() override;

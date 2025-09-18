@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/config">
+        <file>config/node_types.xml</file>
+    </qresource>
+</RCC>

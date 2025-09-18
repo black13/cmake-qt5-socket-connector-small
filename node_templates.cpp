@@ -2,6 +2,8 @@
 #include <QDebug>
 #include <QXmlStreamWriter>
 #include <QXmlStreamReader>
+#include <QFile>
+#include <QIODevice>
 
 // Static storage for runtime-registered templates
 QHash<QString, QString> NodeTypeTemplates::s_registeredTemplates;
@@ -125,26 +127,50 @@ QString NodeTypeTemplates::registerFromJavaScript(const QString& jsDefinition)
     return QString();
 }
 
-int NodeTypeTemplates::loadFromFile(const QString& templateFilePath)
-{
-    // Future implementation - placeholder for plugin system
-    Q_UNUSED(templateFilePath);
-    qDebug() << "NodeTypeTemplates::loadFromFile - Future feature placeholder";
-    return 0;
+QHash<QString, QString> NodeTypeTemplates::getBuiltinTemplates() {
+    static QHash<QString, QString> templates;
+    static bool loaded = false;
+    
+    if (!loaded) {
+        loadFromResource(":/config/node_types.xml", templates);
+        loaded = true;
+    }
+    return templates;
 }
 
-QHash<QString, QString> NodeTypeTemplates::getBuiltinTemplates()
-{
-    static QHash<QString, QString> templates = {
-        // Core node types with socket configurations
-        {"SOURCE", R"(<node type="SOURCE" inputs="0" outputs="1"/>)"},
-        {"SINK",   R"(<node type="SINK" inputs="1" outputs="0"/>)"},
-        {"SPLIT",  R"(<node type="SPLIT" inputs="1" outputs="2"/>)"},
-        {"MERGE",  R"(<node type="MERGE" inputs="2" outputs="1"/>)"},
-        {"TRANSFORM", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"}
-    };
+void NodeTypeTemplates::loadFromResource(const QString& resourcePath, 
+                                        QHash<QString, QString>& templates) {
+    QFile file(resourcePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning() << "Could not load node types from" << resourcePath << "- using hardcoded fallback";
+        
+        // Hardcoded fallback templates
+        templates["SOURCE"] = R"(<node type="SOURCE" inputs="0" outputs="1"/>)";
+        templates["SINK"] = R"(<node type="SINK" inputs="1" outputs="0"/>)";
+        templates["TRANSFORM"] = R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)";
+        templates["MERGE"] = R"(<node type="MERGE" inputs="2" outputs="1"/>)";
+        templates["SPLIT"] = R"(<node type="SPLIT" inputs="1" outputs="2"/>)";
+        
+        qDebug() << "Loaded" << templates.size() << "hardcoded node templates as fallback";
+        return;
+    }
     
-    return templates;
+    QXmlStreamReader xml(&file);
+    while (!xml.atEnd()) {
+        xml.readNext();
+        if (xml.isStartElement() && xml.name() == "template") {
+            QString type = xml.attributes().value("type").toString();
+            QString inputs = xml.attributes().value("inputs").toString();
+            QString outputs = xml.attributes().value("outputs").toString();
+            
+            QString xmlTemplate = QString(R"(<node type="%1" inputs="%2" outputs="%3"/>)")
+                                  .arg(type, inputs, outputs);
+            templates[type] = xmlTemplate;
+        }
+    }
+    
+    qDebug() << "Loaded" << templates.size() << "node templates from" << resourcePath;
+    file.close();
 }
 
 QString NodeTypeTemplates::injectDynamicValues(const QString& xmlTemplate, 

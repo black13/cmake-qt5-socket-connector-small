@@ -256,6 +256,7 @@ endif()
 set(MAIN_SOURCES
     main.cpp
     icons.qrc
+    resources.qrc
 )
 
 # Test application sources DISABLED - GraphController testing via menu only

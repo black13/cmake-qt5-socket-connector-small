@@ -86,15 +86,16 @@ public:
      * @return Generated node type identifier
      */
     static QString registerFromJavaScript(const QString& jsDefinition);
-    
-    /**
-     * Register node types from template file (future plugin system)
-     * @param templateFilePath Path to XML template file
-     * @return Number of templates loaded
-     */
-    static int loadFromFile(const QString& templateFilePath);
-    
+        
 private:
+
+    /**
+     * Load templates from Qt resource file
+     * @param resourcePath Path to resource file (e.g., ":/config/node_types.xml")
+     * @param templates Hash to populate with loaded templates
+     */
+    static void loadFromResource(const QString& resourcePath, 
+                                QHash<QString, QString>& templates);
     /**
      * Get built-in node type templates
      * These are the core node types that ship with the system

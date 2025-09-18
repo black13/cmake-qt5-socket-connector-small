@@ -238,6 +238,7 @@ void Scene::clearGraph()
 void Scene::clearGraphControlled()
 {
     if (m_isClearing) return;       // re-entrancy safe
+    cancelGhostEdge();              // safe + idempotent
     m_isClearing = true;
 
     qDebug() << "Controlled clearing: removing" << m_edges.size() << "edges and" << m_nodes.size() << "nodes";
