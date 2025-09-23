@@ -94,12 +94,40 @@ print_success "Build tools available"
 # 2. Check Qt5 installation
 print_status "Checking Qt5 installation..."
 
-# Auto-detect Qt installations in /usr/local/qt-*
-QT_INSTALLS=($(find /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
+# Search for Qt installations in multiple locations
+QT_SEARCH_PATHS=(
+    "/usr/local/qt*"
+    "/opt/qt*"
+    "$HOME/Qt/*"
+    "/usr/lib/*/qt5"
+    "/usr/lib/x86_64-linux-gnu/qt5"
+)
+
+QT_INSTALLS=()
+for pattern in "${QT_SEARCH_PATHS[@]}"; do
+    for qt_dir in $pattern; do
+        if [ -d "$qt_dir" ] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+            QT_INSTALLS+=("$qt_dir")
+        fi
+    done
+done
+
+# Also check if qmake is in PATH and get its installation path
+if command -v qmake > /dev/null; then
+    QMAKE_PATH=$(which qmake)
+    QT_FROM_QMAKE=$(dirname $(dirname $QMAKE_PATH))
+    if [ -d "$QT_FROM_QMAKE/lib/cmake/Qt5" ] && [[ ! " ${QT_INSTALLS[@]} " =~ " ${QT_FROM_QMAKE} " ]]; then
+        QT_INSTALLS+=("$QT_FROM_QMAKE")
+    fi
+fi
+
+# Remove duplicates and sort
+QT_INSTALLS=($(printf "%s\n" "${QT_INSTALLS[@]}" | sort -u -r))
 
 if [ ${#QT_INSTALLS[@]} -eq 0 ]; then
-    print_error "No Qt installations found in /usr/local/qt-*"
-    print_error "Please install Qt5 to /usr/local/qt-VERSION or /usr/local/qt-VERSION-{debug,release}"
+    print_error "No Qt installations found with CMake support"
+    print_error "Please install Qt5 development packages"
+    print_error "Common locations: /usr/local/qt*, /opt/qt*, ~/Qt/*"
     exit 1
 fi
 
