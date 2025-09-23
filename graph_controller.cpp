@@ -703,25 +703,15 @@ bool GraphController::canConnect(const QString& fromNodeId, int fromIndex, const
     
     // Additional check: scan existing edges to prevent race conditions during rapid creation
     if (m_scene) {
-        Scene* typedScene = static_cast<Scene*>(m_scene);
-        const auto& existingEdges = typedScene->getEdges();
-        emit error(QString("DEBUG: Scanning %1 existing edges for conflicts").arg(existingEdges.size()));
-        for (Edge* existingEdge : existingEdges.values()) {
-            // Since getFromNodeId(), getToNodeId(), etc. might not exist in Edge class,
-            // we need to find another way to check for existing connections
-            // For now, we'll assume edges track their connected sockets directly
-            // This part needs to be reimplemented based on the actual Edge class interface
-            // TODO: Implement proper connection conflict detection
-            // For now, we'll skip this check to avoid compilation errors
-            continue;
-            // For completeness, check source socket too (though output sockets can have multiple connections in some designs)
-            // Uncomment if you want to prevent multiple connections from the same output socket:
-            // if (existingEdge->getFromNodeId() == fromNodeId && existingEdge->getFromSocketIndex() == fromIndex) {
-            //     emit error(QString("GraphController: Source socket already has connection"));
-            //     return false;
-            // }
+        const auto& existingEdges = m_scene->getEdges();
+        // Check if toSocket is already connected through any edge
+        // This is a redundant check since we already checked toSocket->isConnected() above
+        // But it's here to be thorough
+        if (toSocket->isConnected()) {
+            qWarning() << "GraphController: BLOCKING double connection! Target socket already has connection";
+            emit error(QString("GraphController: Target socket is already connected"));
+            return false;
         }
-        emit error("DEBUG: No existing edge conflicts found - connection allowed");
     }
     
     // Prevent self-connection
