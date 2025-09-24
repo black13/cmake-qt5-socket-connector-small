@@ -339,72 +339,99 @@ void Scene::prepareForShutdown()
 // IUnknown UUID for ghost edge identification
 static const QUuid GHOST_EDGE_UUID = QUuid("{00000000-0000-0000-C000-000000000046}");
 
+void Scene::cleanupGhost()
+{
+    if (m_ghostEdge) {
+        removeItem(m_ghostEdge);
+        delete m_ghostEdge;
+        m_ghostEdge = nullptr;
+    }
+    m_ghostFromSocket = nullptr;
+}
+
 void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
 {
     if (!m_ghostEdge) {
         m_ghostEdge = new GhostEdge();
-        m_ghostEdge->setData(0, GHOST_EDGE_UUID); // IUnknown UUID marker
-        m_ghostEdge->setZValue(3); // above real edges for clarity
         addItem(m_ghostEdge);
     }
     
     m_ghostEdge->setVisible(true);
+    m_ghostEdge->setPen(ghostPen());
     m_ghostFromSocket = fromSocket;
     m_ghostEdgeActive = true;
-    
+
     // Set source socket to connecting state
-    fromSocket->setConnectionState(Socket::Connecting);
-    
+    resetAllSocketStates();
+    if (fromSocket) {
+        fromSocket->setConnectionState(Socket::Connecting);
+    }
+
     updateGhostEdge(startPos);
-    
-    qDebug() << "GHOST: Started from socket" << fromSocket->getIndex() 
-             << "(" << (fromSocket->getRole() == Socket::Input ? "Input" : "Output") << ")";
+
+    qDebug() << "GHOST FLOW: start"
+             << "role" << (fromSocket ? Socket::roleToString(fromSocket->getRole()) : "<null>")
+             << "index" << (fromSocket ? fromSocket->getIndex() : -1)
+             << "scenePos" << startPos;
 }
 
 void Scene::updateGhostEdge(const QPointF& currentPos)
 {
     if (!m_ghostEdge || !m_ghostFromSocket) {
+        qDebug() << "GHOST FLOW: update skipped" << (m_ghostEdge ? "no source" : "no ghost edge");
         return;
     }
-    
-    QPointF start = m_ghostFromSocket->scenePos();
+
+    const QPointF start = m_ghostFromSocket->scenePos();
     QPainterPath path;
     path.moveTo(start);
-    
+
     // Create curved ghost edge similar to real edges
     qreal dx = currentPos.x() - start.x();
     qreal controlOffset = qMin(qAbs(dx) * 0.5, 100.0);
-    
+
     QPointF control1 = start + QPointF(controlOffset, 0);
     QPointF control2 = currentPos - QPointF(controlOffset, 0);
     path.cubicTo(control1, control2, currentPos);
-    
-    // Update ghost edge visual based on target validity
-    QPen ghostPenCurrent = ghostPen();
-    QGraphicsItem* itemUnderCursor = itemAt(currentPos, QTransform());
-    Socket* targetSocket = qgraphicsitem_cast<Socket*>(itemUnderCursor);
-    
-    // Reset all socket visual states to normal first
+    m_ghostEdge->setPath(path);
+
     resetAllSocketStates();
-    
+
+    Socket* targetSocket = nullptr;
+    for (QGraphicsItem* item : items(currentPos, Qt::IntersectsItemShape, Qt::DescendingOrder)) {
+        if (item == m_ghostEdge) {
+            continue;
+        }
+        if (auto* socket = qgraphicsitem_cast<Socket*>(item)) {
+            targetSocket = socket;
+            break;
+        }
+    }
+
+    QPen currentPen = ghostPen();
+    bool valid = false;
     if (targetSocket) {
-        // Check if this is a valid connection target
-        bool isValidTarget = (targetSocket->getRole() == Socket::Input && 
-                            targetSocket != m_ghostFromSocket &&
-                            targetSocket->getParentNode() != m_ghostFromSocket->getParentNode());
-        
-        if (isValidTarget) {
+        valid = (targetSocket->getRole() == Socket::Input &&
+                 targetSocket != m_ghostFromSocket &&
+                 targetSocket->getParentNode() != m_ghostFromSocket->getParentNode() &&
+                 !m_ghostFromSocket->isConnected() &&
+                 !targetSocket->isConnected());
+
+        if (valid) {
             targetSocket->setConnectionState(Socket::Highlighted);
-            ghostPenCurrent.setColor(QColor(0, 255, 0, 180)); // Green ghost edge
+            currentPen.setColor(QColor(40, 160, 60, 180));
         } else {
-            ghostPenCurrent.setColor(QColor(255, 0, 0, 180)); // Red ghost edge
+            currentPen.setColor(QColor(200, 60, 60, 180));
         }
     } else {
-        // No socket under cursor - default ghost edge color
-        ghostPenCurrent.setColor(QColor(0, 255, 0, 150)); // Default green
+        currentPen.setColor(QColor(0, 255, 0, 150));
     }
-    
-    m_ghostEdge->setPath(path);
+
+    m_ghostEdge->setPen(currentPen);
+
+    qDebug() << "GHOST FLOW: update" << "cursor" << currentPos
+             << "target" << (targetSocket ? QStringLiteral("socket") : QStringLiteral("none"))
+             << "valid" << valid;
 }
 
 void Scene::resetAllSocketStates()
@@ -421,59 +448,46 @@ void Scene::resetAllSocketStates()
     }
 }
 
-void Scene::finishGhostEdge(Socket* toSocket)
+void Scene::finishGhostEdge(const QPointF& scenePos)
 {
-    if (!toSocket) {
-        cancelGhostEdge();
+    if (!m_ghostEdge || !m_ghostFromSocket) {
+        cleanupGhost();
         return;
     }
 
-    // NEW: mirror the one-edge-per-socket rule here as user feedback
-    if (m_ghostFromSocket->isConnected() || toSocket->isConnected()) {
-        qWarning() << "Scene::finishGhostEdge: socket already connected; rejecting";
-        cancelGhostEdge();
-        return;
-    }
-
-    if (m_ghostFromSocket && toSocket) {
-        // Validate connection roles
-        if (m_ghostFromSocket->getRole() == Socket::Output && 
-            toSocket->getRole() == Socket::Input) {
-            
-            if (m_graphFactory) {
-                Q_ASSERT(m_ghostFromSocket && toSocket); // Ghost edge requires both sockets
-                // Use factory for consistent edge creation
-                Edge* newEdge = m_graphFactory->connectSockets(m_ghostFromSocket, toSocket);
-                if (newEdge) {
-                    qDebug() << "GHOST: Created edge via factory" << m_ghostFromSocket->getIndex() << "->" << toSocket->getIndex();
-                } else {
-                    qWarning() << "GHOST: Factory failed to create edge";
-                }
-            } else {
-                qWarning() << "GHOST: No factory available - cannot create edge";
-            }
-        } else {
-            qDebug() << "GHOST: Invalid connection - wrong socket roles";
+    // 1) Find the topmost Socket under the cursor, ignoring the ghost
+    Socket* target = nullptr;
+    const auto list = items(scenePos, Qt::IntersectsItemShape, Qt::DescendingOrder);
+    for (QGraphicsItem* it : list) {
+        if (it == m_ghostEdge) continue; // ignore the temporary edge
+        if (auto* s = qgraphicsitem_cast<Socket*>(it)) {
+            target = s;
+            break;
         }
     }
-    
-    // Reset all socket states before canceling
-    resetAllSocketStates();
-    cancelGhostEdge();
+
+    // 2) Validate
+    auto* src = m_ghostSource;
+    const bool ok = src && target &&
+                    src != target &&
+                    src->getRole() == Socket::Output &&
+                    target->getRole() == Socket::Input &&
+                    src->getParentNode() != target->getParentNode() &&
+                    !src->isConnected() && !target->isConnected();
+
+    // 3) Commit or reject
+    if (ok) {
+        m_graphFactory->connectSockets(src, target);
+    }
+
+    cleanupGhost();
 }
 
 void Scene::cancelGhostEdge()
 {
     // Reset all socket visual states
     resetAllSocketStates();
-    
-    if (m_ghostEdge) {
-        m_ghostEdge->setVisible(false);
-        m_ghostEdge->setPath(QPainterPath()); // Clear the path
-    }
-    m_ghostFromSocket = nullptr;
-    m_ghostEdgeActive = false;
-    
+    cleanupGhost();
     qDebug() << "GHOST: Cancelled";
 }
 
@@ -1074,10 +1088,7 @@ QPointF Scene::snapPoint(const QPointF& scenePos) const
 void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     if (m_ghostEdgeActive && event->button() == Qt::RightButton) {
-        // Find socket under mouse
-        QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
-        Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
-        finishGhostEdge(targetSocket);
+        finishGhostEdge(event->scenePos());
         event->accept();
         return;
     }
