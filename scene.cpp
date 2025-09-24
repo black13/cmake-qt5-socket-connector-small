@@ -243,7 +243,7 @@ void Scene::clearGraphControlled()
 
     qDebug() << "Controlled clearing: removing" << m_edges.size() << "edges and" << m_nodes.size() << "nodes";
     
-    GraphSubject::beginBatch();
+    this->beginBatch();
 
     // 1) Remove all edges FIRST (safe detach from sockets/nodes while all alive)
     const auto edgeIds = m_edges.keys();
@@ -263,7 +263,7 @@ void Scene::clearGraphControlled()
     m_sockets.clear();
 
     notifyGraphCleared();
-    GraphSubject::endBatch();
+    this->endBatch();
     
     qDebug() << "Controlled clearing complete";
 
@@ -793,7 +793,7 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
         maxIters = 2000;
     }
 
-    GraphSubject::beginBatch();
+    this->beginBatch();
     QElapsedTimer timer;
     timer.start();
     for (int k = 0; k < maxIters; ++k) {
@@ -843,7 +843,7 @@ void Scene::autoLayoutAnneal(bool selectionOnly, int maxIters, double t0, double
             n->setPos(snappedScene); // top-level items: scenePos == pos
         }
     }
-    GraphSubject::endBatch();
+    this->endBatch();
     if (!m_isClearing) {
         emit sceneChanged();
     }
