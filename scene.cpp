@@ -347,6 +347,7 @@ void Scene::cleanupGhost()
         m_ghostEdge = nullptr;
     }
     m_ghostFromSocket = nullptr;
+    m_ghostEdgeActive = false;   // Ensure consistent state
 }
 
 void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
@@ -452,22 +453,23 @@ void Scene::finishGhostEdge(const QPointF& scenePos)
 {
     if (!m_ghostEdge || !m_ghostFromSocket) {
         cleanupGhost();
+        m_ghostEdgeActive = false;   // ensure ghost mode is off
         return;
     }
 
-    // 1) Find the topmost Socket under the cursor, ignoring the ghost
+    // Find the target socket under the cursor
     Socket* target = nullptr;
     const auto list = items(scenePos, Qt::IntersectsItemShape, Qt::DescendingOrder);
     for (QGraphicsItem* it : list) {
-        if (it == m_ghostEdge) continue; // ignore the temporary edge
+        if (it == m_ghostEdge) continue;
         if (auto* s = qgraphicsitem_cast<Socket*>(it)) {
-            target = s;
+            target = s; 
             break;
         }
     }
 
-    // 2) Validate using m_ghostFromSocket as the source
-    auto* src = m_ghostFromSocket;
+    // Validate: source must be Output, target must be Input, no self-node, both free
+    Socket* src = m_ghostFromSocket;  // Use the real source
     const bool ok = src && target &&
                     src != target &&
                     src->getRole() == Socket::Output &&
@@ -475,12 +477,12 @@ void Scene::finishGhostEdge(const QPointF& scenePos)
                     src->getParentNode() != target->getParentNode() &&
                     !src->isConnected() && !target->isConnected();
 
-    // 3) Commit or reject
-    if (ok) {
+    if (ok && m_graphFactory) {
         m_graphFactory->connectSockets(src, target);
     }
 
     cleanupGhost();
+    m_ghostEdgeActive = false;        // Make sure we leave ghost mode
 }
 
 void Scene::cancelGhostEdge()
