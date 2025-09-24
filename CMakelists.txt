@@ -235,7 +235,6 @@ set(CORE_SOURCES
     
     # Observer pattern implementation
     graph_observer.h
-    graph_observer.cpp
     xml_autosave_observer.h
     xml_autosave_observer.cpp
     
