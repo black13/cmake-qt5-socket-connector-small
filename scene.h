@@ -82,6 +82,10 @@ public:
     void cancelGhostEdge();
     [[nodiscard]] bool ghostEdgeActive() const { return m_ghostEdgeActive; }
     
+    // Magnetic connection helpers
+    Socket* findNearestValidSocket(const QPointF& scenePos, Socket* fromSocket, QPointF& snappedPos);
+    [[nodiscard]] qreal getMagneticRadius() const { return 40.0; } // Magnetic attraction radius
+    
     // JavaScript engine methods removed - focusing on core C++ functionality
     
     

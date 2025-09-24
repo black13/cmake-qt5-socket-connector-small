@@ -387,27 +387,20 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
     QPainterPath path;
     path.moveTo(start);
 
+    // Find nearest valid socket for magnetic attraction
+    QPointF endPos = currentPos;
+    Socket* targetSocket = findNearestValidSocket(currentPos, m_ghostFromSocket, endPos);
+    
     // Create curved ghost edge similar to real edges
-    qreal dx = currentPos.x() - start.x();
+    qreal dx = endPos.x() - start.x();
     qreal controlOffset = qMin(qAbs(dx) * 0.5, 100.0);
 
     QPointF control1 = start + QPointF(controlOffset, 0);
-    QPointF control2 = currentPos - QPointF(controlOffset, 0);
-    path.cubicTo(control1, control2, currentPos);
+    QPointF control2 = endPos - QPointF(controlOffset, 0);
+    path.cubicTo(control1, control2, endPos);
     m_ghostEdge->setPath(path);
 
     resetAllSocketStates();
-
-    Socket* targetSocket = nullptr;
-    for (QGraphicsItem* item : items(currentPos, Qt::IntersectsItemShape, Qt::DescendingOrder)) {
-        if (item == m_ghostEdge) {
-            continue;
-        }
-        if (auto* socket = qgraphicsitem_cast<Socket*>(item)) {
-            targetSocket = socket;
-            break;
-        }
-    }
 
     QPen currentPen = ghostPen();
     bool valid = false;
@@ -420,19 +413,26 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
 
         if (valid) {
             targetSocket->setConnectionState(Socket::Highlighted);
-            currentPen.setColor(QColor(40, 160, 60, 180));
+            // Enhanced magnetic connection visual feedback
+            currentPen.setColor(QColor(40, 220, 60, 220));
+            currentPen.setWidth(4);
+            currentPen.setStyle(Qt::SolidLine); // Solid when magnetically connected
         } else {
             currentPen.setColor(QColor(200, 60, 60, 180));
         }
     } else {
         currentPen.setColor(QColor(0, 255, 0, 150));
+        currentPen.setWidth(3);
+        currentPen.setStyle(Qt::DashLine);
     }
 
     m_ghostEdge->setPen(currentPen);
 
     qDebug() << "GHOST FLOW: update" << "cursor" << currentPos
+             << "snapped" << endPos
              << "target" << (targetSocket ? QStringLiteral("socket") : QStringLiteral("none"))
-             << "valid" << valid;
+             << "valid" << valid
+             << "distance" << (targetSocket ? QLineF(currentPos, targetSocket->scenePos()).length() : -1);
 }
 
 void Scene::resetAllSocketStates()
@@ -457,16 +457,9 @@ void Scene::finishGhostEdge(const QPointF& scenePos)
         return;
     }
 
-    // Find the target socket under the cursor
-    Socket* target = nullptr;
-    const auto list = items(scenePos, Qt::IntersectsItemShape, Qt::DescendingOrder);
-    for (QGraphicsItem* it : list) {
-        if (it == m_ghostEdge) continue;
-        if (auto* s = qgraphicsitem_cast<Socket*>(it)) {
-            target = s; 
-            break;
-        }
-    }
+    // Find the target socket using magnetic attraction (same as in update)
+    QPointF snappedPos;
+    Socket* target = findNearestValidSocket(scenePos, m_ghostFromSocket, snappedPos);
 
     // Validate: source must be Output, target must be Input, no self-node, both free
     Socket* src = m_ghostFromSocket;  // Use the real source
@@ -576,6 +569,47 @@ void Scene::keyPressEvent(QKeyEvent* event)
     } else {
         QGraphicsScene::keyPressEvent(event);
     }
+}
+
+Socket* Scene::findNearestValidSocket(const QPointF& scenePos, Socket* fromSocket, QPointF& snappedPos)
+{
+    if (!fromSocket) {
+        snappedPos = scenePos;
+        return nullptr;
+    }
+    
+    Socket* nearestSocket = nullptr;
+    qreal minDistance = getMagneticRadius();
+    snappedPos = scenePos;
+    
+    // Check all sockets in the scene for magnetic attraction
+    for (Node* node : m_nodes.values()) {
+        for (QGraphicsItem* child : node->childItems()) {
+            if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
+                // Skip if not a valid target
+                if (socket->getRole() != Socket::Input ||
+                    socket == fromSocket ||
+                    socket->getParentNode() == fromSocket->getParentNode() ||
+                    socket->isConnected() ||
+                    fromSocket->isConnected()) {
+                    continue;
+                }
+                
+                // Calculate distance to socket center
+                QPointF socketPos = socket->scenePos();
+                qreal distance = QLineF(scenePos, socketPos).length();
+                
+                // If within magnetic radius and closer than previous best
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestSocket = socket;
+                    snappedPos = socketPos; // Snap to socket center
+                }
+            }
+        }
+    }
+    
+    return nearestSocket;
 }
 
 // ============================================================================

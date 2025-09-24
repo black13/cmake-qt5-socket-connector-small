@@ -121,17 +121,27 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
             
         case Highlighted:
             {
-                // Draw pulsing highlight for valid connection targets
-                // Use time-based pulsing effect
-                qreal pulse = 0.5 + 0.5 * qSin(QDateTime::currentMSecsSinceEpoch() * 0.01);
-                QColor highlightColor = QColor(0, 255, 0, 80 + 40 * pulse);
-                painter->setBrush(QBrush(highlightColor));
-                painter->setPen(QPen(QColor(0, 255, 0, 150 + 50 * pulse), 2));
-                painter->drawRoundedRect(rect.adjusted(-2, -2, 2, 2), 4.0, 4.0);
+                // Enhanced magnetic highlight with stronger visual feedback
+                // Use faster pulsing for magnetic attraction
+                qreal pulse = 0.7 + 0.3 * qSin(QDateTime::currentMSecsSinceEpoch() * 0.02);
+                QColor highlightColor = QColor(0, 255, 100, 100 + 55 * pulse);
+                QColor glowColor = QColor(0, 255, 100, 100 + 100 * pulse);
                 
-                painter->setBrush(socketColor.lighter(130));
-                painter->setPen(QPen(borderColor, 2));
+                // Draw outer glow for magnetic attraction
+                painter->setBrush(QBrush(highlightColor));
+                painter->setPen(QPen(glowColor, 3));
+                painter->drawRoundedRect(rect.adjusted(-3, -3, 3, 3), 5.0, 5.0);
+                
+                // Draw inner socket with enhanced colors
+                painter->setBrush(socketColor.lighter(150));
+                painter->setPen(QPen(borderColor.lighter(120), 2));
                 painter->drawRoundedRect(rect, 3.0, 3.0);
+                
+                // Draw magnetic attraction indicator
+                QRectF magnetRect = rect.adjusted(2, 2, -2, -2);
+                painter->setBrush(QBrush(QColor(255, 255, 255, 200)));
+                painter->setPen(QPen(Qt::white, 1));
+                painter->drawEllipse(magnetRect);
             }
             break;
             
