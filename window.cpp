@@ -8,6 +8,11 @@
 #include "script_host.h"
 #include "node_palette_widget.h"
 
+// Define ENABLE_JS if not already defined
+#ifndef ENABLE_JS
+#define ENABLE_JS 0
+#endif
+
 #if ENABLE_JS
 #include "graph_script_api.h"
 #else

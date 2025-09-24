@@ -19,6 +19,9 @@ typedef xmlNode* xmlNodePtr;
 typedef struct _xmlDoc xmlDoc;
 typedef xmlDoc* xmlDocPtr;
 
+// Include libxml headers for BAD_CAST macro
+#include <libxml/tree.h>
+
 /**
  * GraphFactory - XML-First Object Creation with NodeRegistry
  * 

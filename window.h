@@ -24,6 +24,11 @@ class GraphFactory;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
 
+// Define ENABLE_JS if not already defined
+#ifndef ENABLE_JS
+#define ENABLE_JS 0
+#endif
+
 #if ENABLE_JS
 class ScriptHost;
 class GraphScriptApi;
