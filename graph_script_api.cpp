@@ -106,7 +106,10 @@ bool GraphScriptApi::deleteEdge(const QString& edgeId)
 void GraphScriptApi::beginBatch()
 {
     if (!m_batchMode) {
-        GraphSubject::beginBatch();
+        // Use Scene's batch mode
+        if (m_scene) {
+            m_scene->beginBatch();
+        }
         m_batchMode = true;
         qDebug() << "GraphScriptApi: Batch mode started";
     }
@@ -115,7 +118,10 @@ void GraphScriptApi::beginBatch()
 void GraphScriptApi::endBatch()
 {
     if (m_batchMode) {
-        GraphSubject::endBatch();
+        // Use Scene's batch mode
+        if (m_scene) {
+            m_scene->endBatch();
+        }
         m_batchMode = false;
         qDebug() << "GraphScriptApi: Batch mode ended";
     }

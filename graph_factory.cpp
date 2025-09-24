@@ -456,7 +456,8 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     qDebug() << "=== Phase 2: Creating Objects (Scene Will Be Modified) ===";
     
     // Enable batch mode to prevent observer storm during bulk loading
-    GraphSubject::beginBatch();
+    // Note: Batch mode needs to be handled by individual GraphSubject instances
+    // For now, we'll rely on Scene's batch handling
     
     // Create all validated nodes
     QVector<Node*> allNodes;
@@ -468,7 +469,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
         } else {
             qCritical() << "INTERNAL ERROR: Failed to create validated node";
             // This shouldn't happen after validation, but cleanup anyway
-            GraphSubject::endBatch();
+            // Batch mode handled by Scene instance
             xmlFreeDoc(doc);
             return false;
         }
@@ -484,7 +485,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
         } else {
             qCritical() << "INTERNAL ERROR: Failed to create validated edge";
             // This shouldn't happen after validation, but cleanup anyway
-            GraphSubject::endBatch();
+            // Batch mode handled by Scene instance
             xmlFreeDoc(doc);
             return false;
         }
@@ -519,7 +520,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 qCritical() << "  Conflicting edge:" << edgeDebugId;
                 qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
                 
-                GraphSubject::endBatch();
+                // Batch mode handled by Scene instance
                 return false;
             }
             
@@ -530,7 +531,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 qCritical() << "  Conflicting edge:" << edgeDebugId;
                 qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
                 
-                GraphSubject::endBatch();
+                // Batch mode handled by Scene instance
                 return false;
             }
             
@@ -555,8 +556,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
         qDebug() << "Graph loaded successfully:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
     }
     
-    // End batch mode to resume normal observer notifications
-    GraphSubject::endBatch();
+    // Batch mode handled by Scene instance
     
     // Validate graph integrity in debug builds
     #ifdef QT_DEBUG

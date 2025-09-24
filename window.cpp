@@ -323,7 +323,8 @@ bool Window::loadGraph(const QString& filename)
         m_autosaveObserver->setEnabled(false);
     }
 
-    GraphSubject::beginBatch();
+    // Use Scene's batch mode
+    m_scene->beginBatch();
     m_scene->clearGraph();
 
     const bool ok = m_factory->loadFromXmlFile(filename);
@@ -339,7 +340,7 @@ bool Window::loadGraph(const QString& filename)
             restoreJustLoadedFile();
         }
     }
-    GraphSubject::endBatch();
+    m_scene->endBatch();
 
     if (m_autosaveObserver) {
         m_autosaveObserver->saveNow();
@@ -934,11 +935,11 @@ void Window::newFile()
         m_autosaveObserver->setEnabled(false);
     }
 
-    GraphSubject::beginBatch();
+    m_scene->beginBatch();
     m_scene->clearGraph();                        // hard clear
     setCurrentFile(QString());                    // forget current file
     updateStatusBar();
-    GraphSubject::endBatch();
+    m_scene->endBatch();
 
     // Commit clean state and resume autosave
     if (m_autosaveObserver) {
@@ -1414,12 +1415,12 @@ void Window::runSmokeTests()
     if (m_autosaveObserver) {
         m_autosaveObserver->setEnabled(false);
     }
-    GraphSubject::beginBatch();
+    m_scene->beginBatch();
 
     testTemplateNodeCreation();
     testTemplateConnections();
 
-    GraphSubject::endBatch();
+    m_scene->endBatch();
     if (m_autosaveObserver) {
         m_autosaveObserver->saveNow();
         m_autosaveObserver->setEnabled(true);
@@ -1486,7 +1487,7 @@ void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
     if (m_autosaveObserver) {
         m_autosaveObserver->setEnabled(false);
     }
-    GraphSubject::beginBatch();
+    m_scene->beginBatch();
 
     // Start from a clean slate (we'll restore the file if we were called from load)
     m_scene->clearGraph();
@@ -1527,7 +1528,7 @@ void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
         }
     }
 
-    GraphSubject::endBatch();
+    m_scene->endBatch();
 
     // Run the force-directed layout over ALL nodes
     // (uses your Scene::autoLayoutForceDirected; snaps at end if snap-to-grid is enabled)
@@ -1555,10 +1556,10 @@ void Window::restoreJustLoadedFile()
     const QString path = getCurrentFile();
     if (path.isEmpty() || !QFileInfo::exists(path)) {
         // No file to restore — just clear to a blank scene
-        GraphSubject::beginBatch();
+        m_scene->beginBatch();
         m_scene->clearGraph();
         setCurrentFile(QString());
-        GraphSubject::endBatch();
+        m_scene->endBatch();
         updateStatusBar();
         return;
     }
@@ -1567,10 +1568,10 @@ void Window::restoreJustLoadedFile()
     if (m_autosaveObserver) {
         m_autosaveObserver->setEnabled(false);
     }
-    GraphSubject::beginBatch();
+    m_scene->beginBatch();
     m_scene->clearGraph();
     m_factory->loadFromXmlFile(path);
-    GraphSubject::endBatch();
+    m_scene->endBatch();
     if (m_autosaveObserver) { m_autosaveObserver->saveNow(); m_autosaveObserver->setEnabled(true); }
     updateStatusBar();
 }

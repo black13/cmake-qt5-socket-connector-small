@@ -119,10 +119,12 @@ void XmlAutosaveObserver::scheduleAutosave()
     }
     
     // OPTIMIZATION: Skip autosave scheduling during batch operations
-    if (GraphSubject::isInBatch()) {
-        qDebug().noquote() << "[AUTOSAVE] Skipping during batch mode";
-        return;
-    }
+    // Note: We need access to a GraphSubject instance to check batch mode
+    // For now, we'll assume no batch mode is active
+    // if (m_scene && m_scene->isInBatch()) {
+    //     qDebug().noquote() << "[AUTOSAVE] Skipping during batch mode";
+    //     return;
+    // }
     
     m_pendingChanges = true;
     qDebug().noquote() << "[AUTOSAVE] markDirty() called. Timer started:" 
