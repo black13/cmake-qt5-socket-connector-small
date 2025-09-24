@@ -43,31 +43,24 @@ public:
 class GraphSubject
 {
 public:
-    virtual ~GraphSubject();
+    virtual ~GraphSubject() = default;
     
     // Observer management
-    void attach(GraphObserver* observer);
-    void detach(GraphObserver* observer);
+    virtual void attach(GraphObserver* observer) = 0;
+    virtual void detach(GraphObserver* observer) = 0;
     
     // Batch mode for bulk operations (prevents observer storm)
-    static void beginBatch();
-    static void endBatch();
-    static bool isInBatch() { return s_batchDepth > 0; }
+    virtual void beginBatch() = 0;
+    virtual void endBatch() = 0;
+    virtual bool isInBatch() const = 0;
     
-protected:
     // Notification helpers for subclasses
-    void notifyNodeAdded(const Node& node);
-    void notifyNodeRemoved(const QUuid& nodeId);
-    void notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos);
-    void notifyEdgeAdded(const Edge& edge);
-    void notifyEdgeRemoved(const QUuid& edgeId);
-    void notifyGraphCleared();
-    void notifyGraphLoaded(const QString& filename);
-    void notifyGraphSaved(const QString& filename);
-    
-private:
-    QSet<GraphObserver*> m_observers;
-    
-    // Static batch control
-    static int s_batchDepth;
+    virtual void notifyNodeAdded(const Node& node) = 0;
+    virtual void notifyNodeRemoved(const QUuid& nodeId) = 0;
+    virtual void notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos) = 0;
+    virtual void notifyEdgeAdded(const Edge& edge) = 0;
+    virtual void notifyEdgeRemoved(const QUuid& edgeId) = 0;
+    virtual void notifyGraphCleared() = 0;
+    virtual void notifyGraphLoaded(const QString& filename) = 0;
+    virtual void notifyGraphSaved(const QString& filename) = 0;
 };

@@ -612,6 +612,100 @@ Socket* Scene::findNearestValidSocket(const QPointF& scenePos, Socket* fromSocke
     return nearestSocket;
 }
 
+// GraphSubject implementation
+int Scene::s_batchDepth = 0;
+
+void Scene::attach(GraphObserver* observer)
+{
+    m_observers.insert(observer);
+}
+
+void Scene::detach(GraphObserver* observer)
+{
+    m_observers.remove(observer);
+}
+
+void Scene::beginBatch()
+{
+    s_batchDepth++;
+}
+
+void Scene::endBatch()
+{
+    if (s_batchDepth > 0) {
+        s_batchDepth--;
+    }
+}
+
+bool Scene::isInBatch() const
+{
+    return s_batchDepth > 0;
+}
+
+void Scene::notifyNodeAdded(const Node& node)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onNodeAdded(node);
+    }
+}
+
+void Scene::notifyNodeRemoved(const QUuid& nodeId)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onNodeRemoved(nodeId);
+    }
+}
+
+void Scene::notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onNodeMoved(nodeId, oldPos, newPos);
+    }
+}
+
+void Scene::notifyEdgeAdded(const Edge& edge)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onEdgeAdded(edge);
+    }
+}
+
+void Scene::notifyEdgeRemoved(const QUuid& edgeId)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onEdgeRemoved(edgeId);
+    }
+}
+
+void Scene::notifyGraphCleared()
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onGraphCleared();
+    }
+}
+
+void Scene::notifyGraphLoaded(const QString& filename)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onGraphLoaded(filename);
+    }
+}
+
+void Scene::notifyGraphSaved(const QString& filename)
+{
+    if (isInBatch()) return;
+    for (GraphObserver* observer : m_observers) {
+        observer->onGraphSaved(filename);
+    }
+}
+
 // ============================================================================
 // Auto Layout (Simulated Annealing) Implementation
 // ============================================================================

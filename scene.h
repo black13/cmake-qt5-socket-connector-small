@@ -72,8 +72,22 @@ public:
     void prepareForShutdown();
     [[nodiscard]] bool isShutdownInProgress() const { return m_shutdownInProgress; }
     
-    // Public observer notifications (for Node movement)
-    using GraphSubject::notifyNodeMoved;
+    // GraphSubject interface implementation
+    void attach(GraphObserver* observer) override;
+    void detach(GraphObserver* observer) override;
+    void beginBatch() override;
+    void endBatch() override;
+    bool isInBatch() const override;
+    
+    // Notification helpers
+    void notifyNodeAdded(const Node& node) override;
+    void notifyNodeRemoved(const QUuid& nodeId) override;
+    void notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos) override;
+    void notifyEdgeAdded(const Edge& edge) override;
+    void notifyEdgeRemoved(const QUuid& edgeId) override;
+    void notifyGraphCleared() override;
+    void notifyGraphLoaded(const QString& filename) override;
+    void notifyGraphSaved(const QString& filename) override;
     
     // Ghost edge for visual connection feedback (right-click and drag)
     void startGhostEdge(Socket* fromSocket, const QPointF& startPos);
@@ -105,6 +119,10 @@ private:
     QHash<QUuid, Node*> m_nodes;
     QHash<QUuid, Edge*> m_edges;
     QHash<QUuid, Socket*> m_sockets;  // Deprecated - kept for compatibility
+    
+    // GraphSubject implementation
+    QSet<GraphObserver*> m_observers;
+    static int s_batchDepth;
     
     // Ghost edge for visual feedback during right-click connection creation
     GhostEdge* m_ghostEdge;
