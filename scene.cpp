@@ -466,8 +466,8 @@ void Scene::finishGhostEdge(const QPointF& scenePos)
         }
     }
 
-    // 2) Validate
-    auto* src = m_ghostSource;
+    // 2) Validate using m_ghostFromSocket as the source
+    auto* src = m_ghostFromSocket;
     const bool ok = src && target &&
                     src != target &&
                     src->getRole() == Socket::Output &&
