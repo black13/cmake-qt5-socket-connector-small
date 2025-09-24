@@ -945,7 +945,7 @@ void Scene::autoLayoutForceDirected(bool selectionOnly, int maxIters, double coo
         return G[i].radius + G[j].radius + margin;
     };
 
-    GraphSubject::beginBatch();
+    this->beginBatch();
 
     for (int iter = 0; iter < maxIters; ++iter) {
         std::fill(disp.begin(), disp.end(), QPointF(0,0));
@@ -1009,7 +1009,7 @@ void Scene::autoLayoutForceDirected(bool selectionOnly, int maxIters, double coo
         G[i].n->setPos(newScenePos);
     }
 
-    GraphSubject::endBatch();
+    this->endBatch();
     if (!m_isClearing) {
         emit sceneChanged();
     }
