@@ -78,7 +78,7 @@ public:
     // Ghost edge for visual connection feedback (right-click and drag)
     void startGhostEdge(Socket* fromSocket, const QPointF& startPos);
     void updateGhostEdge(const QPointF& currentPos);
-    void finishGhostEdge(Socket* toSocket = nullptr);
+    void finishGhostEdge(const QPointF& scenePos);
     void cancelGhostEdge();
     [[nodiscard]] bool ghostEdgeActive() const { return m_ghostEdgeActive; }
     
@@ -110,6 +110,7 @@ private:
     // Helper method for ghost edge styling
     QPen ghostPen() const;
     void resetAllSocketStates();
+    void cleanupGhost();
     
     // Internal immediate removal helpers for controlled teardown
     void removeEdgeImmediate(const QUuid& id);

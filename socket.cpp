@@ -2,6 +2,7 @@
 #include "node.h"
 #include "edge.h"
 #include "scene.h"
+#include "constants.h"
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
@@ -262,3 +263,10 @@ QVariant Socket::itemChange(GraphicsItemChange change, const QVariant &value)
 // Note: Delete key handling moved to Scene::keyPressEvent() for centralized multi-selection support
 
 
+QPainterPath Socket::shape() const {
+    QPainterPath p;
+    p.addEllipse(boundingRect());
+    QPainterPathStroker s;
+    s.setWidth(GraphConstants::PICK_WIDTH);
+    return s.createStroke(p);
+}
