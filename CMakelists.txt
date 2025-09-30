@@ -119,11 +119,16 @@ set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Disable programs" FORCE)
 set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support" FORCE)
 set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support" FORCE)
 
+# Use a pre-downloaded libxml2 source for faster builds
+set(FETCHCONTENT_FULLY_DISCONNECTED ON)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 FetchContent_Declare(
     libxml2
     GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
     GIT_TAG        v2.12.5
     GIT_SHALLOW    TRUE
+    SOURCE_DIR     "${CMAKE_BINARY_DIR}/_deps/libxml2-src"
 )
 
 FetchContent_MakeAvailable(libxml2)
