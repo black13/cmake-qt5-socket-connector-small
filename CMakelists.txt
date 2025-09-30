@@ -46,6 +46,20 @@ if(WIN32)
     if(CMAKE_SYSTEM_VERSION)
         add_compile_options(/subsystem:windows,5.02)
     endif()
+
+    # Additional Win32-specific optimizations
+    add_compile_definitions(
+        _CRT_SECURE_NO_WARNINGS
+        _SCL_SECURE_NO_WARNINGS
+        _WIN32_WINNT=0x0A00  # Windows 10
+        _ENABLE_EXTENDED_ALIGNED_STORAGE
+    )
+
+    # Enable whole program optimization for Release builds
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        add_compile_options(/Oi /Ot /Oy /GL)
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
+    endif()
 endif()
 
 # ─────────────────────────────────────
@@ -226,6 +240,7 @@ if(MSVC)
             /wd4127  # Disable "conditional expression is constant"
             /wd4251  # Disable "needs DLL interface" warnings
             $<$<CONFIG:Release>:/GL>  # Enable link-time code generation
+            $<$<CONFIG:Release>:/arch:AVX2>  # Use AVX2 instructions
     )
 else()
     target_compile_options(NodeGraphCore
@@ -275,6 +290,11 @@ if(WIN32)
             LINK_FLAGS "/LTCG /INCREMENTAL:NO /OPT:REF /OPT:ICF"
         )
     endif()
+
+    # Additional Windows-specific optimizations
+    set_target_properties(NodeGraph PROPERTIES
+        LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS,5.02 /ENTRY:mainCRTStartup"
+    )
 endif()
 
 # ─────────────────────────────────────
