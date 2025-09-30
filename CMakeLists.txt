@@ -157,6 +157,8 @@ set(CORE_SOURCES
     ghost_edge.h
     ghost_edge.cpp
     # Graph architecture
+    qgraph.h
+    qgraph.cpp
     graph_controller.h
     graph_controller.cpp
     # Factory and registry

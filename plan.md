@@ -880,3 +880,314 @@ OPTION_C: Lookup node 12345678 result: NULL
 - Reduced Qt input method event routing overhead
 - Better performance on large scenes with many edges
 - Cleaner flag usage (edges don't handle text input)
+
+---
+
+## Future Architecture: QGraph Separation Plan
+
+### Overview
+Merge existing Graph_manager functionality into a new **QGraph : public QObject** to centralize graph semantics, XML I/O, and orchestration logic. Keep **QGraphicsScene** (Scene subclass) purely visual/registry. This separation follows Qt's model-view architecture pattern.
+
+**Branch Strategy**: Each major step below should have its own feature branch for isolated development and testing.
+
+### Goals
+1. Centralize graph semantics + XML I/O + connect/disconnect + ghost-edge flow in **QGraph**
+2. Keep **QGraphicsScene** (Scene subclass) purely visual/registry
+3. Maintain fast edge updates (register edges on both nodes; O(degree) invalidation)
+4. Preserve existing JS/QML surface (expose QGraph or keep thin GraphController delegating to it)
+
+---
+
+### Step 1 — Create QGraph (QObject) and Move Graph_manager Logic
+**Branch**: `feat/qgraph-foundation`
+
+**New Header Structure**:
+```cpp
+// QGraph.h
+#pragma once
+#include <QObject>
+#include <QPointF>
+#include <QString>
+
+class QGraphicsScene;
+class Socket;
+
+class QGraph : public QObject {
+  Q_OBJECT
+public:
+  explicit QGraph(QGraphicsScene* scene, QObject* parent=nullptr);
+
+  Q_INVOKABLE QString createNode(const QString& type, qreal x, qreal y);
+  Q_INVOKABLE bool    deleteNode(const QString& nodeId);
+  Q_INVOKABLE QString connect(const QString& fromNodeId, int fromIdx,
+                              const QString& toNodeId,   int toIdx);
+  Q_INVOKABLE bool    deleteEdge(const QString& edgeId);
+  Q_INVOKABLE void    clear();
+
+  Q_INVOKABLE void    saveXml(const QString& path);
+  Q_INVOKABLE void    loadXml(const QString& path);
+
+  // ghost-edge preview: scene draws, QGraph orchestrates
+  Q_INVOKABLE void beginPreview(Socket* from, const QPointF& start);
+  Q_INVOKABLE void updatePreview(const QPointF& pos);
+  Q_INVOKABLE void endPreview(Socket* to);
+
+signals:
+  void nodeCreated(QString id);
+  void nodeDeleted(QString id);
+  void edgeConnected(QString id);
+  void edgeDeleted(QString id);
+  void graphCleared();
+  void xmlSaved(QString path);
+  void xmlLoaded(QString path);
+  void error(QString message);
+
+private:
+  QGraphicsScene* scene_{};
+};
+```
+
+**Implementation (QGraph.cpp)**:
+- Construct with `scene_` pointer
+- Port Graph_manager logic:
+  - `createNode` → new node, add to scene_, register with node registry, emit nodeCreated
+  - `connect` → resolve sockets, create edge, register on both nodes, emit edgeConnected
+  - `deleteNode`/`deleteEdge`/`clear` → update registries and emit signals
+  - `saveXml`/`loadXml` → lift existing XML routines here
+- Ghost-edge: call `static_cast<Scene*>(scene_)->start/update/finishGhostEdge(...)`
+
+**Acceptance Criteria**:
+- [ ] QGraph class compiles and links
+- [ ] Basic node creation works through QGraph
+- [ ] XML save/load preserves graph structure
+- [ ] No regression in existing functionality
+
+---
+
+### Step 2 — Slim Down Scene
+**Branch**: `feat/scene-visual-only`
+
+**Remove from Scene**:
+- Orchestration/business logic (creation/connection/XML decisions)
+- Graph mutation methods (move to QGraph)
+
+**Keep in Scene**:
+- Registries: `getNodes()`/`getEdges()`, helpers like `resetAllSocketStates()`
+- Rendering-only: GhostEdge drawing, highlights, paint/update
+- Minimal slots callable from QGraph: `startGhostEdge`, `updateGhostEdge`, `finishGhostEdge`, `clearGraph`
+
+**Changes**:
+```cpp
+// Scene becomes pure visual layer
+class Scene : public QGraphicsScene {
+public:
+  // Registry access (read-only for external callers)
+  const QHash<QUuid, Node*>& getNodes() const { return m_nodes; }
+  const QHash<QUuid, Edge*>& getEdges() const { return m_edges; }
+
+  // Visual-only operations (called by QGraph)
+  void addNodeVisual(Node* node);
+  void removeNodeVisual(const QUuid& nodeId);
+  void startGhostEdge(Socket* from, const QPointF& start);
+  void updateGhostEdge(const QPointF& pos);
+  void finishGhostEdge(Socket* to);
+
+private:
+  QHash<QUuid, Node*> m_nodes;
+  QHash<QUuid, Edge*> m_edges;
+  GhostEdge* m_ghostEdge;
+};
+```
+
+**Acceptance Criteria**:
+- [ ] Scene only handles visual/registry operations
+- [ ] No business logic in Scene
+- [ ] QGraph orchestrates all mutations
+- [ ] Rendering performance unchanged
+
+---
+
+### Step 3 — Integrate GraphController (Optional)
+**Branch**: `feat/qgraph-controller-integration`
+
+**Option A: Keep GraphController as Thin Facade**:
+```cpp
+class GraphController : public QObject {
+  Q_OBJECT
+public:
+  explicit GraphController(Scene* scene, QObject* parent=nullptr)
+    : QObject(parent)
+    , m_graph(new QGraph(scene, this))  // QGraph as child
+  {}
+
+  // Forward all methods to QGraph
+  Q_INVOKABLE QString createNode(const QString& type, qreal x, qreal y) {
+    return m_graph->createNode(type, x, y);
+  }
+  // ... other forwards
+
+private:
+  QGraph* m_graph;
+};
+```
+
+**Option B: Expose QGraph Directly**:
+- Expose QGraph itself to QML/JS
+- Retire GraphController entirely
+- Update JavaScript integration to use QGraph
+
+**Acceptance Criteria**:
+- [ ] Existing JS/QML API still works
+- [ ] No breaking changes to JavaScript code
+- [ ] GraphController becomes optional wrapper
+
+---
+
+### Step 4 — Remove Graph_manager
+**Branch**: `feat/remove-graph-manager`
+
+**Tasks**:
+1. Rename files to `QGraph.{h,cpp}`
+2. Move remaining helpers (type tables, node factories):
+   - Inline inside QGraph, or
+   - As simple free functions / static helpers in QGraph.cpp
+3. Delete Graph_manager headers/sources
+4. Update all includes throughout codebase
+5. Update CMakeLists.txt to reference QGraph instead of Graph_manager
+
+**Acceptance Criteria**:
+- [ ] Graph_manager files deleted
+- [ ] All includes updated
+- [ ] Project compiles without Graph_manager
+- [ ] All tests pass
+
+---
+
+### Step 5 — Maintain Performance Guarantees
+**Branch**: `feat/qgraph-performance-validation`
+
+**Performance Requirements**:
+- Edge wiring remains degree-local:
+  - On connect: store edge on both endpoint nodes and their sockets
+  - On node move/delete: notify only incident edges/nodes
+  - Avoid global scans
+- QGraph maintains lookup maps (id→node/edge) for O(1) access
+- Ghost-edge rapid updates (mouse move) don't allocate; only update path
+
+**Validation**:
+```cpp
+// Performance test scenarios
+1. Create 1000 nodes → measure time
+2. Connect 2000 edges → measure time
+3. Move node with 50 connections → measure update time
+4. Delete node with 50 connections → measure cleanup time
+5. Ghost-edge updates (100 mouse moves) → measure latency
+```
+
+**Acceptance Criteria**:
+- [ ] O(1) node/edge lookup maintained
+- [ ] O(degree) edge update complexity maintained
+- [ ] No performance regressions in large graphs
+- [ ] Ghost-edge updates < 16ms (60 FPS)
+
+---
+
+### Step 6 — Testing & Migration
+**Branch**: `feat/qgraph-integration-tests`
+
+**Unit Tests**:
+```cpp
+class QGraphTest : public QObject {
+  Q_OBJECT
+private slots:
+  void testNodeCreation();
+  void testEdgeConnection();
+  void testXmlRoundtrip();
+  void testGhostEdgeLifecycle();
+  void testMassOperations();
+};
+```
+
+**Integration Tests**:
+- Create→Connect→Move→Save→Clear→Load→Rebuild previews
+- Ghost-edge rapid updates (mouse move) don't allocate
+- XML file compatibility with existing files
+- JavaScript API compatibility
+
+**Smoke Tests**:
+1. Load existing XML file
+2. Create new nodes
+3. Connect edges
+4. Move nodes
+5. Save to file
+6. Reload and verify
+
+**Acceptance Criteria**:
+- [ ] All unit tests pass
+- [ ] Integration tests pass
+- [ ] Smoke tests pass
+- [ ] Existing XML files load correctly
+- [ ] Performance benchmarks meet targets
+
+---
+
+### Git Branch Strategy
+
+```bash
+# Baseline commit
+git add -A
+git commit -m "Baseline before QGraph refactoring"
+
+# Update main and merge current work
+git checkout main
+git pull --ff-only
+git merge --no-ff feat/graph-rearch-01 -m "Merge pre-QGraph baseline"
+
+# Create feature branches from main
+git checkout -b feat/qgraph-foundation
+# ... implement Step 1
+git push -u origin feat/qgraph-foundation
+
+git checkout main
+git checkout -b feat/scene-visual-only
+# ... implement Step 2
+git push -u origin feat/scene-visual-only
+
+# Continue pattern for remaining steps
+```
+
+**Branch Naming Convention**:
+- `feat/qgraph-foundation` - Step 1
+- `feat/scene-visual-only` - Step 2
+- `feat/qgraph-controller-integration` - Step 3
+- `feat/remove-graph-manager` - Step 4
+- `feat/qgraph-performance-validation` - Step 5
+- `feat/qgraph-integration-tests` - Step 6
+
+---
+
+### Acceptance Criteria (Overall)
+
+**Functional Requirements**:
+- [ ] All node/edge mutations go through QGraph
+- [ ] Scene contains no business logic (only draw/registry/ghost-edge drawing)
+- [ ] XML save/load work unchanged (file-compatible with existing files)
+- [ ] Ghost-edge lifecycle triggered by QGraph, rendered by Scene
+- [ ] Existing JS/QML integrations still work (via GraphController or direct QGraph)
+
+**Performance Requirements**:
+- [ ] O(1) lookups maintained
+- [ ] O(degree) edge updates maintained
+- [ ] No memory leaks
+- [ ] 60 FPS for ghost-edge updates
+
+**Code Quality**:
+- [ ] Clean separation of concerns (model vs view)
+- [ ] No god objects
+- [ ] Self-documenting code with clear responsibilities
+- [ ] Comprehensive test coverage
+
+**Compatibility**:
+- [ ] Existing XML files load correctly
+- [ ] JavaScript API unchanged or backward compatible
+- [ ] No breaking changes to public API
