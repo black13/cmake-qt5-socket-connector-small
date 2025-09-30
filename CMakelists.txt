@@ -131,6 +131,11 @@ FetchContent_Declare(
     SOURCE_DIR     "${CMAKE_BINARY_DIR}/_deps/libxml2-src"
 )
 
+# Check if we need to download or use cached source
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/_deps/libxml2-src/CMakeLists.txt")
+    FetchContent_Populate(libxml2)
+endif()
+
 FetchContent_MakeAvailable(libxml2)
 
 # Create alias target for consistency
