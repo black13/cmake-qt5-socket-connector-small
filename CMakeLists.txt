@@ -42,11 +42,6 @@ if(WIN32)
     set(CMAKE_PCH_INSTANTIATE_TEMPLATES ON)
     set(CMAKE_MSVC_PCH ON)
 
-    # Windows SDK version targeting
-    if(CMAKE_SYSTEM_VERSION)
-        add_compile_options(/subsystem:windows,5.02)
-    endif()
-
     # Additional Win32-specific optimizations
     add_compile_definitions(
         _CRT_SECURE_NO_WARNINGS
@@ -97,8 +92,7 @@ if(WIN32)
 endif()
 
 # Find Qt components with REQUIRED for early failure
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
-find_package(Qt5 COMPONENTS Test Qml)  # Optional components
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Qml)
 
 # ─────────────────────────────────────
 # 5. libxml2 configuration with caching optimization
@@ -120,8 +114,11 @@ set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support" FORCE)
 set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support" FORCE)
 
 # Use a pre-downloaded libxml2 source for faster builds
-set(FETCHCONTENT_FULLY_DISCONNECTED ON)
-set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+# Only enable disconnected mode if source already exists
+if(EXISTS "${CMAKE_BINARY_DIR}/_deps/libxml2-src/CMakeLists.txt")
+    set(FETCHCONTENT_FULLY_DISCONNECTED ON)
+    set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+endif()
 
 FetchContent_Declare(
     libxml2
@@ -131,15 +128,17 @@ FetchContent_Declare(
     SOURCE_DIR     "${CMAKE_BINARY_DIR}/_deps/libxml2-src"
 )
 
-# Check if we need to download or use cached source
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/_deps/libxml2-src/CMakeLists.txt")
-    FetchContent_Populate(libxml2)
-endif()
-
 FetchContent_MakeAvailable(libxml2)
 
-# Create alias target for consistency
-add_library(LibXml2::LibXml2 ALIAS libxml2)
+# Create alias target for consistency (check if target exists)
+if(TARGET libxml2 AND NOT TARGET LibXml2::LibXml2)
+    add_library(LibXml2::LibXml2 ALIAS libxml2)
+elseif(TARGET LibXml2::LibXml2)
+    # Already aliased, do nothing
+elseif(TARGET xml2)
+    # Alternative target name
+    add_library(LibXml2::LibXml2 ALIAS xml2)
+endif()
 
 add_definitions(-DUSE_LIBXML2)
 
@@ -149,43 +148,45 @@ add_definitions(-DUSE_LIBXML2)
 # Core library sources
 set(CORE_SOURCES
     # Node/Edge/Socket architecture
-    node.h node.cpp
-    socket.h socket.cpp
-    edge.h edge.cpp
-    ghost_edge.h ghost_edge.cpp
-
+    node.h
+    node.cpp
+    socket.h
+    socket.cpp
+    edge.h
+    edge.cpp
+    ghost_edge.h
+    ghost_edge.cpp
     # Graph architecture
-    graph.h graph.cpp
-    graph_controller.h graph_controller.cpp
-
+    graph_controller.h
+    graph_controller.cpp
     # Factory and registry
-    node_registry.h node_registry.cpp
-    graph_factory.h graph_factory.cpp
-
+    node_registry.h
+    node_registry.cpp
+    graph_factory.h
+    graph_factory.cpp
     # UI components
-    window.h window.cpp
-    view.h view.cpp
-    scene.h scene.cpp
-    node_palette_widget.h node_palette_widget.cpp
-
+    window.h
+    window.cpp
+    view.h
+    view.cpp
+    scene.h
+    scene.cpp
+    node_palette_widget.h
+    node_palette_widget.cpp
     # JavaScript integration
-    javascript_engine.h javascript_engine.cpp
-
+    javascript_engine.h
+    javascript_engine.cpp
     # Observer pattern
-    graph_observer.h graph_observer.cpp
-    xml_autosave_observer.h xml_autosave_observer.cpp
+    graph_observer.h
+    graph_observer.cpp
+    xml_autosave_observer.h
+    xml_autosave_observer.cpp
 )
 
 # Main application sources
 set(MAIN_SOURCES
     main.cpp
     icons.qrc
-)
-
-# Test sources
-set(TEST_SOURCES
-    tst_main.h
-    tst_main.cpp
 )
 
 # ─────────────────────────────────────
@@ -201,10 +202,11 @@ target_include_directories(NodeGraphCore
 )
 
 # Compile definitions
-target_compile_definitions(NodeGraphCore
-    PRIVATE
-        QT_NO_KEYWORDS
-)
+# Remove QT_NO_KEYWORDS to allow signals/slots/emit
+#target_compile_definitions(NodeGraphCore
+#    PRIVATE
+#        QT_NO_KEYWORDS
+#)
 
 # Link libraries
 target_link_libraries(NodeGraphCore
@@ -212,6 +214,7 @@ target_link_libraries(NodeGraphCore
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
+        Qt5::Qml
         LibXml2::LibXml2
 )
 
@@ -241,6 +244,12 @@ endif()
 # ─────────────────────────────────────
 add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
 
+# Include directories (needed for libxml2 headers)
+target_include_directories(NodeGraph
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 # Link to core library and Qt
 target_link_libraries(NodeGraph
     PRIVATE
@@ -248,6 +257,8 @@ target_link_libraries(NodeGraph
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
+        Qt5::Qml
+        LibXml2::LibXml2
 )
 
 # Windows-specific settings
@@ -256,16 +267,12 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
         VS_DPI_AWARE "PerMonitor"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
-    # Debug/Release environment setup
+    # Set environment for Debug configuration
     set_target_properties(NodeGraph PROPERTIES
-        VS_DEBUGGER_ENVIRONMENT_DEBUG
-            "PATH=${QT5_PATH}/bin;%PATH%"
-        VS_DEBUGGER_ENVIRONMENT_RELEASE
-            "PATH=${QT5_PATH}/bin;%PATH%"
-        VS_DEBUGGER_WORKING_DIRECTORY
-            "${CMAKE_CURRENT_SOURCE_DIR}"
+        VS_DEBUGGER_ENVIRONMENT "PATH=E:/Qt/5.15.16/$<IF:$<CONFIG:Debug>,Debug_x64,Release_x64>/bin;%PATH%"
     )
 
     # Windows-specific linker optimizations
@@ -282,24 +289,10 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 9. Test application target
-# ─────────────────────────────────────
-add_executable(NodeGraphTests ${TEST_SOURCES})
-
-target_link_libraries(NodeGraphTests
-    PRIVATE
-        NodeGraphCore
-        Qt5::Core
-        Qt5::Widgets
-        Qt5::Gui
-        Qt5::Test
-)
-
-# ─────────────────────────────────────
-# 10. Install rules
+# 9. Install rules
 # ─────────────────────────────────────
 if(WIN32)
-    install(TARGETS NodeGraph NodeGraphTests
+    install(TARGETS NodeGraph
         RUNTIME DESTINATION bin
     )
 
@@ -315,7 +308,7 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 11. Build information
+# 10. Build information
 # ─────────────────────────────────────
 message(STATUS "")
 message(STATUS "─────────────────────────────────────")

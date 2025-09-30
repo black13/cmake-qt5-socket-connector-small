@@ -97,21 +97,32 @@ print_status "Checking Qt5 installation..."
 # Auto-detect Qt installations in /usr/local/qt-*
 QT_INSTALLS=($(find /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
 
-if [ ${#QT_INSTALLS[@]} -eq 0 ]; then
-    print_error "No Qt installations found in /usr/local/qt-*"
-    print_error "Please install Qt5 to /usr/local/qt-VERSION or /usr/local/qt-VERSION-{debug,release}"
+# Check for system-installed Qt5 via qmake
+if command -v qmake &> /dev/null; then
+    SYSTEM_QT_VERSION=$(qmake -version | grep "Qt version" | cut -d' ' -f4)
+    if [[ "$SYSTEM_QT_VERSION" == 5.* ]]; then
+        print_success "Found system-installed Qt5 version: $SYSTEM_QT_VERSION"
+        QT_PATH=""  # Empty means use system Qt
+    fi
+fi
+
+if [ ${#QT_INSTALLS[@]} -eq 0 ] && [ -z "$SYSTEM_QT_VERSION" ]; then
+    print_error "No Qt installations found"
+    print_error "Please install Qt5 development packages or install to /usr/local/qt-VERSION"
     exit 1
 fi
 
-print_status "Found Qt installations:"
-for qt_dir in "${QT_INSTALLS[@]}"; do
-    echo "  - $qt_dir"
-done
+if [ ${#QT_INSTALLS[@]} -gt 0 ]; then
+    print_status "Found Qt installations in /usr/local:"
+    for qt_dir in "${QT_INSTALLS[@]}"; do
+        echo "  - $qt_dir"
+    done
+fi
 
 # Select best Qt installation based on build type
 QT_PATH=""
 
-# First try to find debug/release specific builds
+# First try to find debug/release specific builds in /usr/local
 if [ "$BUILD_TYPE" = "Debug" ]; then
     for qt_dir in "${QT_INSTALLS[@]}"; do
         if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
@@ -130,8 +141,8 @@ else
     done
 fi
 
-# Fallback to first available Qt installation
-if [ -z "$QT_PATH" ]; then
+# Fallback to first available Qt installation in /usr/local
+if [ -z "$QT_PATH" ] && [ ${#QT_INSTALLS[@]} -gt 0 ]; then
     for qt_dir in "${QT_INSTALLS[@]}"; do
         if [ -d "$qt_dir/lib/cmake/Qt5" ]; then
             QT_PATH="$qt_dir"
@@ -141,19 +152,30 @@ if [ -z "$QT_PATH" ]; then
     done
 fi
 
-# Final check
-if [ -z "$QT_PATH" ] || [ ! -d "$QT_PATH/lib/cmake/Qt5" ]; then
-    print_error "No valid Qt5 installation found with CMake support"
-    print_error "Make sure Qt5 is installed with development files"
+# Use system Qt if no custom installation found
+if [ -z "$QT_PATH" ] && [ -n "$SYSTEM_QT_VERSION" ]; then
+    print_success "Using system-installed Qt5 (via package manager)"
+    QT_PATH=""  # Empty path will use system Qt
+fi
+
+# Final check - only error if we have no Qt at all
+if [ -z "$QT_PATH" ] && [ -z "$SYSTEM_QT_VERSION" ]; then
+    print_error "No valid Qt5 installation found"
+    print_error "Please install Qt5 development packages: sudo apt install qtbase5-dev qtdeclarative5-dev"
     exit 1
 fi
 
 # 3. Set up build environment
 print_status "Setting up build environment..."
 
-# Set Qt5 path for CMake
-export CMAKE_PREFIX_PATH="$QT_PATH:$CMAKE_PREFIX_PATH"  
-export PKG_CONFIG_PATH="$QT_PATH/lib/pkgconfig:$PKG_CONFIG_PATH"
+# Set Qt5 path for CMake only if using custom Qt installation
+if [ -n "$QT_PATH" ]; then
+    export CMAKE_PREFIX_PATH="$QT_PATH:$CMAKE_PREFIX_PATH"
+    export PKG_CONFIG_PATH="$QT_PATH/lib/pkgconfig:$PKG_CONFIG_PATH"
+    print_status "Using custom Qt path: $QT_PATH"
+else
+    print_status "Using system Qt5 installation"
+fi
 
 # Create build directory with smart cache preservation
 BUILD_DIR="build_linux"
@@ -181,13 +203,22 @@ print_success "Build directory ready: $BUILD_DIR"
 # 4. Configure with CMake
 print_status "Configuring project with CMake..."
 
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DCMAKE_PREFIX_PATH="$QT_PATH" \
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-      .. || {
-    print_error "CMake configuration failed!"
-    exit 1
-}
+if [ -n "$QT_PATH" ]; then
+    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DCMAKE_PREFIX_PATH="$QT_PATH" \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          .. || {
+        print_error "CMake configuration failed!"
+        exit 1
+    }
+else
+    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          .. || {
+        print_error "CMake configuration failed!"
+        exit 1
+    }
+fi
 
 print_success "CMake configuration completed"
 
