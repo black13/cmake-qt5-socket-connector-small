@@ -83,12 +83,17 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# Set Qt paths based on build type
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(QT5_PATH "E:/Qt/5.15.16/Debug_x64")
+else()
+    set(QT5_PATH "E:/Qt/5.15.16/Release_x64")
+endif()
+
 # Preferred Qt installation paths (Windows)
 if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH
-        "E:/Qt/5.15.16/Release_x64"
-        "E:/Qt/5.15.16/Debug_x64"
-    )
+    list(APPEND CMAKE_PREFIX_PATH "${QT5_PATH}/lib/cmake")
+    set(QT_QMAKE_EXECUTABLE "${QT5_PATH}/bin/qmake.exe")
 endif()
 
 # Find Qt components with REQUIRED for early failure
@@ -277,9 +282,9 @@ if(WIN32)
     # Debug/Release environment setup
     set_target_properties(NodeGraph PROPERTIES
         VS_DEBUGGER_ENVIRONMENT_DEBUG
-            "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
+            "PATH=${QT5_PATH}/bin;%PATH%"
         VS_DEBUGGER_ENVIRONMENT_RELEASE
-            "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+            "PATH=${QT5_PATH}/bin;%PATH%"
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
@@ -322,10 +327,10 @@ if(WIN32)
     # Install Qt DLLs (simplified approach)
     install(CODE "
         file(INSTALL
-            \"\${QT5_PATH}/bin/Qt5Core.dll\"
-            \"\${QT5_PATH}/bin/Qt5Widgets.dll\"
-            \"\${QT5_PATH}/bin/Qt5Gui.dll\"
-            DESTINATION \"\${CMAKE_INSTALL_PREFIX}/bin\"
+            \"${QT5_PATH}/bin/Qt5Core.dll\"
+            \"${QT5_PATH}/bin/Qt5Widgets.dll\"
+            \"${QT5_PATH}/bin/Qt5Gui.dll\"
+            DESTINATION \"${CMAKE_INSTALL_PREFIX}/bin\"
         )
     ")
 endif()
@@ -338,6 +343,7 @@ message(STATUS "─────────────────────�
 message(STATUS "Build Configuration:")
 message(STATUS "  Project:          ${PROJECT_NAME} ${PROJECT_VERSION}")
 message(STATUS "  Build Type:       ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Qt Path:          ${QT5_PATH}")
 message(STATUS "  C++ Standard:     C++${CMAKE_CXX_STANDARD}")
 message(STATUS "  Qt Version:       ${Qt5_VERSION}")
 message(STATUS "  libxml2 Source:   ${USE_SYSTEM_LIBXML2 ? "System" : "FetchContent"}")
