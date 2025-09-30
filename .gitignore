@@ -76,3 +76,14 @@ current_status_*.md
 # Cleanup scripts
 cleanup_repo.sh
 remove_claude_coauthor.sh
+.aider*
+
+# local build artifacts
+/build_Debug/
+/build_linux/
+
+# archives/snapshots
+/code_compendium_*/
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
