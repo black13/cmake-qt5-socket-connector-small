@@ -115,6 +115,17 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
+# Configure libxml2 build options before making it available
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+set(LIBXML2_WITH_ICONV OFF CACHE BOOL "Disable iconv support" FORCE)
+set(LIBXML2_WITH_LZMA OFF CACHE BOOL "Disable LZMA support" FORCE)
+set(LIBXML2_WITH_ZLIB OFF CACHE BOOL "Disable zlib support" FORCE)
+set(LIBXML2_WITH_PYTHON OFF CACHE BOOL "Disable Python bindings" FORCE)
+set(LIBXML2_WITH_TESTS OFF CACHE BOOL "Disable tests" FORCE)
+set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Disable programs" FORCE)
+set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support" FORCE)
+set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support" FORCE)
+
 FetchContent_MakeAvailable(libxml2)
 
 # Create alias target for consistency
