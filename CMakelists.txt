@@ -12,13 +12,40 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ─────────────────────────────────────
-# 2. Platform-specific settings
+# 2. Platform-specific settings - Enhanced Win32 Optimization
 # ─────────────────────────────────────
 if(WIN32)
     set(CMAKE_SYSTEM_VERSION 10.0)
     add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX)
+
     # Enable parallel compilation for MSVC
     add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+
+    # Windows-specific optimizations
+    add_compile_options(
+        $<$<CONFIG:Release>:/O2>  # Optimize for speed
+        $<$<CONFIG:Release>:/Ob2> # Inline function expansion
+        $<$<CONFIG:Release>:/Oi>   # Enable intrinsic functions
+        $<$<CONFIG:Release>:/Ot>   # Favor speed over size
+        $<$<CONFIG:Release>:/Oy>   # Omit frame pointers
+        $<$<CONFIG:Release>:/GL>   # Enable link-time code generation
+        $<$<CONFIG:Release>:/Gy>   # Separate functions for linker
+        $<$<CONFIG:Release>:/arch:AVX2> # Use AVX2 instructions
+    )
+
+    # Linker optimizations for Release builds
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG /INCREMENTAL:NO")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG /INCREMENTAL:NO")
+    set(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} /LTCG /INCREMENTAL:NO")
+
+    # Precompiled headers for MSVC
+    set(CMAKE_PCH_INSTANTIATE_TEMPLATES ON)
+    set(CMAKE_MSVC_PCH ON)
+
+    # Windows SDK version targeting
+    if(CMAKE_SYSTEM_VERSION)
+        add_compile_options(/subsystem:windows,5.02)
+    endif()
 endif()
 
 # ─────────────────────────────────────
@@ -102,6 +129,12 @@ if(NOT USE_SYSTEM_LIBXML2)
         set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Disable programs")
         set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support")
         set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support")
+
+        # Windows-specific optimizations for libxml2
+        if(WIN32)
+            set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Ob2 /Oi /Ot /Oy")
+            set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zi /Od")
+        endif()
 
         FetchContent_MakeAvailable(libxml2)
 
@@ -192,6 +225,7 @@ if(MSVC)
             /wd4100  # Disable "unreferenced parameter" warnings
             /wd4127  # Disable "conditional expression is constant"
             /wd4251  # Disable "needs DLL interface" warnings
+            $<$<CONFIG:Release>:/GL>  # Enable link-time code generation
     )
 else()
     target_compile_options(NodeGraphCore
@@ -234,6 +268,13 @@ if(WIN32)
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
+
+    # Windows-specific linker optimizations
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        set_target_properties(NodeGraph PROPERTIES
+            LINK_FLAGS "/LTCG /INCREMENTAL:NO /OPT:REF /OPT:ICF"
+        )
+    endif()
 endif()
 
 # ─────────────────────────────────────
