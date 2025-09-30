@@ -108,13 +108,6 @@ include(FetchContent)
 # Use a persistent cache directory
 set(FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps" CACHE PATH "FetchContent base directory")
 
-FetchContent_Declare(
-    libxml2
-    GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
-    GIT_TAG        v2.12.5
-    GIT_SHALLOW    TRUE
-)
-
 # Configure libxml2 build options before making it available
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 set(LIBXML2_WITH_ICONV OFF CACHE BOOL "Disable iconv support" FORCE)
@@ -125,6 +118,13 @@ set(LIBXML2_WITH_TESTS OFF CACHE BOOL "Disable tests" FORCE)
 set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Disable programs" FORCE)
 set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support" FORCE)
 set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support" FORCE)
+
+FetchContent_Declare(
+    libxml2
+    GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
+    GIT_TAG        v2.12.5
+    GIT_SHALLOW    TRUE
+)
 
 FetchContent_MakeAvailable(libxml2)
 
