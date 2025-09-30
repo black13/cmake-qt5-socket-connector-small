@@ -1,5 +1,68 @@
 # Implementation Log
 
+## Session 2025-09-30: QGraph Foundation - Model-View Separation
+
+### QGraph Implementation - Step 1 of 6
+
+**Branch**: `feat/qgraph-foundation`
+
+**Goal**: Create QGraph (QObject) to separate graph semantics from visual rendering (Scene).
+
+#### Design Decision: QString vs QUuid in Q_INVOKABLE Methods
+
+**Question**: Why do Q_INVOKABLE methods use QString for UUIDs instead of QUuid?
+
+**Answer**: JavaScript/QML API boundary compatibility
+- **JavaScript has no QUuid type**: QJSEngine cannot marshal QUuid to/from JavaScript
+- **QString converts seamlessly**: JavaScript strings map directly to QString
+- **Internal type safety maintained**: We still use QUuid internally in Scene/Node/Edge
+
+**API Layer Pattern**:
+```cpp
+// Public API (JavaScript boundary) - uses QString
+Q_INVOKABLE QString createNode(const QString& type, qreal x, qreal y);
+Q_INVOKABLE bool deleteNode(const QString& nodeId);
+
+// Internal implementation - converts to QUuid
+Node* QGraph::findNode(const QString& uuid) {
+    return scene_->getNode(QUuid(uuid));  // QString → QUuid conversion
+}
+
+// Scene internal methods - uses QUuid for type safety
+Node* Scene::getNode(const QUuid& nodeId) const;
+```
+
+**Benefits**:
+- ✅ JavaScript can call all QGraph methods without type conversion issues
+- ✅ Internal code keeps QUuid type safety and performance
+- ✅ Clear API boundary between script layer and C++ layer
+- ✅ Matches existing GraphController pattern
+
+**Consistency**: This follows the same pattern as existing GraphController class.
+
+#### Files Created
+- `qgraph.h` - QGraph class declaration with Q_INVOKABLE methods
+- `qgraph.cpp` - Initial implementation delegating to Scene
+
+#### Build Status
+- ✅ Added qgraph.h/cpp to CMakeLists.txt
+- ✅ Linux compilation successful (GCC 11.4.0)
+- ⏳ Windows compilation pending test
+- ⏳ XML save/load coordination (currently stubbed)
+
+#### Implementation Notes
+Fixed Edge creation pattern:
+```cpp
+// Edge constructor takes (edgeId, fromSocketId, toSocketId)
+// But socket UUIDs are empty - Edge uses node IDs + socket indices instead
+Edge* edge = new Edge(QUuid::createUuid(), QUuid(), QUuid());
+edge->setConnectionData(fromNodeId, toNodeId, fromIdx, toIdx);
+```
+
+This matches the existing pattern in Scene and GraphFactory.
+
+---
+
 ## Session 2025-08-02: Socket Positioning Analysis & Visual Improvements Planning
 
 ### Context
