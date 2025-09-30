@@ -103,25 +103,6 @@ find_package(Qt5 COMPONENTS Test Qml)  # Optional components
 # ─────────────────────────────────────
 # 5. libxml2 configuration with caching optimization
 # ─────────────────────────────────────
-option(USE_SYSTEM_LIBXML2 "Use system libxml2 instead of building from source" OFF)
-
-if(NOT WIN32 AND USE_SYSTEM_LIBXML2)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(LIBXML2 QUIET libxml-2.0>=2.9.0)
-        if(LIBXML2_FOUND)
-            add_library(LibXml2::LibXml2 INTERFACE IMPORTED)
-            target_include_directories(LibXml2::LibXml2 INTERFACE ${LIBXML2_INCLUDE_DIRS})
-            target_link_libraries(LibXml2::LibXml2 INTERFACE ${LIBXML2_LIBRARIES})
-            target_compile_options(LibXml2::LibXml2 INTERFACE ${LIBXML2_CFLAGS_OTHER})
-            message(STATUS "Using system libxml2: ${LIBXML2_VERSION}")
-        else()
-            message(WARNING "System libxml2 not found, falling back to FetchContent")
-            set(USE_SYSTEM_LIBXML2 OFF)
-        endif()
-    endif()
-endif()
-
 include(FetchContent)
 
 # Use a persistent cache directory
@@ -129,36 +110,15 @@ set(FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps" CACHE PATH "FetchContent b
 
 FetchContent_Declare(
     libxml2
-    GIT_REPOSITORY https://github.com/GNOME/libxml2.git
+    GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
     GIT_TAG        v2.12.5
     GIT_SHALLOW    TRUE
 )
 
-# Only populate if not already available
-FetchContent_GetProperties(libxml2)
-if(NOT libxml2_POPULATED)
-    # Optimized build configuration for libxml2
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries")
-    set(LIBXML2_WITH_ICONV OFF CACHE BOOL "Disable iconv support")
-    set(LIBXML2_WITH_LZMA OFF CACHE BOOL "Disable LZMA support")
-    set(LIBXML2_WITH_ZLIB OFF CACHE BOOL "Disable zlib support")
-    set(LIBXML2_WITH_PYTHON OFF CACHE BOOL "Disable Python bindings")
-    set(LIBXML2_WITH_TESTS OFF CACHE BOOL "Disable tests")
-    set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Disable programs")
-    set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support")
-    set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support")
+FetchContent_MakeAvailable(libxml2)
 
-    # Windows-specific optimizations for libxml2
-    if(WIN32)
-        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Ob2 /Oi /Ot /Oy")
-        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zi /Od")
-    endif()
-
-    FetchContent_MakeAvailable(libxml2)
-
-    # Create alias target for consistency
-    add_library(LibXml2::LibXml2 ALIAS libxml2)
-endif()
+# Create alias target for consistency
+add_library(LibXml2::LibXml2 ALIAS libxml2)
 
 add_definitions(-DUSE_LIBXML2)
 
