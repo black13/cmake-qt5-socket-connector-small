@@ -2,366 +2,285 @@ cmake_minimum_required(VERSION 3.16)
 project(NodeGraph VERSION 1.0.0 LANGUAGES CXX)
 
 # ─────────────────────────────────────
-# NOTE: Code Review Compendium Script
-# ─────────────────────────────────────
-# generate_code_compendium.sh - Creates complete code review package
-# This script is NOT part of the build - it's for reviewer delivery only
-# Run: ./generate_code_compendium.sh to create reviewer package
-
-# ─────────────────────────────────────
-# 1.  C++ standard
+# 1. C++ standard and project settings
 # ─────────────────────────────────────
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Enable position independent code for better optimization
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ─────────────────────────────────────
-# 2.  Windows-specific defines
+# 2. Platform-specific settings
 # ─────────────────────────────────────
 if(WIN32)
     set(CMAKE_SYSTEM_VERSION 10.0)
-    add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
+    add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX)
+    # Enable parallel compilation for MSVC
+    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 endif()
 
 # ─────────────────────────────────────
-# 3.  Default build-type
+# 3. Build type configuration
 # ─────────────────────────────────────
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+# Optimization flags for Release builds
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_options($<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O3 -DNDEBUG>)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 # ─────────────────────────────────────
-# 4.  Qt search paths (adapt to your install)
+# 4. Qt configuration with optimized search
 # ─────────────────────────────────────
+# Use Qt's built-in CMake configuration
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+# Preferred Qt installation paths (Windows)
 if(WIN32)
     list(APPEND CMAKE_PREFIX_PATH
         "E:/Qt/5.15.16/Release_x64"
         "E:/Qt/5.15.16/Debug_x64"
-        "C:/Qt/5.15.2/msvc2019_64"
-        "C:/Qt/5.15.2/msvc2019"
-        "C:/Qt/5.12.12/msvc2017_64"
     )
-else()
-    # Linux/WSL: Auto-detect Qt installations in /usr/local/qt-*
-    file(GLOB QT_INSTALL_DIRS "/usr/local/qt*")
-    
-    # Sort directories to prefer newer versions (reverse alphabetical)
-    list(SORT QT_INSTALL_DIRS)
-    list(REVERSE QT_INSTALL_DIRS)
-    
-    # Add found Qt installations to search path
-    foreach(QT_DIR ${QT_INSTALL_DIRS})
-        if(IS_DIRECTORY "${QT_DIR}")
-            # Check for common Qt directory structures
-            if(EXISTS "${QT_DIR}/lib/cmake/Qt5")
-                list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
-                message(STATUS "Found Qt installation: ${QT_DIR}")
-            endif()
-            
-            # Check for debug/release subdirectories
-            if(EXISTS "${QT_DIR}/debug" AND EXISTS "${QT_DIR}/debug/lib/cmake/Qt5")
-                list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}/debug")
-                message(STATUS "Found Qt Debug build: ${QT_DIR}/debug")
-            endif()
-            
-            if(EXISTS "${QT_DIR}/release" AND EXISTS "${QT_DIR}/release/lib/cmake/Qt5")
-                list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}/release")
-                message(STATUS "Found Qt Release build: ${QT_DIR}/release")
-            endif()
-        endif()
-    endforeach()
-    
-    # Prefer debug builds for Debug configuration, release builds for Release
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        message(STATUS "Debug build: Preferring Qt debug libraries")
-    else()
-        message(STATUS "Release build: Preferring Qt release libraries")
-    endif()
 endif()
 
-# ─────────────────────────────────────
-# 5.  Find Qt5 modules
-# ─────────────────────────────────────
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui Test Qml)
+# Find Qt components with REQUIRED for early failure
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
+find_package(Qt5 COMPONENTS Test Qml)  # Optional components
 
 # ─────────────────────────────────────
-# Find or build libxml2 for cross-platform XML handling
+# 5. libxml2 configuration with caching optimization
 # ─────────────────────────────────────
+option(USE_SYSTEM_LIBXML2 "Use system libxml2 instead of building from source" OFF)
 
-# Try to use system libxml2 first (Linux/Unix only), fallback to FetchContent
-set(USE_SYSTEM_LIBXML2 FALSE)
-
-if(NOT WIN32)
+if(NOT WIN32 AND USE_SYSTEM_LIBXML2)
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(LIBXML2 QUIET libxml-2.0>=2.9.0)
-        if(LIBXML2_FOUND AND LIBXML2_INCLUDE_DIRS)
-            # Verify that we can actually find the headers
-            find_path(LIBXML2_HEADER_TEST libxml/tree.h PATHS ${LIBXML2_INCLUDE_DIRS} NO_DEFAULT_PATH)
-            if(LIBXML2_HEADER_TEST)
-                set(USE_SYSTEM_LIBXML2 TRUE)
-            endif()
+        if(LIBXML2_FOUND)
+            add_library(LibXml2::LibXml2 INTERFACE IMPORTED)
+            target_include_directories(LibXml2::LibXml2 INTERFACE ${LIBXML2_INCLUDE_DIRS})
+            target_link_libraries(LibXml2::LibXml2 INTERFACE ${LIBXML2_LIBRARIES})
+            target_compile_options(LibXml2::LibXml2 INTERFACE ${LIBXML2_CFLAGS_OTHER})
+            message(STATUS "Using system libxml2: ${LIBXML2_VERSION}")
+        else()
+            message(WARNING "System libxml2 not found, falling back to FetchContent")
+            set(USE_SYSTEM_LIBXML2 OFF)
         endif()
     endif()
 endif()
 
-if(USE_SYSTEM_LIBXML2)
-    message(STATUS "Using system libxml2: ${LIBXML2_VERSION}")
-    # Create an imported target for consistency
-    add_library(LibXml2::LibXml2 INTERFACE IMPORTED)
-    target_link_libraries(LibXml2::LibXml2 INTERFACE ${LIBXML2_LIBRARIES})
-    target_include_directories(LibXml2::LibXml2 INTERFACE ${LIBXML2_INCLUDE_DIRS})
-    target_compile_options(LibXml2::LibXml2 INTERFACE ${LIBXML2_CFLAGS_OTHER})
-else()
-    # Use FetchContent with persistent global cache
+if(NOT USE_SYSTEM_LIBXML2)
     include(FetchContent)
-    
-    # Set a global cache directory that persists across builds (separate for Debug/Release)
-    set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.cmake-cache/${CMAKE_BUILD_TYPE}" CACHE PATH "FetchContent cache directory")
-    
-    # Check if libxml2 is already populated to avoid rebuilding
+
+    # Use a persistent cache directory
+    set(FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps" CACHE PATH "FetchContent base directory")
+
+    FetchContent_Declare(
+        libxml2
+        GIT_REPOSITORY https://github.com/GNOME/libxml2.git
+        GIT_TAG        v2.12.5
+        GIT_SHALLOW    TRUE
+    )
+
+    # Only populate if not already available
     FetchContent_GetProperties(libxml2)
     if(NOT libxml2_POPULATED)
-        if(WIN32)
-            message(STATUS "Windows: Building libxml2 from source (cached) - downloading and building...")
-        else()
-            message(STATUS "libxml2 not found in persistent cache - downloading and building...")
-        endif()
-        
-        FetchContent_Declare(
-            libxml2
-            GIT_REPOSITORY https://github.com/GNOME/libxml2.git
-            GIT_TAG        v2.12.5  # Stable version
-            GIT_SHALLOW    TRUE
-            SOURCE_DIR     "${FETCHCONTENT_BASE_DIR}/libxml2-src"
-            BINARY_DIR     "${FETCHCONTENT_BASE_DIR}/libxml2-build"
-        )
-        
-        # Configure libxml2 build options - minimal features for performance
-        set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-        set(LIBXML2_WITH_ICONV OFF CACHE BOOL "Build with iconv support" FORCE)
-        set(LIBXML2_WITH_LZMA OFF CACHE BOOL "Build with lzma support" FORCE) 
-        set(LIBXML2_WITH_ZLIB OFF CACHE BOOL "Build with zlib support" FORCE)
-        set(LIBXML2_WITH_PYTHON OFF CACHE BOOL "Build Python bindings" FORCE)
-        set(LIBXML2_WITH_TESTS OFF CACHE BOOL "Build tests" FORCE)
-        set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Build programs" FORCE)
-        set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Build with HTTP support" FORCE)
-        set(LIBXML2_WITH_FTP OFF CACHE BOOL "Build with FTP support" FORCE)
-        
+        # Optimized build configuration for libxml2
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries")
+        set(LIBXML2_WITH_ICONV OFF CACHE BOOL "Disable iconv support")
+        set(LIBXML2_WITH_LZMA OFF CACHE BOOL "Disable LZMA support")
+        set(LIBXML2_WITH_ZLIB OFF CACHE BOOL "Disable zlib support")
+        set(LIBXML2_WITH_PYTHON OFF CACHE BOOL "Disable Python bindings")
+        set(LIBXML2_WITH_TESTS OFF CACHE BOOL "Disable tests")
+        set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "Disable programs")
+        set(LIBXML2_WITH_HTTP OFF CACHE BOOL "Disable HTTP support")
+        set(LIBXML2_WITH_FTP OFF CACHE BOOL "Disable FTP support")
+
         FetchContent_MakeAvailable(libxml2)
-        message(STATUS "libxml2 build complete - cached in ${FETCHCONTENT_BASE_DIR}")
-    else()
-        message(STATUS "libxml2 found in persistent cache - skipping rebuild")
+
+        # Create alias target for consistency
+        add_library(LibXml2::LibXml2 ALIAS libxml2)
     endif()
 endif()
 
-# ─────────────────────────────────────
-# Note: Graaf integration disabled for now due to heavy dependencies
-# Will use lightweight custom layout implementation instead
-# ─────────────────────────────────────
-
-# Enable libxml2 for all platforms
 add_definitions(-DUSE_LIBXML2)
 
-# auto-moc for QObject / signals
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-
 # ─────────────────────────────────────
-# 6.  MSVC compiler options
+# 6. Source file organization
 # ─────────────────────────────────────
-if(MSVC)
-    add_compile_options(/W3 /MP)
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE)
-endif()
-
-# ─────────────────────────────────────
-# 7.  Shared core library to avoid double building
-# ─────────────────────────────────────
+# Core library sources
 set(CORE_SOURCES
-    # Self-serializing architecture
-    node.h
-    node.cpp
-    socket.h
-    socket.cpp
-    edge.h
-    edge.cpp
-    ghost_edge.h
-    ghost_edge.cpp
-    
-    # Phase 11: Type-erasure facade system
-    node_facade.h
-    edge_facade.h
-    
-    # Node registry system
-    node_registry.h
-    node_registry.cpp
-    
-    # XML-first factory
-    graph_factory.h
-    graph_factory.cpp
-    
-    # Layout engine using Graaf (disabled for now)
-    # layout_engine.h
-    # layout_engine.cpp
-    
-    # UI classes
-    window.h
-    window.cpp
-    view.h
-    view.cpp
-    scene.h
-    scene.cpp
-    
-    # Professional drag-and-drop palette
-    node_palette_widget.h
-    node_palette_widget.cpp
-    
-    # JavaScript engine integration
-    javascript_engine.h
-    javascript_engine.cpp
-    # javascript_console.h
-    # javascript_console.cpp
-    graph_controller.h
-    graph_controller.cpp
-    
-    # Observer pattern implementation
-    graph_observer.h
-    graph_observer.cpp
-    xml_autosave_observer.h
-    xml_autosave_observer.cpp
-    
-    # Live XML synchronization (not implemented yet)
-    # xml_live_sync.h
-    # xml_live_sync.cpp
+    # Node/Edge/Socket architecture
+    node.h node.cpp
+    socket.h socket.cpp
+    edge.h edge.cpp
+    ghost_edge.h ghost_edge.cpp
+
+    # Graph architecture
+    graph.h graph.cpp
+    graph_controller.h graph_controller.cpp
+
+    # Factory and registry
+    node_registry.h node_registry.cpp
+    graph_factory.h graph_factory.cpp
+
+    # UI components
+    window.h window.cpp
+    view.h view.cpp
+    scene.h scene.cpp
+    node_palette_widget.h node_palette_widget.cpp
+
+    # JavaScript integration
+    javascript_engine.h javascript_engine.cpp
+
+    # Observer pattern
+    graph_observer.h graph_observer.cpp
+    xml_autosave_observer.h xml_autosave_observer.cpp
 )
 
-# Main application sources (only main.cpp + resources)
+# Main application sources
 set(MAIN_SOURCES
     main.cpp
     icons.qrc
 )
 
-# Test application sources (only test files)
+# Test sources
 set(TEST_SOURCES
     tst_main.h
     tst_main.cpp
 )
 
-# Facade test sources (Phase 11 experimental)
-set(FACADE_TEST_SOURCES
-    test_facade_core.cpp
-)
-
 # ─────────────────────────────────────
-# 8.  Shared core library - compile once, use twice
+# 7. Core library target with modern CMake
 # ─────────────────────────────────────
 add_library(NodeGraphCore STATIC ${CORE_SOURCES})
 
-# ─────────────────────────────────────
-# 9.  Main executable target
-# ─────────────────────────────────────
-add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
-target_link_libraries(NodeGraph NodeGraphCore)
-
-# ─────────────────────────────────────
-# 10. Test executable target
-# ─────────────────────────────────────
-add_executable(NodeGraphTests ${TEST_SOURCES})
-target_link_libraries(NodeGraphTests NodeGraphCore)
-
-# ─────────────────────────────────────
-# 11. Phase 11 Facade Test executable (optional)
-# ─────────────────────────────────────
-option(BUILD_FACADE_TESTS "Build Phase 11 facade tests" OFF)
-if(BUILD_FACADE_TESTS)
-    add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
-    target_link_libraries(TestFacadeCore NodeGraphCore)
-    message(STATUS "Building Phase 11 facade tests")
-endif()
-
-# Always use FetchContent libxml2 - Core library (shared by both main and test)
-target_link_libraries(NodeGraphCore
-    Qt5::Core
-    Qt5::Widgets
-    Qt5::Gui
-    Qt5::Test
-    Qt5::Qml
-    LibXml2::LibXml2
+# Include directories
+target_include_directories(NodeGraphCore
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include>
 )
 
+# Compile definitions
+target_compile_definitions(NodeGraphCore
+    PRIVATE
+        QT_NO_KEYWORDS
+)
+
+# Link libraries
+target_link_libraries(NodeGraphCore
+    PRIVATE
+        Qt5::Core
+        Qt5::Widgets
+        Qt5::Gui
+        LibXml2::LibXml2
+)
+
+# Compiler-specific optimizations
+if(MSVC)
+    target_compile_options(NodeGraphCore
+        PRIVATE
+            /W4
+            /wd4100  # Disable "unreferenced parameter" warnings
+            /wd4127  # Disable "conditional expression is constant"
+            /wd4251  # Disable "needs DLL interface" warnings
+    )
+else()
+    target_compile_options(NodeGraphCore
+        PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Wno-unused-parameter
+    )
+endif()
+
 # ─────────────────────────────────────
-# 12. VS / Windows extras
+# 8. Main application target
 # ─────────────────────────────────────
+add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
+
+# Link to core library and Qt
+target_link_libraries(NodeGraph
+    PRIVATE
+        NodeGraphCore
+        Qt5::Core
+        Qt5::Widgets
+        Qt5::Gui
+)
+
+# Windows-specific settings
 if(WIN32)
-    # Main application settings
     set_target_properties(NodeGraph PROPERTIES
         WIN32_EXECUTABLE TRUE
         VS_DPI_AWARE "PerMonitor"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        
-        # Separate Debug and Release Qt paths
+    )
+
+    # Debug/Release environment setup
+    set_target_properties(NodeGraph PROPERTIES
         VS_DEBUGGER_ENVIRONMENT_DEBUG
             "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
         VS_DEBUGGER_ENVIRONMENT_RELEASE
             "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
-            
-        # No command arguments - removed test_working_graph.xml
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
-    
-    # Test application settings  
-    set_target_properties(NodeGraphTests PROPERTIES
-        WIN32_EXECUTABLE FALSE
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        
-        # Separate Debug and Release Qt paths for tests
-        VS_DEBUGGER_ENVIRONMENT_DEBUG
-            "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
-        VS_DEBUGGER_ENVIRONMENT_RELEASE
-            "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
-            
-        VS_DEBUGGER_WORKING_DIRECTORY
-            "${CMAKE_CURRENT_SOURCE_DIR}"
-    )
-    
-    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                 PROPERTY VS_STARTUP_PROJECT NodeGraph)
 endif()
 
 # ─────────────────────────────────────
-# 13. Install rules (optional on Win)
+# 9. Test application target
+# ─────────────────────────────────────
+add_executable(NodeGraphTests ${TEST_SOURCES})
+
+target_link_libraries(NodeGraphTests
+    PRIVATE
+        NodeGraphCore
+        Qt5::Core
+        Qt5::Widgets
+        Qt5::Gui
+        Qt5::Test
+)
+
+# ─────────────────────────────────────
+# 10. Install rules
 # ─────────────────────────────────────
 if(WIN32)
-    install(TARGETS NodeGraph NodeGraphTests RUNTIME DESTINATION .)
-    install(FILES
-        $<TARGET_FILE:Qt5::Core>
-        $<TARGET_FILE:Qt5::Widgets>
-        $<TARGET_FILE:Qt5::Gui>
-        DESTINATION .
+    install(TARGETS NodeGraph NodeGraphTests
+        RUNTIME DESTINATION bin
     )
+
+    # Install Qt DLLs (simplified approach)
+    install(CODE "
+        file(INSTALL
+            \"\${QT5_PATH}/bin/Qt5Core.dll\"
+            \"\${QT5_PATH}/bin/Qt5Widgets.dll\"
+            \"\${QT5_PATH}/bin/Qt5Gui.dll\"
+            DESTINATION \"\${CMAKE_INSTALL_PREFIX}/bin\"
+        )
+    ")
 endif()
 
 # ─────────────────────────────────────
-# 14. Info
+# 11. Build information
 # ─────────────────────────────────────
-message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
-message(STATUS "Qt5 found        : ${Qt5_FOUND}")
-message(STATUS "Qt5 version      : ${Qt5_VERSION}")
-message(STATUS "Qt5 location     : ${Qt5_DIR}")
-
-# Cache information
-if(USE_SYSTEM_LIBXML2)
-    message(STATUS "libxml2 source   : System package")
-else()
-    FetchContent_GetProperties(libxml2)
-    if(libxml2_POPULATED)
-        message(STATUS "libxml2 source   : FetchContent (cached)")
-    else()
-        if(WIN32)
-            message(STATUS "libxml2 source   : FetchContent (will build for Windows)")
-        else()
-            message(STATUS "libxml2 source   : FetchContent (will download)")
-        endif()
-    endif()
-endif()
+message(STATUS "")
+message(STATUS "─────────────────────────────────────")
+message(STATUS "Build Configuration:")
+message(STATUS "  Project:          ${PROJECT_NAME} ${PROJECT_VERSION}")
+message(STATUS "  Build Type:       ${CMAKE_BUILD_TYPE}")
+message(STATUS "  C++ Standard:     C++${CMAKE_CXX_STANDARD}")
+message(STATUS "  Qt Version:       ${Qt5_VERSION}")
+message(STATUS "  libxml2 Source:   ${USE_SYSTEM_LIBXML2 ? "System" : "FetchContent"}")
+message(STATUS "  Generator:        ${CMAKE_GENERATOR}")
+message(STATUS "  Install Prefix:   ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "─────────────────────────────────────")
+message(STATUS "")
