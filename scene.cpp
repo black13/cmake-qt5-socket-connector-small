@@ -4,6 +4,7 @@
 #include "socket.h"
 #include "javascript_engine.h"
 #include "ghost_edge.h"
+#include "graphics_item_keys.h"
 #include <QDebug>
 #include <QTimer>
 #include <QGraphicsPathItem>
@@ -127,7 +128,7 @@ Edge* Scene::getEdge(const QUuid& edgeId) const
     return m_edges.value(edgeId, nullptr);
 }
 
-void Scene::deleteNode(const QUuid& nodeId)
+void Scene::removeNodeInternal(const QUuid& nodeId)
 {
     Node* node = getNode(nodeId);
     if (!node) {
@@ -148,7 +149,7 @@ void Scene::deleteNode(const QUuid& nodeId)
     
     // Delete connected edges
     for (const QUuid& edgeId : edgesToDelete) {
-        deleteEdge(edgeId);
+        removeEdgeInternal(edgeId);
     }
     
     // Remove node from collections and scene
@@ -166,70 +167,79 @@ void Scene::deleteNode(const QUuid& nodeId)
     qDebug() << "Node deleted with" << edgesToDelete.size() << "connected edges - Observer notified";
 }
 
-void Scene::deleteEdge(const QUuid& edgeId)
+void Scene::removeEdgeInternal(const QUuid& edgeId)
 {
     Edge* edge = getEdge(edgeId);
     if (!edge) {
         qWarning() << "Scene::deleteEdge - edge not found:" << edgeId.toString(QUuid::WithoutBraces).left(8);
         return;
     }
-    
+
     qDebug() << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
-    
+
+    // ✅ SOCKET RESET: Clear socket references before deleting edge
+    Socket* fromSocket = edge->getFromSocket();
+    Socket* toSocket = edge->getToSocket();
+    if (fromSocket && fromSocket->getConnectedEdge() == edge) {
+        fromSocket->setConnectedEdge(nullptr);
+    }
+    if (toSocket && toSocket->getConnectedEdge() == edge) {
+        toSocket->setConnectedEdge(nullptr);
+    }
+
     // Remove from collection and scene
     m_edges.remove(edgeId);
     removeItem(edge);
-    
+
     // Notify observers BEFORE deleting the edge
     notifyEdgeRemoved(edgeId);
-    
+
     delete edge;
-    
+
     // Emit signal for UI updates
     emit sceneChanged();
-    
+
     qDebug() << "Edge deleted - Observer notified";
 }
 
-void Scene::deleteSelected()
+void Scene::removeSelectedInternal()
 {
-    QList<QGraphicsItem*> selectedItems = this->selectedItems();
-    if (selectedItems.isEmpty()) {
+    // ✅ CAST-FREE IMPLEMENTATION using metadata keys
+    const auto items = selectedItems();
+    if (items.isEmpty()) {
         qDebug() << "No items selected for deletion";
         return;
     }
-    
-    qDebug() << "DELETE KEY: Deleting" << selectedItems.size() << "selected items";
-    
-    // Separate nodes and edges for proper deletion order
-    QList<Node*> selectedNodes;
-    QList<Edge*> selectedEdges;
-    
-    for (QGraphicsItem* item : selectedItems) {
-        if (Node* node = qgraphicsitem_cast<Node*>(item)) {
-            selectedNodes.append(node);
-        } else if (Edge* edge = qgraphicsitem_cast<Edge*>(item)) {
-            selectedEdges.append(edge);
-        }
+
+    qDebug() << "DELETE KEY: Deleting" << items.size() << "selected items";
+
+    // Collect UUIDs by kind without any casting
+    QList<QUuid> edges, nodes;
+    for (QGraphicsItem* it : items) {
+        const auto k = it->data(Gik::KindKey);
+        const auto u = it->data(Gik::UuidKey);
+        if (!k.isValid() || !u.isValid()) continue;
+
+        QUuid id = QUuid::fromString(u.toString());
+        if (id.isNull()) continue;
+
+        if (k.toInt() == Gik::Kind_Edge) edges.append(id);
+        if (k.toInt() == Gik::Kind_Node) nodes.append(id);
     }
-    
-    // Delete selected edges first
-    for (Edge* edge : selectedEdges) {
-        deleteEdge(edge->getId());
-    }
-    
-    // Then delete selected nodes (which will delete their remaining edges)
-    for (Node* node : selectedNodes) {
-        deleteNode(node->getId());
-    }
-    
+
+    // Delete edges first, then nodes (proper deletion order)
+    for (const QUuid& e : edges) removeEdgeInternal(e);
+    for (const QUuid& n : nodes) removeNodeInternal(n);
+
+    clearSelection();
+
     // Emit signal for UI updates
     emit sceneChanged();
-    
-    qDebug() << "DELETE COMPLETE: Deleted" << selectedEdges.size() << "edges and" << selectedNodes.size() << "nodes - Observers notified";
+
+    qDebug() << "DELETE COMPLETE: Deleted" << edges.size() << "edges and" << nodes.size() << "nodes - Observers notified";
 }
 
-void Scene::clearGraph()
+void Scene::clearGraphInternal()
 {
     qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
     

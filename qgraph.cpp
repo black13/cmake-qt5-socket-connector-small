@@ -69,7 +69,7 @@ bool QGraph::deleteNode(const QString& nodeId)
 
     try {
         // Scene handles deletion and registry cleanup
-        scene_->deleteNode(QUuid(nodeId));
+        scene_->removeNodeInternal(QUuid(nodeId));
         emit nodeDeleted(nodeId);
 
         qDebug() << "QGraph: Deleted node" << nodeId.left(8);
@@ -177,7 +177,7 @@ bool QGraph::deleteEdge(const QString& edgeId)
     }
 
     try {
-        scene_->deleteEdge(QUuid(edgeId));
+        scene_->removeEdgeInternal(QUuid(edgeId));
         emit edgeDeleted(edgeId);
 
         qDebug() << "QGraph: Deleted edge" << edgeId.left(8);
@@ -209,17 +209,65 @@ void QGraph::clear()
         return;
     }
 
-    scene_->clearGraph();
+    scene_->clearGraphInternal();
     emit graphCleared();
 
     qDebug() << "QGraph: Graph cleared";
 }
 
+bool QGraph::deleteSelected()
+{
+    if (!scene_) {
+        emit error("QGraph: Scene not initialized");
+        return false;
+    }
+
+    scene_->removeSelectedInternal();
+    // Note: Individual node/edge deleted signals will be emitted by Scene
+    qDebug() << "QGraph: Deleted selected items";
+    return true;
+}
+
 void QGraph::saveXml(const QString& path)
 {
-    // TODO: Implement XML saving
-    // This will coordinate with Scene to serialize the graph
-    emit error("QGraph::saveXml not yet implemented");
+    if (!scene_) {
+        emit error("QGraph: Scene not initialized");
+        return;
+    }
+
+    qDebug() << "QGraph: Saving XML to" << path;
+
+    try {
+        // Create XML document
+        xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+        xmlDocSetRootElement(doc, root);
+        xmlNewProp(root, BAD_CAST "version", BAD_CAST "1.0");
+
+        // Serialize all nodes
+        const QHash<QUuid, Node*>& nodes = scene_->getNodes();
+        for (Node* node : nodes.values()) {
+            node->write(doc, root);
+        }
+
+        // Serialize all edges
+        const QHash<QUuid, Edge*>& edges = scene_->getEdges();
+        for (Edge* edge : edges.values()) {
+            edge->write(doc, root);
+        }
+
+        // Save to file
+        int result = xmlSaveFileEnc(path.toUtf8().constData(), doc, "UTF-8");
+        xmlFreeDoc(doc);
+
+        if (result != -1) {
+            qDebug() << "QGraph: XML saved successfully to" << path;
+        } else {
+            emit error(QString("QGraph: Failed to save XML to %1").arg(path));
+        }
+    } catch (const std::exception& e) {
+        emit error(QString("QGraph: Exception saving XML: %1").arg(e.what()));
+    }
 }
 
 void QGraph::loadXml(const QString& path)
@@ -231,17 +279,55 @@ void QGraph::loadXml(const QString& path)
 
 QString QGraph::getXmlString()
 {
-    // TODO: Implement XML string generation
-    return QString("<graph></graph>");
+    if (!scene_) {
+        return QString("<graph></graph>");
+    }
+
+    try {
+        // Create XML document
+        xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+        xmlDocSetRootElement(doc, root);
+        xmlNewProp(root, BAD_CAST "version", BAD_CAST "1.0");
+
+        // Serialize all nodes
+        const QHash<QUuid, Node*>& nodes = scene_->getNodes();
+        for (Node* node : nodes.values()) {
+            node->write(doc, root);
+        }
+
+        // Serialize all edges
+        const QHash<QUuid, Edge*>& edges = scene_->getEdges();
+        for (Edge* edge : edges.values()) {
+            edge->write(doc, root);
+        }
+
+        // Convert to string
+        xmlChar* xmlBuff;
+        int bufferSize;
+        xmlDocDumpFormatMemory(doc, &xmlBuff, &bufferSize, 1);
+        QString result = QString::fromUtf8((const char*)xmlBuff);
+        xmlFree(xmlBuff);
+        xmlFreeDoc(doc);
+
+        return result;
+    } catch (const std::exception& e) {
+        emit error(QString("QGraph: Exception generating XML string: %1").arg(e.what()));
+        return QString("<graph></graph>");
+    }
 }
 
 QVariantMap QGraph::getStats()
 {
     QVariantMap stats;
-    if (!scene_) return stats;
+    if (!scene_) {
+        stats["nodes"] = 0;
+        stats["edges"] = 0;
+        return stats;
+    }
 
-    stats["nodeCount"] = scene_->getNodes().size();
-    stats["edgeCount"] = scene_->getEdges().size();
+    stats["nodes"] = scene_->getNodes().size();
+    stats["edges"] = scene_->getEdges().size();
 
     return stats;
 }
@@ -311,7 +397,25 @@ QVariantMap QGraph::edgeToVariant(Edge* edge)
     if (!edge) return map;
 
     map["id"] = edge->getId().toString();
-    // TODO: Add fromNode, toNode, fromSocket, toSocket when Edge provides access
+
+    // Add connection information using Edge's public accessors
+    Node* fromNode = edge->getFromNode();
+    Node* toNode = edge->getToNode();
+    Socket* fromSocket = edge->getFromSocket();
+    Socket* toSocket = edge->getToSocket();
+
+    if (fromNode) {
+        map["fromNode"] = fromNode->getId().toString();
+    }
+    if (toNode) {
+        map["toNode"] = toNode->getId().toString();
+    }
+    if (fromSocket) {
+        map["fromSocket"] = fromSocket->getIndex();
+    }
+    if (toSocket) {
+        map["toSocket"] = toSocket->getIndex();
+    }
 
     return map;
 }

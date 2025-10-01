@@ -15,6 +15,7 @@
 
 class View;
 class Scene;
+class QGraph;
 class GraphFactory;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
@@ -44,16 +45,9 @@ public:
     
     // Create node at specific position (disabled for now)
     // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
-    
-    // JavaScript test runner
-    void runJavaScriptTests();
-    
+
     // Simple script execution
     void loadAndExecuteScript();
-    
-    // JavaScript test runners
-    void runSpecificScript(const QString& filePath);
-    void runAllTests();
 
 protected:
     // PHASE 3: Safe shutdown coordination
@@ -107,6 +101,7 @@ protected:
 
 private:
     Scene* m_scene;
+    QGraph* m_graph;  // Graph orchestration layer
     View* m_view;
     GraphFactory* m_factory;
     xmlDocPtr m_xmlDocument;
