@@ -2,6 +2,7 @@
 #include "socket.h"
 #include "edge.h"
 #include "scene.h"
+#include "graphics_item_keys.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -22,7 +23,11 @@ Node::Node(const QUuid& id, const QPointF& position)
     setFlag(QGraphicsItem::ItemIsMovable, true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
     setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
-    
+
+    // Metadata annotations for cast-free identification
+    setData(Gik::KindKey, Gik::Kind_Node);
+    setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
+
     // Node creation logging removed - working correctly
 }
 
@@ -166,7 +171,7 @@ void Node::createStaticSockets()
         }
         // Delete edges that reference old sockets
         for (const QUuid& edgeId : edgesToDelete) {
-            typedScene->deleteEdge(edgeId);
+            typedScene->removeEdgeInternal(edgeId);
         }
         qDebug() << "Node::createStaticSockets - removed" << edgesToDelete.size() 
                  << "edges before socket recreation for node" << m_id.toString(QUuid::WithoutBraces).left(8);
@@ -199,7 +204,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
         }
         // Delete edges that reference old sockets
         for (const QUuid& edgeId : edgesToDelete) {
-            typedScene->deleteEdge(edgeId);
+            typedScene->removeEdgeInternal(edgeId);
         }
         qDebug() << "Node::createSocketsFromXml - removed" << edgesToDelete.size() 
                  << "edges before socket recreation for node" << m_id.toString(QUuid::WithoutBraces).left(8);

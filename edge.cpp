@@ -2,6 +2,7 @@
 #include "socket.h"
 #include "node.h"
 #include "scene.h"
+#include "graphics_item_keys.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -31,11 +32,15 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     setFlag(QGraphicsItem::ItemIsSelectable, true);
     setFlag(QGraphicsItem::ItemHasNoContents, false); // Ensure we control our own drawing
     setAcceptHoverEvents(true);  // Enable hover events for better interaction
-    
+
     // ✅ Z-order hierarchy: Nodes(0) < Sockets(1) < Edges(2)
     // Edges appear on top of sockets for "plugged-in" visual effect
     setZValue(2);
-    
+
+    // Metadata annotations for cast-free identification
+    setData(Gik::KindKey, Gik::Kind_Edge);
+    setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
+
     qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
     // Don't call updatePath() here - sockets not resolved yet
 }
