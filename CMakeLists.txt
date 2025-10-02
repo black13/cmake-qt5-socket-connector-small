@@ -71,6 +71,29 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 # ─────────────────────────────────────
+# 3a. Code Coverage Configuration
+# ─────────────────────────────────────
+option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
+
+if(ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # Clang/LLVM coverage
+        add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+        add_link_options(-fprofile-instr-generate)
+        message(STATUS "Code coverage enabled (Clang): Use llvm-cov for analysis")
+        message(STATUS "  Set LLVM_PROFILE_FILE environment variable before running")
+        message(STATUS "  Example: export LLVM_PROFILE_FILE=\"nodegraph-%p.profraw\"")
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        # GCC coverage (gcov)
+        add_compile_options(--coverage)
+        add_link_options(--coverage)
+        message(STATUS "Code coverage enabled (GCC): Use gcov/lcov for analysis")
+    else()
+        message(WARNING "Code coverage requested but not supported for: ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+endif()
+
+# ─────────────────────────────────────
 # 4. Qt configuration with optimized search
 # ─────────────────────────────────────
 # Use Qt's built-in CMake configuration
