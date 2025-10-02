@@ -78,7 +78,8 @@ public:
     void setResolvedSockets(Socket* fromSocket, Socket* toSocket);
     
     // Manual weak pointer system for safe destruction
-    void invalidateNode(const Node* node);
+    void invalidateNode(const Node* node);  // Legacy method
+    void onNodeDestroying(const Node* node);  // New: Safe destruction callback
     
     // Public accessors for layout engine
     Node* getFromNode() const { return m_fromNode; }
@@ -100,6 +101,8 @@ private:
     // Manual weak pointers for safe destruction (nulled by Node::~Node)
     Node* m_fromNode;         // Source node (may be nullptr during destruction)
     Node* m_toNode;           // Destination node (may be nullptr during destruction)
+    bool m_fromNodeValid;     // Safety flag: true if m_fromNode is safe to access
+    bool m_toNodeValid;       // Safety flag: true if m_toNode is safe to access
     
     // Cached path for rendering
     QPainterPath m_path;

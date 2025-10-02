@@ -1131,7 +1131,8 @@ public:
     void setResolvedSockets(Socket* fromSocket, Socket* toSocket);
     
     // Manual weak pointer system for safe destruction
-    void invalidateNode(const Node* node);
+    void invalidateNode(const Node* node);  // Legacy method
+    void onNodeDestroying(const Node* node);  // New: Safe destruction callback
     
     // Public accessors for layout engine
     Node* getFromNode() const { return m_fromNode; }
@@ -1153,6 +1154,8 @@ private:
     // Manual weak pointers for safe destruction (nulled by Node::~Node)
     Node* m_fromNode;         // Source node (may be nullptr during destruction)
     Node* m_toNode;           // Destination node (may be nullptr during destruction)
+    bool m_fromNodeValid;     // Safety flag: true if m_fromNode is safe to access
+    bool m_toNodeValid;       // Safety flag: true if m_toNode is safe to access
     
     // Cached path for rendering
     QPainterPath m_path;
@@ -1196,6 +1199,8 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     , m_toSocket(nullptr)
     , m_fromNode(nullptr)
     , m_toNode(nullptr)
+    , m_fromNodeValid(false)
+    , m_toNodeValid(false)
     , m_hovered(false)
     #ifdef QT_DEBUG
     , m_shapeCallCount(0)
@@ -1221,25 +1226,44 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
-    // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
-    if (m_fromNode) {
+    // SAFETY: Use validity flags to prevent use-after-free during shutdown
+    // Only unregister if the node pointer is valid (not being destroyed)
+    if (m_fromNodeValid && m_fromNode) {
         m_fromNode->unregisterEdge(this);
     }
-    if (m_toNode) {
+    if (m_toNodeValid && m_toNode) {
         m_toNode->unregisterEdge(this);
     }
-    
+
     qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
 void Edge::invalidateNode(const Node* node)
 {
-    // Manual weak pointer nulling - called by Node::~Node()
+    // Legacy method: Manual weak pointer nulling - called by Node::~Node()
     if (node == m_fromNode) {
         m_fromNode = nullptr;
+        m_fromNodeValid = false;
     }
     if (node == m_toNode) {
         m_toNode = nullptr;
+        m_toNodeValid = false;
+    }
+}
+
+void Edge::onNodeDestroying(const Node* node)
+{
+    // New safety method: Mark node as invalid without nulling pointer
+    // This prevents use-after-free while keeping pointer for debugging
+    if (node == m_fromNode) {
+        m_fromNodeValid = false;
+        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "- fromNode destroying";
+    }
+    if (node == m_toNode) {
+        m_toNodeValid = false;
+        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "- toNode destroying";
     }
 }
 
@@ -1635,10 +1659,12 @@ bool Edge::resolveConnections(Scene* scene)
     // Store socket references directly - NO UUIDs
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
-    
+
     // Cache node pointers for safe destruction
     m_fromNode = fromNode;
     m_toNode = toNode;
+    m_fromNodeValid = true;  // Mark as valid - safe to access
+    m_toNodeValid = true;    // Mark as valid - safe to access
     
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
@@ -1688,12 +1714,14 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
-    
+
     // Cache node pointers for safe destruction
     Node* fromNode = fromSocket->getParentNode();
     Node* toNode = toSocket->getParentNode();
     m_fromNode = fromNode;
     m_toNode = toNode;
+    m_fromNodeValid = (fromNode != nullptr);  // Mark as valid if node exists
+    m_toNodeValid = (toNode != nullptr);      // Mark as valid if node exists
     
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
@@ -1827,6 +1855,11 @@ public:
     Q_INVOKABLE QString getXmlString();
     Q_INVOKABLE QVariantMap getStats();
 
+    // Load state tracking for JavaScript coordination
+    Q_INVOKABLE bool isLoadingXml() const;
+    Q_INVOKABLE bool isStable() const;
+    Q_INVOKABLE int getUnresolvedEdgeCount() const;
+
     // Ghost-edge preview orchestration (Scene renders, QGraph orchestrates)
     Q_INVOKABLE void beginPreview(Socket* from, const QPointF& start);
     Q_INVOKABLE void updatePreview(const QPointF& pos);
@@ -1846,14 +1879,25 @@ signals:
     void xmlLoaded(QString path);
     void error(QString message);
 
+    // XML load coordination signals
+    void xmlLoadStarted(QString path);
+    void xmlLoadProgress(int nodesLoaded, int edgesLoaded);
+    void xmlLoadComplete(QString path, bool success);
+    void graphStabilized();
+
 private:
     Scene* scene_;  // Access to visual layer and registries
+
+    // Load state tracking
+    bool m_isLoadingXml;
+    int m_unresolvedEdges;
 
     // Helper methods
     class Node* findNode(const QString& uuid);
     class Edge* findEdge(const QString& uuid);
     QVariantMap nodeToVariant(Node* node);
     QVariantMap edgeToVariant(Edge* edge);
+    void updateUnresolvedEdgeCount();
 };
 
 
@@ -1864,12 +1908,16 @@ private:
 #include "edge.h"
 #include "socket.h"
 #include "node_registry.h"
+#include "graph_factory.h"
 #include <QDebug>
 #include <QUuid>
+#include <libxml/tree.h>
 
 QGraph::QGraph(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
     , scene_(qobject_cast<Scene*>(scene))
+    , m_isLoadingXml(false)
+    , m_unresolvedEdges(0)
 {
     if (!scene_) {
         qCritical() << "QGraph: Scene pointer is null or not a Scene instance";
@@ -2132,9 +2180,61 @@ void QGraph::saveXml(const QString& path)
 
 void QGraph::loadXml(const QString& path)
 {
-    // TODO: Implement XML loading
-    // This will coordinate with Scene to deserialize the graph
-    emit error("QGraph::loadXml not yet implemented");
+    if (!scene_) {
+        emit error("QGraph: Scene not initialized");
+        return;
+    }
+
+    qDebug() << "QGraph: Loading XML from" << path;
+    emit xmlLoadStarted(path);
+    m_isLoadingXml = true;
+
+    try {
+        // Clear existing graph first
+        scene_->clearGraphInternal();
+
+        // Create temporary XML document for GraphFactory
+        xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
+        if (!doc) {
+            m_isLoadingXml = false;
+            emit error(QString("QGraph: Failed to parse XML file: %1").arg(path));
+            emit xmlLoadComplete(path, false);
+            return;
+        }
+
+        // Use GraphFactory for proper phased loading with batching
+        // GraphFactory automatically handles:
+        // - GraphSubject::beginBatch() to suppress observer storm
+        // - PHASE 1: Load all nodes
+        // - PHASE 2: Load all edges
+        // - PHASE 3: Resolve edge connections
+        // - GraphSubject::endBatch() to resume notifications
+        GraphFactory factory(scene_, doc);
+        bool success = factory.loadFromXmlFile(path);
+
+        // Cleanup
+        xmlFreeDoc(doc);
+
+        m_isLoadingXml = false;
+
+        if (success) {
+            updateUnresolvedEdgeCount();
+            qDebug() << "QGraph: XML loaded successfully from" << path;
+            emit xmlLoadComplete(path, true);
+
+            if (isStable()) {
+                emit graphStabilized();
+            }
+        } else {
+            emit error(QString("QGraph: Failed to load XML from %1").arg(path));
+            emit xmlLoadComplete(path, false);
+        }
+
+    } catch (const std::exception& e) {
+        m_isLoadingXml = false;
+        emit error(QString("QGraph: Exception loading XML: %1").arg(e.what()));
+        emit xmlLoadComplete(path, false);
+    }
 }
 
 QString QGraph::getXmlString()
@@ -2278,6 +2378,49 @@ QVariantMap QGraph::edgeToVariant(Edge* edge)
     }
 
     return map;
+}
+
+// Load state tracking implementation
+
+bool QGraph::isLoadingXml() const
+{
+    return m_isLoadingXml;
+}
+
+bool QGraph::isStable() const
+{
+    return !m_isLoadingXml && m_unresolvedEdges == 0;
+}
+
+int QGraph::getUnresolvedEdgeCount() const
+{
+    return m_unresolvedEdges;
+}
+
+void QGraph::updateUnresolvedEdgeCount()
+{
+    if (!scene_) {
+        m_unresolvedEdges = 0;
+        return;
+    }
+
+    // Count edges without valid socket connections
+    int unresolved = 0;
+    const QHash<QUuid, Edge*>& edges = scene_->getEdges();
+    for (Edge* edge : edges.values()) {
+        if (!edge) continue;
+
+        Socket* fromSocket = edge->getFromSocket();
+        Socket* toSocket = edge->getToSocket();
+
+        // Edge is unresolved if either socket is null
+        if (!fromSocket || !toSocket) {
+            unresolved++;
+        }
+    }
+
+    m_unresolvedEdges = unresolved;
+    qDebug() << "QGraph: Unresolved edges:" << m_unresolvedEdges;
 }
 
 
@@ -3668,6 +3811,7 @@ class View;
 class Scene;
 class QGraph;
 class GraphFactory;
+class JavaScriptEngine;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
 // class JavaScriptConsole;  // Disabled for now
@@ -3690,19 +3834,24 @@ public:
     
     // Access to scene for testing
     Scene* getScene() const { return m_scene; }
-    
+
     // Update status bar with current graph information
     void updateStatusBar();
-    
+
     // Create node at specific position (disabled for now)
     // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
 
     // Simple script execution
     void loadAndExecuteScript();
+    void executeScriptFile(const QString& filePath);
+
+    // Command-line driven initialization
+    void setAutoTestScript(const QString& scriptPath);
 
 protected:
     // PHASE 3: Safe shutdown coordination
     void closeEvent(QCloseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 public slots:
     // Scene event handlers
     void onSceneChanged();
@@ -3755,9 +3904,10 @@ private:
     QGraph* m_graph;  // Graph orchestration layer
     View* m_view;
     GraphFactory* m_factory;
+    JavaScriptEngine* m_jsEngine;  // Application logic layer
     xmlDocPtr m_xmlDocument;
     XmlAutosaveObserver* m_autosaveObserver;
-    
+
     // UI elements
     QAction* m_addInputAction;
     QAction* m_addOutputAction;
@@ -3788,7 +3938,11 @@ private:
     
     // File management
     QString m_currentFile;
-    
+
+    // Command-line driven initialization
+    QString m_autoTestScript;
+    bool m_firstShow;
+
     // Setup methods
     void setupUI();
     void setupMenus();
@@ -3820,6 +3974,7 @@ private:
 #include "xml_autosave_observer.h"
 #include "javascript_engine.h"
 #include "node_palette_widget.h"
+#include "graphics_item_keys.h"
 // #include "javascript_console.h"  // Disabled for now
 #include <QKeyEvent>
 #include <QFileDialog>
@@ -3847,6 +4002,8 @@ Window::Window(QWidget* parent)
     , m_scene(new Scene(this))
     , m_graph(new QGraph(m_scene, this))  // QGraph wraps Scene
     , m_view(new View(m_scene, this))
+    , m_jsEngine(new JavaScriptEngine(this))  // Application logic layer
+    , m_firstShow(true)
 {
     setWindowTitle("NodeGraph - Self-Serializing Node Editor");
     resize(1400, 900);
@@ -3871,7 +4028,15 @@ Window::Window(QWidget* parent)
     
     // Initialize factory for interactive node creation
     m_factory = new GraphFactory(m_scene, m_xmlDocument);
-    
+
+    // Initialize JavaScript engine with API bindings
+    if (m_jsEngine) {
+        m_jsEngine->registerNodeAPI(m_scene);
+        m_jsEngine->registerGraphAPI();
+        m_jsEngine->registerQGraph(m_graph);
+        qDebug() << "Window: JavaScript engine initialized and APIs registered";
+    }
+
     // Initialize autosave observer for automatic XML saving
     m_autosaveObserver = new XmlAutosaveObserver(m_scene, "autosave.xml");
     m_autosaveObserver->setDelay(750); // 750ms delay after changes
@@ -4539,21 +4704,25 @@ void Window::updateSelectionInfo()
 {
     if (!m_scene) return;
     
+    // ✅ CAST-FREE IMPLEMENTATION using metadata keys
     QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
     if (selectedItems.isEmpty()) {
         m_selectionLabel->setText("No selection");
     } else {
         int nodeCount = 0;
         int edgeCount = 0;
-        
+
         for (QGraphicsItem* item : selectedItems) {
-            if (qgraphicsitem_cast<Node*>(item)) {
+            const auto k = item->data(Gik::KindKey);
+            if (!k.isValid()) continue;
+
+            if (k.toInt() == Gik::Kind_Node) {
                 nodeCount++;
-            } else if (qgraphicsitem_cast<Edge*>(item)) {
+            } else if (k.toInt() == Gik::Kind_Edge) {
                 edgeCount++;
             }
         }
-        
+
         QString selectionText;
         if (nodeCount > 0 && edgeCount > 0) {
             selectionText = QString("Selected: %1 nodes, %2 edges").arg(nodeCount).arg(edgeCount);
@@ -4562,7 +4731,7 @@ void Window::updateSelectionInfo()
         } else if (edgeCount > 0) {
             selectionText = QString("Selected: %1 edges").arg(edgeCount);
         }
-        
+
         m_selectionLabel->setText(selectionText);
     }
 }
@@ -4701,42 +4870,87 @@ void Window::closeEvent(QCloseEvent* event)
 void Window::loadAndExecuteScript()
 {
     QString fileName = QFileDialog::getOpenFileName(
-        this, 
-        "Load JavaScript File", 
-        "./scripts/", 
+        this,
+        "Load JavaScript File",
+        "./scripts/",
         "JavaScript Files (*.js);;All Files (*)"
     );
-    
+
     if (!fileName.isEmpty()) {
-        auto* jsEngine = m_scene->getJavaScriptEngine();
-        
-        if (!jsEngine) {
+        if (!m_jsEngine) {
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
             return;
         }
-        
+
         // Test engine functionality
-        QJSValue quickTest = jsEngine->evaluate("1 + 1");
+        QJSValue quickTest = m_jsEngine->evaluate("1 + 1");
         if (quickTest.isError()) {
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine is not functional");
             return;
         }
-        
-        // Register GraphController if not already done
-        jsEngine->registerGraphController(m_scene, m_factory);
-        
-        QJSValue result = jsEngine->evaluateFile(fileName);
-        
+
+        QJSValue result = m_jsEngine->evaluateFile(fileName);
+
         if (result.isError()) {
-            QMessageBox::critical(this, "Script Error", 
+            QMessageBox::critical(this, "Script Error",
                                  QString("Script execution failed: %1").arg(result.toString()));
         } else {
             QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
-            QMessageBox::information(this, "Script Executed", 
+            QMessageBox::information(this, "Script Executed",
                                    QString("Script completed: %1").arg(resultText));
         }
-        
+
         updateStatusBar();
+    }
+}
+
+void Window::executeScriptFile(const QString& filePath)
+{
+    qDebug() << "Window: Executing script file:" << filePath;
+
+    if (!m_jsEngine) {
+        qCritical() << "JavaScript engine not initialized";
+        return;
+    }
+
+    // Test engine functionality
+    QJSValue quickTest = m_jsEngine->evaluate("1 + 1");
+    if (quickTest.isError()) {
+        qCritical() << "JavaScript engine is not functional";
+        return;
+    }
+
+    qDebug() << "Window: Evaluating script file...";
+    QJSValue result = m_jsEngine->evaluateFile(filePath);
+
+    if (result.isError()) {
+        qCritical() << "Script error:" << result.toString();
+    } else {
+        QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
+        qDebug() << "Script result:" << resultText;
+    }
+
+    updateStatusBar();
+}
+
+void Window::setAutoTestScript(const QString& scriptPath)
+{
+    m_autoTestScript = scriptPath;
+    qDebug() << "Window: Auto-test script set to:" << scriptPath;
+}
+
+void Window::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+
+    // Run auto-test on first show (if requested via command line)
+    if (m_firstShow && !m_autoTestScript.isEmpty()) {
+        m_firstShow = false;
+
+        qDebug() << "Window: Running auto-test script on first show...";
+        QTimer::singleShot(100, this, [this]() {
+            executeScriptFile(m_autoTestScript);
+        });
     }
 }
 
@@ -4956,7 +5170,6 @@ void View::dropEvent(QDropEvent* event)
 class Node;
 class Edge;
 class Socket;
-class JavaScriptEngine;
 class GhostEdge;
 
 /**
@@ -5012,12 +5225,7 @@ public:
     void finishGhostEdge(Socket* toSocket = nullptr);
     void cancelGhostEdge();
     bool ghostEdgeActive() const { return m_ghostEdgeActive; }
-    
-    // JavaScript engine access
-    JavaScriptEngine* getJavaScriptEngine() const { return m_jsEngine; }
-    QString executeJavaScript(const QString& script);
-    void loadJavaScriptFile(const QString& filePath);
-    
+
     // Critical destruction safety flag
     static bool isClearing() { return s_clearingGraph; }
 
@@ -5046,9 +5254,6 @@ private:
     
     // Shutdown coordination flag
     bool m_shutdownInProgress;
-    
-    // JavaScript engine integration
-    JavaScriptEngine* m_jsEngine;
 };
 
 
@@ -5057,7 +5262,6 @@ private:
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
-#include "javascript_engine.h"
 #include "ghost_edge.h"
 #include "graphics_item_keys.h"
 #include <QDebug>
@@ -5070,16 +5274,8 @@ Scene::Scene(QObject* parent)
     , m_ghostFromSocket(nullptr)
     , m_ghostEdgeActive(false)
     , m_shutdownInProgress(false)
-    , m_jsEngine(new JavaScriptEngine(this))
 {
     setSceneRect(-1000, -1000, 2000, 2000);
-    
-    // Initialize JavaScript engine with this scene
-    if (m_jsEngine) {
-        m_jsEngine->registerNodeAPI(this);
-        m_jsEngine->registerGraphAPI();
-        // GraphController will be registered when GraphFactory is available
-    }
 }
 
 // QElectroTech-style QHash implementation with SIMPLE_FIX logging
@@ -5524,39 +5720,6 @@ void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     QGraphicsScene::mouseReleaseEvent(event);
 }
 
-// JavaScript engine integration methods
-QString Scene::executeJavaScript(const QString& script)
-{
-    if (!m_jsEngine) {
-        qDebug() << "Scene: JavaScript engine not initialized";
-        return QString();
-    }
-    
-    QJSValue result = m_jsEngine->evaluate(script);
-    
-    if (result.isError()) {
-        qDebug() << "Scene: JavaScript error:" << result.toString();
-        return QString();
-    }
-    
-    return result.toString();
-}
-
-void Scene::loadJavaScriptFile(const QString& filePath)
-{
-    if (!m_jsEngine) {
-        qDebug() << "Scene: JavaScript engine not initialized";
-        return;
-    }
-    
-    QJSValue result = m_jsEngine->evaluateFile(filePath);
-    
-    if (result.isError()) {
-        qDebug() << "Scene: Failed to load JavaScript file:" << filePath << "Error:" << result.toString();
-    } else {
-        qDebug() << "Scene: Successfully loaded JavaScript file:" << filePath;
-    }
-}
 
 
 
@@ -6175,6 +6338,7 @@ class Edge;
 class Scene;
 class GraphController;
 class GraphFactory;
+class QGraph;
 
 /**
  * JavaScriptEngine - Modern JavaScript integration for NodeGraph
@@ -6201,6 +6365,7 @@ public:
     void registerNodeAPI(Scene* scene);
     void registerGraphAPI();
     void registerGraphController(Scene* scene, GraphFactory* factory);
+    void registerQGraph(QGraph* graph);  // New: Register QGraph with state tracking
     
     // Node scripting support
     QJSValue createNodeScript(const QString& nodeType, const QString& script);
@@ -6247,6 +6412,7 @@ private:
     QJSEngine* m_engine;
     Scene* m_scene;
     GraphController* m_graphController;
+    QGraph* m_qgraph;  // New: QGraph instance with state tracking
     QString m_lastError;
     QMap<QString, QJSValue> m_scriptModules;
 };
@@ -6259,6 +6425,7 @@ private:
 #include "scene.h"
 #include "graph_controller.h"
 #include "graph_factory.h"
+#include "qgraph.h"
 #include <QFile>
 #include <QTextStream>
 #include <QJsonDocument>
@@ -6269,14 +6436,15 @@ JavaScriptEngine::JavaScriptEngine(QObject* parent)
     , m_engine(new QJSEngine(this))
     , m_scene(nullptr)
     , m_graphController(nullptr)
+    , m_qgraph(nullptr)
 {
     setupGlobalAPI();
     registerConsoleAPI();
     registerUtilityAPI();
-    
+
     // Auto-load enhanced APIs disabled for now - will load scripts manually
     // loadEnhancedAPIs();
-    
+
     qDebug() << "JavaScriptEngine: Simple JavaScript engine initialized";
 }
 
@@ -6531,6 +6699,56 @@ void JavaScriptEngine::registerGraphController(Scene* scene, GraphFactory* facto
     });
     
     qDebug() << "JavaScriptEngine: GraphController registered as 'Graph' global object";
+}
+
+void JavaScriptEngine::registerQGraph(QGraph* graph)
+{
+    if (!graph) {
+        qWarning() << "JavaScriptEngine: Cannot register null QGraph";
+        return;
+    }
+
+    m_qgraph = graph;
+
+    // Register QGraph as global Graph object (replaces GraphController)
+    QJSValue graphValue = m_engine->newQObject(m_qgraph);
+    m_engine->globalObject().setProperty("Graph", graphValue);
+
+    // Connect QGraph signals for JavaScript coordination
+    connect(m_qgraph, &QGraph::nodeCreated, [](const QString& id) {
+        qDebug() << "JavaScript: Node created:" << id.left(8);
+    });
+
+    connect(m_qgraph, &QGraph::nodeDeleted, [](const QString& id) {
+        qDebug() << "JavaScript: Node deleted:" << id.left(8);
+    });
+
+    connect(m_qgraph, &QGraph::edgeConnected, [](const QString& id) {
+        qDebug() << "JavaScript: Edge connected:" << id.left(8);
+    });
+
+    connect(m_qgraph, &QGraph::edgeDeleted, [](const QString& id) {
+        qDebug() << "JavaScript: Edge deleted:" << id.left(8);
+    });
+
+    // New: XML load coordination signals
+    connect(m_qgraph, &QGraph::xmlLoadStarted, [](const QString& path) {
+        qDebug() << "JavaScript: XML load started:" << path;
+    });
+
+    connect(m_qgraph, &QGraph::xmlLoadComplete, [](const QString& path, bool success) {
+        qDebug() << "JavaScript: XML load" << (success ? "succeeded" : "FAILED") << ":" << path;
+    });
+
+    connect(m_qgraph, &QGraph::graphStabilized, []() {
+        qDebug() << "JavaScript: Graph stabilized - safe for operations";
+    });
+
+    connect(m_qgraph, &QGraph::error, [](const QString& message) {
+        qDebug() << "JavaScript Graph Error:" << message;
+    });
+
+    qDebug() << "JavaScriptEngine: QGraph registered as 'Graph' global object with state tracking";
 }
 
 QJSValue JavaScriptEngine::createNodeScript(const QString& nodeType, const QString& script)
@@ -7480,8 +7698,12 @@ int main(int argc, char *argv[])
                                       "Load graph from XML file",
                                       "file");
     parser.addOption(loadFileOption);
-    
-    
+
+    // Add test option (runs default enumeration test)
+    QCommandLineOption testOption(QStringList() << "t" << "test",
+                                  "Run XML enumeration test on startup");
+    parser.addOption(testOption);
+
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
@@ -7489,19 +7711,10 @@ int main(int argc, char *argv[])
     parser.process(app);
     
     // Command line parsing
-    
+
     // Create main window
     Window window;
-    
-    // Initialize JavaScript engine
-    Scene* scene = window.getScene();
-    if (scene) {
-        auto* jsEngine = scene->getJavaScriptEngine();
-        if (!jsEngine) {
-            qDebug() << "Warning: JavaScript engine initialization failed";
-        }
-    }
-    
+
     // Handle file loading
     QString filename;
     if (parser.isSet(loadFileOption)) {
@@ -7621,9 +7834,9 @@ int main(int argc, char *argv[])
     // Test the NodeRegistry to verify nodes are registered
     qDebug() << "=== NodeGraph Application Starting ===";
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
-    
+
     // Initialize GraphFactory with scene and XML document
-    // Scene* scene = window.getScene(); // Already declared above
+    Scene* scene = window.getScene();
     if (!scene) {
         qCritical() << "✗ Failed to get scene from window";
         return -1;
@@ -7658,19 +7871,24 @@ int main(int argc, char *argv[])
     
     // Cleanup XML document when done
     // Note: GraphFactory holds reference, so clean up after window closes
-    
+
+    // Set up auto-test script if requested (Window will run it on first show)
+    if (parser.isSet(testOption)) {
+        window.setAutoTestScript("scripts/test_xml_load_enumeration.js");
+    }
+
     window.show();
-    
+
     // Show user-friendly message about file loading status
     if (fileLoadAttempted && originalFilename != filename) {
         // File was attempted but failed to load (filename was cleared)
         QTimer::singleShot(500, [&window, originalFilename]() {
-            QMessageBox::information(&window, "File Not Found", 
+            QMessageBox::information(&window, "File Not Found",
                 QString("The specified file could not be found or loaded:\n\n%1\n\nStarting with an empty graph instead.\n\nYou can create a new graph or open an existing file using File → Open.")
                 .arg(originalFilename));
         });
     }
-    
+
     int result = app.exec();
     
     // Final status before exit

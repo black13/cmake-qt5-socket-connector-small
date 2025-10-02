@@ -22,6 +22,8 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     , m_toSocket(nullptr)
     , m_fromNode(nullptr)
     , m_toNode(nullptr)
+    , m_fromNodeValid(false)
+    , m_toNodeValid(false)
     , m_hovered(false)
     #ifdef QT_DEBUG
     , m_shapeCallCount(0)
@@ -47,25 +49,44 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
-    // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
-    if (m_fromNode) {
+    // SAFETY: Use validity flags to prevent use-after-free during shutdown
+    // Only unregister if the node pointer is valid (not being destroyed)
+    if (m_fromNodeValid && m_fromNode) {
         m_fromNode->unregisterEdge(this);
     }
-    if (m_toNode) {
+    if (m_toNodeValid && m_toNode) {
         m_toNode->unregisterEdge(this);
     }
-    
+
     qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
 void Edge::invalidateNode(const Node* node)
 {
-    // Manual weak pointer nulling - called by Node::~Node()
+    // Legacy method: Manual weak pointer nulling - called by Node::~Node()
     if (node == m_fromNode) {
         m_fromNode = nullptr;
+        m_fromNodeValid = false;
     }
     if (node == m_toNode) {
         m_toNode = nullptr;
+        m_toNodeValid = false;
+    }
+}
+
+void Edge::onNodeDestroying(const Node* node)
+{
+    // New safety method: Mark node as invalid without nulling pointer
+    // This prevents use-after-free while keeping pointer for debugging
+    if (node == m_fromNode) {
+        m_fromNodeValid = false;
+        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "- fromNode destroying";
+    }
+    if (node == m_toNode) {
+        m_toNodeValid = false;
+        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "- toNode destroying";
     }
 }
 
@@ -461,10 +482,12 @@ bool Edge::resolveConnections(Scene* scene)
     // Store socket references directly - NO UUIDs
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
-    
+
     // Cache node pointers for safe destruction
     m_fromNode = fromNode;
     m_toNode = toNode;
+    m_fromNodeValid = true;  // Mark as valid - safe to access
+    m_toNodeValid = true;    // Mark as valid - safe to access
     
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
@@ -514,12 +537,14 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     m_fromSocket = fromSocket;
     m_toSocket = toSocket;
-    
+
     // Cache node pointers for safe destruction
     Node* fromNode = fromSocket->getParentNode();
     Node* toNode = toSocket->getParentNode();
     m_fromNode = fromNode;
     m_toNode = toNode;
+    m_fromNodeValid = (fromNode != nullptr);  // Mark as valid if node exists
+    m_toNodeValid = (toNode != nullptr);      // Mark as valid if node exists
     
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
