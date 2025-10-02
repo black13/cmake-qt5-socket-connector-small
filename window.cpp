@@ -36,6 +36,8 @@ Window::Window(QWidget* parent)
     , m_scene(new Scene(this))
     , m_graph(new QGraph(m_scene, this))  // QGraph wraps Scene
     , m_view(new View(m_scene, this))
+    , m_jsEngine(new JavaScriptEngine(this))  // Application logic layer
+    , m_firstShow(true)
 {
     setWindowTitle("NodeGraph - Self-Serializing Node Editor");
     resize(1400, 900);
@@ -60,7 +62,15 @@ Window::Window(QWidget* parent)
     
     // Initialize factory for interactive node creation
     m_factory = new GraphFactory(m_scene, m_xmlDocument);
-    
+
+    // Initialize JavaScript engine with API bindings
+    if (m_jsEngine) {
+        m_jsEngine->registerNodeAPI(m_scene);
+        m_jsEngine->registerGraphAPI();
+        m_jsEngine->registerGraphController(m_scene, m_factory);
+        qDebug() << "Window: JavaScript engine initialized and APIs registered";
+    }
+
     // Initialize autosave observer for automatic XML saving
     m_autosaveObserver = new XmlAutosaveObserver(m_scene, "autosave.xml");
     m_autosaveObserver->setDelay(750); // 750ms delay after changes
@@ -894,42 +904,87 @@ void Window::closeEvent(QCloseEvent* event)
 void Window::loadAndExecuteScript()
 {
     QString fileName = QFileDialog::getOpenFileName(
-        this, 
-        "Load JavaScript File", 
-        "./scripts/", 
+        this,
+        "Load JavaScript File",
+        "./scripts/",
         "JavaScript Files (*.js);;All Files (*)"
     );
-    
+
     if (!fileName.isEmpty()) {
-        auto* jsEngine = m_scene->getJavaScriptEngine();
-        
-        if (!jsEngine) {
+        if (!m_jsEngine) {
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine not initialized");
             return;
         }
-        
+
         // Test engine functionality
-        QJSValue quickTest = jsEngine->evaluate("1 + 1");
+        QJSValue quickTest = m_jsEngine->evaluate("1 + 1");
         if (quickTest.isError()) {
             QMessageBox::warning(this, "JavaScript Error", "JavaScript engine is not functional");
             return;
         }
-        
-        // Register GraphController if not already done
-        jsEngine->registerGraphController(m_scene, m_factory);
-        
-        QJSValue result = jsEngine->evaluateFile(fileName);
-        
+
+        QJSValue result = m_jsEngine->evaluateFile(fileName);
+
         if (result.isError()) {
-            QMessageBox::critical(this, "Script Error", 
+            QMessageBox::critical(this, "Script Error",
                                  QString("Script execution failed: %1").arg(result.toString()));
         } else {
             QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
-            QMessageBox::information(this, "Script Executed", 
+            QMessageBox::information(this, "Script Executed",
                                    QString("Script completed: %1").arg(resultText));
         }
-        
+
         updateStatusBar();
+    }
+}
+
+void Window::executeScriptFile(const QString& filePath)
+{
+    qDebug() << "Window: Executing script file:" << filePath;
+
+    if (!m_jsEngine) {
+        qCritical() << "JavaScript engine not initialized";
+        return;
+    }
+
+    // Test engine functionality
+    QJSValue quickTest = m_jsEngine->evaluate("1 + 1");
+    if (quickTest.isError()) {
+        qCritical() << "JavaScript engine is not functional";
+        return;
+    }
+
+    qDebug() << "Window: Evaluating script file...";
+    QJSValue result = m_jsEngine->evaluateFile(filePath);
+
+    if (result.isError()) {
+        qCritical() << "Script error:" << result.toString();
+    } else {
+        QString resultText = result.isUndefined() ? "Script executed successfully" : result.toString();
+        qDebug() << "Script result:" << resultText;
+    }
+
+    updateStatusBar();
+}
+
+void Window::setAutoTestScript(const QString& scriptPath)
+{
+    m_autoTestScript = scriptPath;
+    qDebug() << "Window: Auto-test script set to:" << scriptPath;
+}
+
+void Window::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+
+    // Run auto-test on first show (if requested via command line)
+    if (m_firstShow && !m_autoTestScript.isEmpty()) {
+        m_firstShow = false;
+
+        qDebug() << "Window: Running auto-test script on first show...";
+        QTimer::singleShot(100, this, [this]() {
+            executeScriptFile(m_autoTestScript);
+        });
     }
 }
 
