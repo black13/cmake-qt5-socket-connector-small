@@ -1,6 +1,7 @@
 #include "graph_controller.h"
 #include "scene.h"
 #include "graph_factory.h"
+#include "qgraph.h"
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
@@ -15,8 +16,9 @@ GraphController::GraphController(Scene* scene, GraphFactory* factory, QObject* p
     : QObject(parent)
     , m_scene(scene)
     , m_factory(factory)
+    , m_graph(new QGraph(scene, this))  // QGraph as child for automatic cleanup
 {
-    qDebug() << "GraphController: JavaScript interface initialized";
+    qDebug() << "GraphController: JavaScript interface initialized with QGraph";
 }
 
 QString GraphController::createNode(const QString& type, qreal x, qreal y)
@@ -80,10 +82,12 @@ bool GraphController::deleteNode(const QString& uuid)
     qDebug() << "GraphController: Deleting node" << uuid;
     
     try {
-        QUuid nodeId = QUuid::fromString(uuid);
-        m_scene->deleteNode(nodeId);
-        emit nodeDeleted(uuid);
-        return true;
+        // Use QGraph for deletion (QGraph calls Scene internally)
+        bool success = m_graph->deleteNode(uuid);
+        if (success) {
+            emit nodeDeleted(uuid);
+        }
+        return success;
     } catch (const std::exception& e) {
         emit error(QString("GraphController: Error deleting node: %1").arg(e.what()));
         return false;
@@ -215,10 +219,12 @@ bool GraphController::deleteEdge(const QString& uuid)
     qDebug() << "GraphController: Deleting edge" << uuid;
     
     try {
-        QUuid edgeId = QUuid::fromString(uuid);
-        m_scene->deleteEdge(edgeId);
-        emit edgeDeleted(uuid);
-        return true;
+        // Use QGraph for deletion (QGraph calls Scene internally)
+        bool success = m_graph->deleteEdge(uuid);
+        if (success) {
+            emit edgeDeleted(uuid);
+        }
+        return success;
     } catch (const std::exception& e) {
         emit error(QString("GraphController: Error deleting edge: %1").arg(e.what()));
         return false;
@@ -249,8 +255,8 @@ void GraphController::clear()
     }
     
     qDebug() << "GraphController: Clearing graph";
-    
-    m_scene->clearGraph();
+
+    m_graph->clear();  // Use QGraph (emits graphCleared internally)
     emit graphCleared();
 }
 
@@ -308,7 +314,7 @@ void GraphController::loadXml(const QString& path)
     
     try {
         // Clear existing graph
-        m_scene->clearGraph();
+        m_graph->clear();
         
         // Parse XML file
         xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());

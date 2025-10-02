@@ -32,10 +32,14 @@ class Edge;
 class Node : public QGraphicsItem
 {
 public:
-    Node(const QUuid& id = QUuid::createUuid(), 
+    // QGraphicsItem type system (required for qgraphicsitem_cast)
+    enum { Type = UserType + 1 };
+    int type() const override { return Type; }
+
+    Node(const QUuid& id = QUuid::createUuid(),
          const QPointF& position = QPointF(100, 100));
     ~Node(); // Destructor for safe edge invalidation
-    
+
     // Core identity
     const QUuid& getId() const { return m_id; }
     

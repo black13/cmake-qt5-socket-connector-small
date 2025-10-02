@@ -45,13 +45,11 @@ public:
     const QHash<QUuid, Edge*>& getEdges() const { return m_edges; }
     // Clean design: sockets accessed via nodes, not scene
     
-    // Deletion methods - maintain integrity
-    void deleteNode(const QUuid& nodeId);
-    void deleteEdge(const QUuid& edgeId);
-    void deleteSelected();  // Delete all selected items
-    
-    // Clear both graphics items AND registries - prevents dangling pointers
-    void clearGraph();
+    // Internal deletion methods (called by QGraph, not directly)
+    void removeNodeInternal(const QUuid& nodeId);
+    void removeEdgeInternal(const QUuid& edgeId);
+    void removeSelectedInternal();  // Delete all selected items
+    void clearGraphInternal();
     
     // PHASE 1.2: Safe shutdown preparation
     void prepareForShutdown();
