@@ -1191,3 +1191,417 @@ git push -u origin feat/scene-visual-only
 - [ ] Existing XML files load correctly
 - [ ] JavaScript API unchanged or backward compatible
 - [ ] No breaking changes to public API
+
+---
+
+## Graph Lifecycle & State Management
+
+**Implemented**: 2025-10-02 on `feat/graph-rearch-01`
+
+### Overview
+
+The graph lifecycle spans from initialization through runtime operations to shutdown, with critical state tracking during XML loading to prevent JavaScript from operating on incomplete/unstable graph data.
+
+### Lifecycle Phases
+
+#### PHASE 1: Initialization (Window Constructor)
+
+**Call Stack**: `Window::Window()` → window.cpp:34-99
+
+```cpp
+Window::Window()
+  ├─ Scene* m_scene = new Scene(this)
+  │   └─ Registries: QHash<QUuid, Node*> m_nodes, QHash<QUuid, Edge*> m_edges
+  │
+  ├─ QGraph* m_graph = new QGraph(m_scene, this)
+  │   └─ Wraps Scene, provides semantic operations + state tracking
+  │
+  ├─ JavaScriptEngine* m_jsEngine = new JavaScriptEngine(this)
+  │
+  ├─ XML document + GraphFactory initialization
+  │   ├─ xmlDocPtr m_xmlDocument = xmlNewDoc()
+  │   └─ GraphFactory* m_factory = new GraphFactory(m_scene, m_xmlDocument)
+  │
+  ├─ JavaScript API Registration
+  │   ├─ m_jsEngine->registerNodeAPI(m_scene)
+  │   ├─ m_jsEngine->registerGraphAPI()
+  │   └─ m_jsEngine->registerQGraph(m_graph)  ← Exposes Graph global object
+  │
+  └─ XmlAutosaveObserver setup
+      ├─ new XmlAutosaveObserver(m_scene, "autosave.xml")
+      ├─ setDelay(750ms)  ← Debounce rapid changes
+      └─ m_scene->attach(observer)  ← Observer pattern connection
+```
+
+**State After Initialization**:
+- Graph is **EMPTY** and **STABLE**
+- `m_isLoadingXml = false`
+- `m_unresolvedEdges = 0`
+- JavaScript can immediately call `Graph.createNode()`, `Graph.connect()`, etc.
+
+---
+
+#### PHASE 2: XML Loading (GraphFactory::loadFromXmlFile)
+
+**Call Stack**:
+- User action: `Graph.loadXml("file.xml")` or Ctrl+L menu
+- `QGraph::loadXml()` → `GraphFactory::loadFromXmlFile()`
+
+**Implementation**: graph_factory.cpp:217-333
+
+```cpp
+GraphFactory::loadFromXmlFile(path)
+  │
+  ├─ GraphSubject::beginBatch()  ← CRITICAL: Suppress observer storm
+  │   └─ Prevents XmlAutosaveObserver from firing on every node/edge add
+  │
+  ├─ PHASE 1: Load ALL Nodes (lines 249-289)
+  │   ├─ Parse <node> elements from XML
+  │   ├─ createNodeFromXml() for each
+  │   ├─ Scene->addNode(node)
+  │   │   ├─ m_nodes.insert(uuid, node)
+  │   │   ├─ addItem(node) → QGraphicsScene adds visual item
+  │   │   └─ notifyNodeAdded(*node) → suppressed by batch mode
+  │   └─ Result: Nodes exist and visible, but no edges yet
+  │
+  ├─ PHASE 2: Load ALL Edges (lines 291-310)
+  │   ├─ Parse <edge> elements from XML
+  │   ├─ createEdgeFromXml()
+  │   ├─ Scene->addEdge(edge)
+  │   │   ├─ m_edges.insert(uuid, edge)
+  │   │   ├─ addItem(edge) → QGraphicsScene adds visual item
+  │   │   └─ Edge object exists BUT socket pointers are NULL
+  │   └─ Result: Edges created but UNRESOLVED (fromSocket/toSocket = nullptr)
+  │
+  ├─ PHASE 3: Resolve Edge Connections (lines 312-333)
+  │   ├─ For each edge:
+  │   │   ├─ Find fromNode by UUID → O(1) hash lookup
+  │   │   ├─ Find toNode by UUID → O(1) hash lookup
+  │   │   ├─ Find fromSocket by index in fromNode
+  │   │   ├─ Find toSocket by index in toNode
+  │   │   └─ edge->setConnection(fromSocket, toSocket)
+  │   │       └─ Assigns socket pointers, edge now RESOLVED
+  │   └─ Result: All edges have valid socket pointers
+  │
+  └─ GraphSubject::endBatch()  ← Resume notifications, send single batch event
+      └─ XmlAutosaveObserver receives ONE notification (not N notifications)
+```
+
+**QGraph State Tracking** (qgraph.cpp:277-334):
+
+```cpp
+QGraph::loadXml(path)
+  ├─ emit xmlLoadStarted(path)  ← JavaScript can listen to this
+  ├─ m_isLoadingXml = true       ← Graph now UNSTABLE
+  │
+  ├─ scene_->clearGraphInternal()  ← Remove existing graph
+  │
+  ├─ GraphFactory::loadFromXmlFile(path)  ← Phased loading
+  │   └─ [3 phases as shown above]
+  │
+  ├─ m_isLoadingXml = false  ← Loading complete
+  │
+  ├─ updateUnresolvedEdgeCount()  ← Scan all edges
+  │   ├─ Count edges where fromSocket == nullptr || toSocket == nullptr
+  │   └─ m_unresolvedEdges = count
+  │
+  ├─ emit xmlLoadComplete(path, success)
+  │
+  └─ if (isStable())  ← Check stability condition
+      └─ emit graphStabilized()  ← Signal JavaScript graph is ready
+```
+
+**Stability Condition** (qgraph.cpp:486-489):
+
+```cpp
+bool QGraph::isStable() const
+{
+    return !m_isLoadingXml && m_unresolvedEdges == 0;
+}
+```
+
+**State Transitions During Load**:
+```
+STABLE (before load)
+  ↓ xmlLoadStarted() emitted
+LOADING (m_isLoadingXml=true, isStable()=false)
+  ↓ PHASE 1: Nodes loaded
+LOADING (nodes exist, no edges)
+  ↓ PHASE 2: Edges created
+LOADING (edges exist, sockets=NULL, unresolvedEdges > 0)
+  ↓ PHASE 3: Connections resolved
+LOADING (edges resolved, unresolvedEdges → 0)
+  ↓ m_isLoadingXml=false, xmlLoadComplete() emitted
+STABLE (isStable()=true, graphStabilized() emitted)
+```
+
+**JavaScript Coordination Pattern**:
+
+```javascript
+// Connect to load lifecycle signals
+Graph.xmlLoadStarted.connect(function(path) {
+    console.log("Load started:", path);
+    console.log("  isLoadingXml():", Graph.isLoadingXml());  // true
+    console.log("  isStable():", Graph.isStable());          // false
+});
+
+Graph.xmlLoadComplete.connect(function(path, success) {
+    console.log("Load complete:", path, success);
+    console.log("  isLoadingXml():", Graph.isLoadingXml());  // false
+    console.log("  unresolvedEdges:", Graph.getUnresolvedEdgeCount());  // 0
+});
+
+Graph.graphStabilized.connect(function() {
+    console.log("✓ Graph stable - safe to operate");
+    // NOW safe to enumerate nodes/edges, perform graph algorithms
+});
+
+// Safe operation pattern
+function safeGraphOperation() {
+    if (Graph.isLoadingXml()) {
+        console.log("⚠ Deferred: Graph loading in progress");
+        return false;
+    }
+
+    if (!Graph.isStable()) {
+        console.log("⚠ Deferred: Unresolved edges:", Graph.getUnresolvedEdgeCount());
+        return false;
+    }
+
+    // SAFE: All edges resolved, graph is stable
+    var nodes = Graph.getNodes();
+    var edges = Graph.getEdges();
+    // ... perform operations
+    return true;
+}
+```
+
+---
+
+#### PHASE 3: Runtime Operations
+
+**Interactive Node Creation**:
+```
+User drags from palette → View::nodeDropped signal
+  → Window::createNodeFromPalette()
+  → GraphFactory::createNode(type, x, y)
+  → Scene::addNode(node)
+  → GraphSubject::notifyNodeAdded()  ← NOT batched (single operation)
+  → XmlAutosaveObserver::update()
+  → After 750ms delay: autosave.xml written
+```
+
+**JavaScript Graph Operations**:
+```javascript
+// All operations go through QGraph
+var nodeId = Graph.createNode("TRANSFORM", 100, 200);
+var edgeId = Graph.connect(fromNodeId, 0, toNodeId, 1);
+Graph.deleteNode(nodeId);
+Graph.saveXml("output.xml");
+```
+
+**Observer Pattern**:
+- Scene inherits `GraphSubject`
+- `XmlAutosaveObserver` watches for changes via `update()` callback
+- 750ms delay debounces rapid user edits
+- Batch mode (`beginBatch`/`endBatch`) prevents autosave storm during bulk loads
+
+**Key Performance Guarantees**:
+- **O(1) lookups**: `m_nodes[uuid]`, `m_edges[uuid]` hash maps
+- **O(degree) updates**: Edge move/delete only notifies connected nodes
+- **No global scans**: Node registries prevent iteration over all items
+
+---
+
+#### PHASE 4: Shutdown (Window::closeEvent)
+
+**Call Stack**: User closes window → `Window::closeEvent()` → window.cpp:889-902
+
+```cpp
+Window::closeEvent(QCloseEvent* event)
+  ├─ Scene::prepareForShutdown()
+  │   ├─ m_shutdownInProgress = true  ← Prevent new operations
+  │   └─ Clear edge-socket connections (currently disabled)
+  │
+  ├─ QMainWindow::closeEvent(event)  ← Accept close
+  │   └─ Triggers Window destructor
+  │
+  └─ Window::~Window()  (window.cpp:101-114)
+      ├─ Detach XmlAutosaveObserver
+      ├─ delete m_autosaveObserver
+      └─ xmlFreeDoc(m_xmlDocument)
+```
+
+**Qt Parent-Child Cleanup** (automatic):
+```
+Window (parent)
+  ├─ Scene (child of Window)
+  │   └─ QGraphicsScene::~QGraphicsScene()
+  │       ├─ Deletes all QGraphicsItems (Nodes, Edges via QGraphicsScene)
+  │       └─ m_nodes/m_edges hashes cleared
+  ├─ QGraph (child of Window)
+  │   └─ Destructor releases Scene pointer
+  ├─ JavaScriptEngine (child of Window)
+  │   └─ QJSEngine destroyed, JavaScript context cleared
+  └─ GraphFactory (member, not QObject)
+      └─ Explicitly deleted in Window destructor
+```
+
+**Critical Shutdown Note** (scene.cpp:273):
+- Socket connection cleanup is currently disabled
+- Previous crash fix: Avoid dereferencing sockets during shutdown
+- Non-QObject pattern means no signal/slot zombie references
+
+---
+
+### State Diagram
+
+```
+┌─────────────────┐
+│ UNINITIALIZED   │
+└────────┬────────┘
+         │ Window::Window()
+         ↓
+┌─────────────────┐
+│ EMPTY (stable)  │  ← isStable() = true
+│ unresolvedEdges │     m_isLoadingXml = false
+│ = 0             │     m_unresolvedEdges = 0
+└────────┬────────┘
+         │ Graph.loadXml() called
+         ↓
+┌─────────────────┐
+│ LOADING         │  ← isStable() = false
+│ (unstable)      │     m_isLoadingXml = true
+│                 │
+│ PHASE 1: Nodes  │
+│ PHASE 2: Edges  │     unresolvedEdges > 0
+│ PHASE 3: Resolve│     (sockets NULL)
+└────────┬────────┘
+         │ Load complete
+         ↓
+┌─────────────────┐
+│ STABLE          │  ← isStable() = true
+│ (ready)         │     m_isLoadingXml = false
+│                 │     m_unresolvedEdges = 0
+│ JavaScript      │
+│ can operate     │     graphStabilized() emitted
+└────────┬────────┘
+         │ Runtime ops: create/delete/modify
+         ├─────────────┐
+         │             │
+         ↓             ↓
+   [autosave]    [user edits]
+         │             │
+         └──────┬──────┘
+                ↓
+         (remains STABLE)
+                │
+                │ closeEvent()
+                ↓
+┌─────────────────┐
+│ SHUTDOWN_PREP   │  ← m_shutdownInProgress = true
+└────────┬────────┘
+         │ Window destructor
+         ↓
+┌─────────────────┐
+│ DESTROYED       │
+└─────────────────┘
+```
+
+---
+
+### Performance Characteristics
+
+**XML Loading** (GraphFactory):
+- **Time Complexity**:
+  - PHASE 1 (Nodes): O(N) where N = node count
+  - PHASE 2 (Edges): O(E) where E = edge count
+  - PHASE 3 (Resolve): O(E) - hash lookups are O(1)
+  - **Total**: O(N + E) linear in graph size
+
+- **Space Complexity**: O(N + E) for registries
+
+- **Observer Optimization**:
+  - Without batching: O(N + E) observer notifications
+  - With batching: O(1) single batch notification
+  - **Improvement**: 1000x reduction for 1000-node graph
+
+**Edge Resolution**:
+- **Fast Path**: PHASE 3 finds both nodes and sockets in O(1)
+- **Unresolved Detection**: Single O(E) scan after load completes
+- **No Dangling Edges**: GraphFactory guarantees valid connections
+
+**Autosave Debouncing**:
+- XmlAutosaveObserver delay: 750ms
+- Prevents disk writes during rapid editing
+- Single save triggers after user pauses
+
+---
+
+### Key Architectural Patterns
+
+**Separation of Concerns**:
+- **QGraph**: Business logic, state tracking, Q_INVOKABLE API
+- **Scene**: Visual rendering, item registries, QGraphicsScene integration
+- **GraphFactory**: XML I/O, phased loading, batching coordination
+
+**Non-QObject Pattern** (for Node, Edge, Socket):
+- Avoids QObject overhead for 1000s of graphics items
+- Prevents zombie references from signal/slot connections
+- QGraphicsItem parent-child hierarchy handles cleanup
+
+**Observer Pattern with Batching**:
+- GraphSubject provides beginBatch()/endBatch()
+- XmlAutosaveObserver implements Observer interface
+- Prevents notification storms during bulk operations
+
+**JavaScript Coordination**:
+- Q_INVOKABLE methods expose isLoadingXml(), isStable()
+- Signals (xmlLoadStarted, graphStabilized) enable async coordination
+- JavaScript can defer operations until graph is stable
+
+---
+
+### Testing & Validation
+
+**Test Script**: `scripts/test_qgraph_state_tracking.js`
+
+**Validates**:
+1. Initial state is STABLE
+2. xmlLoadStarted signal fires
+3. isLoadingXml() returns true during load
+4. xmlLoadComplete signal fires
+5. getUnresolvedEdgeCount() returns 0 after load
+6. graphStabilized signal fires when ready
+7. Node creation after load keeps graph STABLE
+
+**Test Results** (2025-10-02):
+```
+✅ Initial: isLoadingXml()=false, isStable()=true
+✅ xmlLoadStarted signal received
+✅ xmlLoadComplete signal received
+✅ unresolvedEdges = 0
+✅ graphStabilized signal received
+✅ Node creation successful, graph still stable
+✅ All tests passed
+```
+
+---
+
+### Future Enhancements
+
+**GraphController Removal**:
+- GraphController is now redundant (QGraph exposed directly)
+- Consider deprecating and removing GraphController
+- Update all JavaScript to use `Graph` global object
+
+**Performance Monitoring**:
+- Add telemetry for XML load times
+- Measure PHASE 3 resolution time for large graphs
+- Validate O(N+E) complexity with 10,000+ node graphs
+
+**Edge Case Handling**:
+- Orphaned edges (missing nodes)
+- Circular edge references
+- Invalid socket indices
+- Malformed XML recovery
