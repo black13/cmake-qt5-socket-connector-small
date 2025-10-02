@@ -10,6 +10,7 @@ class GraphFactory;
 class XmlLiveSync;
 class Node;
 class Edge;
+class QGraph;
 
 /**
  * GraphController - JavaScript-accessible graph control interface
@@ -69,7 +70,8 @@ signals:
 private:
     Scene* m_scene;
     GraphFactory* m_factory;
-    
+    QGraph* m_graph;  // Delegate to QGraph for operations
+
     // Helper methods
     Node* findNode(const QString& uuid);
     Edge* findEdge(const QString& uuid);

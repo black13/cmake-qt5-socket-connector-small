@@ -28,6 +28,10 @@ class Node;
 class Edge : public QGraphicsItem
 {
 public:
+    // QGraphicsItem type system (required for qgraphicsitem_cast)
+    enum { Type = UserType + 2 };
+    int type() const override { return Type; }
+
     Edge(const QUuid& id = QUuid::createUuid(),
          const QUuid& fromSocketId = QUuid(),
          const QUuid& toSocketId = QUuid());

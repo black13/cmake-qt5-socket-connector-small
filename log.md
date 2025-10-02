@@ -1,6 +1,258 @@
 # Implementation Log
 
-## Session 2025-09-30: QGraph Foundation - Model-View Separation
+## Session 2025-09-30 (Part 2): Aggressive Scene Refactoring & Architectural Insights
+
+### Step 2: Slim Down Scene - Option B (All at Once)
+
+**Branch**: `feat/graph-rearch-01` (deviated from plan - should be `feat/scene-visual-only`)
+
+**Goal**: Rename Scene methods to internal-only, move business logic to QGraph.
+
+#### The Aggressive Approach (Option B)
+
+Chose Option B: "Do it all at once, rollback if it becomes a mess"
+- Rename all Scene deletion methods to `*Internal()`
+- Add QGraph wrapper methods
+- Update all callers (GraphController, Window, node.cpp)
+- If build fails → `git reset --hard` and try conservative Option A
+
+**Result**: ✅ Build succeeded! No rollback needed.
+
+#### Changes Made
+
+**Scene Methods Renamed:**
+- `deleteNode()` → `removeNodeInternal()`
+- `deleteEdge()` → `removeEdgeInternal()`
+- `deleteSelected()` → `removeSelectedInternal()`
+- `clearGraph()` → `clearGraphInternal()`
+
+**QGraph Additions:**
+- Added `deleteSelected()` method
+- All deletion methods delegate to Scene internal methods
+- Proper signal emission
+
+**Updated Callers:**
+- `graph_controller.cpp`: Uses `m_graph->deleteNode()`, `m_graph->clear()`
+- `window.cpp`: Uses `m_graph->deleteSelected()`, `m_graph->clear()`
+- `node.cpp`: Internal calls use `removeEdgeInternal()`
+
+**Build Results:**
+- ✅ Linux: Successful
+- ✅ Windows: Successful (existing build)
+
+#### Runtime Testing on Windows
+
+**Test Results:**
+1. ✅ Create nodes - works
+2. ✅ Connect nodes - works
+3. ✅ Delete node - works
+4. ❌ Delete edge - BROKEN
+
+**Edge Deletion Bug Found:**
+
+Log shows edge is selected but treated as node:
+```
+DELETE KEY: Deleting 1 selected items
+Scene::deleteNode - node not found: "0b5f20f9"  ← Wrong! It's an edge!
+Deleted 0 edges and 1 nodes
+```
+
+**Root Cause:** Missing `type()` methods in Node and Edge classes
+
+`qgraphicsitem_cast` requires proper type() implementation:
+```cpp
+// Without type(), cast can't distinguish Node from Edge
+if (Node* node = qgraphicsitem_cast<Node*>(item)) {
+    // This succeeds for EVERYTHING (wrong!)
+}
+```
+
+**Fix Applied:**
+```cpp
+// node.h
+class Node : public QGraphicsItem {
+public:
+    enum { Type = UserType + 1 };
+    int type() const override { return Type; }
+    // ...
+};
+
+// edge.h
+class Edge : public QGraphicsItem {
+public:
+    enum { Type = UserType + 2 };
+    int type() const override { return Type; }
+    // ...
+};
+```
+
+**Status:** Fix applied but not yet built/tested.
+
+---
+
+### Architectural Discussion: The "Lethal Gene" Pattern
+
+#### Anti-Patterns Identified
+
+**1. The Lethal Gene: Iteration + Casting**
+```cpp
+// ❌ NEVER USE - Performance disaster, spreads through codebase
+for (QGraphicsItem* item : scene->items()) {
+    if (Node* node = qgraphicsitem_cast<Node*>(item)) { ... }
+    if (Edge* edge = qgraphicsitem_cast<Edge*>(item)) { ... }
+}
+```
+
+**Why it's lethal:**
+- O(n) scan of ALL scene items (ignores hash)
+- Defeats entire architecture
+- **Spreads like a virus** - once in code, others copy it
+- Never gets fixed - becomes "the pattern"
+
+**2. std::unique_ptr (Not Qt Style)**
+```cpp
+// ❌ Wrong - Generic C++ pattern, not Qt5
+QHash<QUuid, std::unique_ptr<Node>> m_nodes;
+```
+
+**3. QGraphicsObject for Signal/Slot**
+```cpp
+// ❌ Wrong - Massive overhead for 1000s of items
+class Node : public QGraphicsObject {  // Adds QObject meta-system
+    Q_OBJECT
+    signals:
+        void nodeChanged();
+};
+```
+
+#### Correct Qt5 Patterns
+
+**1. Use Hash for Lookups (O(1))**
+```cpp
+// ✅ Right
+Node* node = m_nodes.value(uuid);
+Edge* edge = m_edges.value(uuid);
+```
+
+**2. Use Hash for Iteration**
+```cpp
+// ✅ Right
+for (Node* node : m_nodes.values()) { ... }
+for (Edge* edge : m_edges.values()) { ... }
+```
+
+**3. Qt Parent-Child Ownership**
+```cpp
+// ✅ Right - QGraphicsScene owns via parent
+Node* node = new Node();
+addItem(node);  // Qt owns it
+m_nodes[uuid] = node;  // Hash is just an index, not ownership
+```
+
+**4. Observer Pattern (Not Signals) for QGraphicsItem**
+```cpp
+// ✅ Right - QGraphicsItem can't have signals (no QObject)
+class Node : public QGraphicsItem {  // Lightweight
+    // Use callbacks/observer pattern instead
+    void notifyMove() {
+        if (m_moveCallback) m_moveCallback(this);
+    }
+};
+
+class Scene : public QGraphicsScene {  // Scene IS QObject
+    Q_OBJECT
+signals:
+    void sceneChanged();  // Only Scene emits signals
+};
+```
+
+**5. ABSOLUTE RULE: NO CASTS**
+
+Only library writers should use casts. Application code: NEVER.
+
+#### The QHash Ownership Problem
+
+**The fragile pattern:**
+```cpp
+QHash<QUuid, Node*> m_nodes;  // Raw pointers
+
+// Deletion is 3 manual steps (fragile!):
+m_nodes.remove(uuid);    // 1. Remove from hash
+removeItem(node);        // 2. Remove from scene
+delete node;             // 3. Delete memory
+
+// Miss ANY step → crash/leak/dangling pointer
+```
+
+**When things go wrong:**
+- **Growth**: Mostly works (addItem + hash insert)
+- **Diminution**: Hash gets out of sync with deletions
+- **Save**: Iterates hash → CRASH if dangling pointer
+- **Observers**: Fire before deletion completes → access freed memory
+
+**Current sync mechanism:** Manual 3-step deletion (error-prone)
+
+---
+
+### Tools & Infrastructure Updates
+
+#### concat.sh Refactored
+
+**Problem:** Was concatenating dead files (test_*.cpp, *_facade.h, tst_main.*)
+
+**Fix:** Explicit list of files from CMakeLists.txt:
+```bash
+BUILD_FILES=(
+    "node.h" "node.cpp"
+    "socket.h" "socket.cpp"
+    "edge.h" "edge.cpp"
+    "ghost_edge.h" "ghost_edge.cpp"
+    "qgraph.h" "qgraph.cpp"
+    # ... 31 files total
+)
+```
+
+**Result:**
+- 31 files (only active translation units)
+- 7,868 lines of actual code
+- No dead code included
+
+---
+
+### GRAPH_SPECIFICATION.md vs Implementation
+
+**Specification defines:**
+- Graph owns nodes/edges (not Scene)
+- Graph enforces invariants (`removeNode` deletes edges first)
+- Graph is the GraphSubject (observer notifications)
+- Reference integrity guarantees
+
+**Current implementation:**
+- Scene owns via QGraphicsScene parent-child
+- Scene has QHash registry
+- **Two ownership systems** → conflicts → bugs
+
+**Architectural mismatch identified but not yet resolved.**
+
+---
+
+### Next Steps
+
+**Immediate:**
+1. ✅ Build with type() fix
+2. ⏳ Test edge deletion on Windows
+3. ⏳ Verify socket reset after edge deletion
+4. ⏳ Commit Step 2 changes
+
+**Strategic:**
+- Decide on ownership model (Graph owns vs Scene owns)
+- Eliminate casting patterns
+- Move more logic from Scene to QGraph
+- Follow step-by-step branch strategy from plan.md
+
+---
+
+## Session 2025-09-30 (Part 1): QGraph Foundation - Model-View Separation
 
 ### QGraph Implementation - Step 1 of 6
 

@@ -49,6 +49,7 @@ public:
     Q_INVOKABLE QVariantList getEdges();
 
     // Graph-wide operations
+    Q_INVOKABLE bool deleteSelected();  // Delete all selected items
     Q_INVOKABLE void clear();
     Q_INVOKABLE void saveXml(const QString& path);
     Q_INVOKABLE void loadXml(const QString& path);
