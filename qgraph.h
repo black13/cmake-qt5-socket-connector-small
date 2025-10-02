@@ -56,6 +56,11 @@ public:
     Q_INVOKABLE QString getXmlString();
     Q_INVOKABLE QVariantMap getStats();
 
+    // Load state tracking for JavaScript coordination
+    Q_INVOKABLE bool isLoadingXml() const;
+    Q_INVOKABLE bool isStable() const;
+    Q_INVOKABLE int getUnresolvedEdgeCount() const;
+
     // Ghost-edge preview orchestration (Scene renders, QGraph orchestrates)
     Q_INVOKABLE void beginPreview(Socket* from, const QPointF& start);
     Q_INVOKABLE void updatePreview(const QPointF& pos);
@@ -75,12 +80,23 @@ signals:
     void xmlLoaded(QString path);
     void error(QString message);
 
+    // XML load coordination signals
+    void xmlLoadStarted(QString path);
+    void xmlLoadProgress(int nodesLoaded, int edgesLoaded);
+    void xmlLoadComplete(QString path, bool success);
+    void graphStabilized();
+
 private:
     Scene* scene_;  // Access to visual layer and registries
+
+    // Load state tracking
+    bool m_isLoadingXml;
+    int m_unresolvedEdges;
 
     // Helper methods
     class Node* findNode(const QString& uuid);
     class Edge* findEdge(const QString& uuid);
     QVariantMap nodeToVariant(Node* node);
     QVariantMap edgeToVariant(Edge* edge);
+    void updateUnresolvedEdgeCount();
 };

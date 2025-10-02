@@ -12,6 +12,7 @@ class Edge;
 class Scene;
 class GraphController;
 class GraphFactory;
+class QGraph;
 
 /**
  * JavaScriptEngine - Modern JavaScript integration for NodeGraph
@@ -38,6 +39,7 @@ public:
     void registerNodeAPI(Scene* scene);
     void registerGraphAPI();
     void registerGraphController(Scene* scene, GraphFactory* factory);
+    void registerQGraph(QGraph* graph);  // New: Register QGraph with state tracking
     
     // Node scripting support
     QJSValue createNodeScript(const QString& nodeType, const QString& script);
@@ -84,6 +86,7 @@ private:
     QJSEngine* m_engine;
     Scene* m_scene;
     GraphController* m_graphController;
+    QGraph* m_qgraph;  // New: QGraph instance with state tracking
     QString m_lastError;
     QMap<QString, QJSValue> m_scriptModules;
 };

@@ -67,7 +67,7 @@ Window::Window(QWidget* parent)
     if (m_jsEngine) {
         m_jsEngine->registerNodeAPI(m_scene);
         m_jsEngine->registerGraphAPI();
-        m_jsEngine->registerGraphController(m_scene, m_factory);
+        m_jsEngine->registerQGraph(m_graph);
         qDebug() << "Window: JavaScript engine initialized and APIs registered";
     }
 

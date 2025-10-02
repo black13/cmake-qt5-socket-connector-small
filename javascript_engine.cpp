@@ -4,6 +4,7 @@
 #include "scene.h"
 #include "graph_controller.h"
 #include "graph_factory.h"
+#include "qgraph.h"
 #include <QFile>
 #include <QTextStream>
 #include <QJsonDocument>
@@ -14,14 +15,15 @@ JavaScriptEngine::JavaScriptEngine(QObject* parent)
     , m_engine(new QJSEngine(this))
     , m_scene(nullptr)
     , m_graphController(nullptr)
+    , m_qgraph(nullptr)
 {
     setupGlobalAPI();
     registerConsoleAPI();
     registerUtilityAPI();
-    
+
     // Auto-load enhanced APIs disabled for now - will load scripts manually
     // loadEnhancedAPIs();
-    
+
     qDebug() << "JavaScriptEngine: Simple JavaScript engine initialized";
 }
 
@@ -276,6 +278,56 @@ void JavaScriptEngine::registerGraphController(Scene* scene, GraphFactory* facto
     });
     
     qDebug() << "JavaScriptEngine: GraphController registered as 'Graph' global object";
+}
+
+void JavaScriptEngine::registerQGraph(QGraph* graph)
+{
+    if (!graph) {
+        qWarning() << "JavaScriptEngine: Cannot register null QGraph";
+        return;
+    }
+
+    m_qgraph = graph;
+
+    // Register QGraph as global Graph object (replaces GraphController)
+    QJSValue graphValue = m_engine->newQObject(m_qgraph);
+    m_engine->globalObject().setProperty("Graph", graphValue);
+
+    // Connect QGraph signals for JavaScript coordination
+    connect(m_qgraph, &QGraph::nodeCreated, [](const QString& id) {
+        qDebug() << "JavaScript: Node created:" << id.left(8);
+    });
+
+    connect(m_qgraph, &QGraph::nodeDeleted, [](const QString& id) {
+        qDebug() << "JavaScript: Node deleted:" << id.left(8);
+    });
+
+    connect(m_qgraph, &QGraph::edgeConnected, [](const QString& id) {
+        qDebug() << "JavaScript: Edge connected:" << id.left(8);
+    });
+
+    connect(m_qgraph, &QGraph::edgeDeleted, [](const QString& id) {
+        qDebug() << "JavaScript: Edge deleted:" << id.left(8);
+    });
+
+    // New: XML load coordination signals
+    connect(m_qgraph, &QGraph::xmlLoadStarted, [](const QString& path) {
+        qDebug() << "JavaScript: XML load started:" << path;
+    });
+
+    connect(m_qgraph, &QGraph::xmlLoadComplete, [](const QString& path, bool success) {
+        qDebug() << "JavaScript: XML load" << (success ? "succeeded" : "FAILED") << ":" << path;
+    });
+
+    connect(m_qgraph, &QGraph::graphStabilized, []() {
+        qDebug() << "JavaScript: Graph stabilized - safe for operations";
+    });
+
+    connect(m_qgraph, &QGraph::error, [](const QString& message) {
+        qDebug() << "JavaScript Graph Error:" << message;
+    });
+
+    qDebug() << "JavaScriptEngine: QGraph registered as 'Graph' global object with state tracking";
 }
 
 QJSValue JavaScriptEngine::createNodeScript(const QString& nodeType, const QString& script)

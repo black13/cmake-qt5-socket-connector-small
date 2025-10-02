@@ -4,12 +4,16 @@
 #include "edge.h"
 #include "socket.h"
 #include "node_registry.h"
+#include "graph_factory.h"
 #include <QDebug>
 #include <QUuid>
+#include <libxml/tree.h>
 
 QGraph::QGraph(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
     , scene_(qobject_cast<Scene*>(scene))
+    , m_isLoadingXml(false)
+    , m_unresolvedEdges(0)
 {
     if (!scene_) {
         qCritical() << "QGraph: Scene pointer is null or not a Scene instance";
@@ -272,9 +276,61 @@ void QGraph::saveXml(const QString& path)
 
 void QGraph::loadXml(const QString& path)
 {
-    // TODO: Implement XML loading
-    // This will coordinate with Scene to deserialize the graph
-    emit error("QGraph::loadXml not yet implemented");
+    if (!scene_) {
+        emit error("QGraph: Scene not initialized");
+        return;
+    }
+
+    qDebug() << "QGraph: Loading XML from" << path;
+    emit xmlLoadStarted(path);
+    m_isLoadingXml = true;
+
+    try {
+        // Clear existing graph first
+        scene_->clearGraphInternal();
+
+        // Create temporary XML document for GraphFactory
+        xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
+        if (!doc) {
+            m_isLoadingXml = false;
+            emit error(QString("QGraph: Failed to parse XML file: %1").arg(path));
+            emit xmlLoadComplete(path, false);
+            return;
+        }
+
+        // Use GraphFactory for proper phased loading with batching
+        // GraphFactory automatically handles:
+        // - GraphSubject::beginBatch() to suppress observer storm
+        // - PHASE 1: Load all nodes
+        // - PHASE 2: Load all edges
+        // - PHASE 3: Resolve edge connections
+        // - GraphSubject::endBatch() to resume notifications
+        GraphFactory factory(scene_, doc);
+        bool success = factory.loadFromXmlFile(path);
+
+        // Cleanup
+        xmlFreeDoc(doc);
+
+        m_isLoadingXml = false;
+
+        if (success) {
+            updateUnresolvedEdgeCount();
+            qDebug() << "QGraph: XML loaded successfully from" << path;
+            emit xmlLoadComplete(path, true);
+
+            if (isStable()) {
+                emit graphStabilized();
+            }
+        } else {
+            emit error(QString("QGraph: Failed to load XML from %1").arg(path));
+            emit xmlLoadComplete(path, false);
+        }
+
+    } catch (const std::exception& e) {
+        m_isLoadingXml = false;
+        emit error(QString("QGraph: Exception loading XML: %1").arg(e.what()));
+        emit xmlLoadComplete(path, false);
+    }
 }
 
 QString QGraph::getXmlString()
@@ -418,4 +474,47 @@ QVariantMap QGraph::edgeToVariant(Edge* edge)
     }
 
     return map;
+}
+
+// Load state tracking implementation
+
+bool QGraph::isLoadingXml() const
+{
+    return m_isLoadingXml;
+}
+
+bool QGraph::isStable() const
+{
+    return !m_isLoadingXml && m_unresolvedEdges == 0;
+}
+
+int QGraph::getUnresolvedEdgeCount() const
+{
+    return m_unresolvedEdges;
+}
+
+void QGraph::updateUnresolvedEdgeCount()
+{
+    if (!scene_) {
+        m_unresolvedEdges = 0;
+        return;
+    }
+
+    // Count edges without valid socket connections
+    int unresolved = 0;
+    const QHash<QUuid, Edge*>& edges = scene_->getEdges();
+    for (Edge* edge : edges.values()) {
+        if (!edge) continue;
+
+        Socket* fromSocket = edge->getFromSocket();
+        Socket* toSocket = edge->getToSocket();
+
+        // Edge is unresolved if either socket is null
+        if (!fromSocket || !toSocket) {
+            unresolved++;
+        }
+    }
+
+    m_unresolvedEdges = unresolved;
+    qDebug() << "QGraph: Unresolved edges:" << m_unresolvedEdges;
 }
