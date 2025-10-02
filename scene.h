@@ -8,7 +8,6 @@
 class Node;
 class Edge;
 class Socket;
-class JavaScriptEngine;
 class GhostEdge;
 
 /**
@@ -64,12 +63,7 @@ public:
     void finishGhostEdge(Socket* toSocket = nullptr);
     void cancelGhostEdge();
     bool ghostEdgeActive() const { return m_ghostEdgeActive; }
-    
-    // JavaScript engine access
-    JavaScriptEngine* getJavaScriptEngine() const { return m_jsEngine; }
-    QString executeJavaScript(const QString& script);
-    void loadJavaScriptFile(const QString& filePath);
-    
+
     // Critical destruction safety flag
     static bool isClearing() { return s_clearingGraph; }
 
@@ -98,7 +92,4 @@ private:
     
     // Shutdown coordination flag
     bool m_shutdownInProgress;
-    
-    // JavaScript engine integration
-    JavaScriptEngine* m_jsEngine;
 };

@@ -17,6 +17,7 @@ class View;
 class Scene;
 class QGraph;
 class GraphFactory;
+class JavaScriptEngine;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
 // class JavaScriptConsole;  // Disabled for now
@@ -39,19 +40,24 @@ public:
     
     // Access to scene for testing
     Scene* getScene() const { return m_scene; }
-    
+
     // Update status bar with current graph information
     void updateStatusBar();
-    
+
     // Create node at specific position (disabled for now)
     // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
 
     // Simple script execution
     void loadAndExecuteScript();
+    void executeScriptFile(const QString& filePath);
+
+    // Command-line driven initialization
+    void setAutoTestScript(const QString& scriptPath);
 
 protected:
     // PHASE 3: Safe shutdown coordination
     void closeEvent(QCloseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 public slots:
     // Scene event handlers
     void onSceneChanged();
@@ -104,9 +110,10 @@ private:
     QGraph* m_graph;  // Graph orchestration layer
     View* m_view;
     GraphFactory* m_factory;
+    JavaScriptEngine* m_jsEngine;  // Application logic layer
     xmlDocPtr m_xmlDocument;
     XmlAutosaveObserver* m_autosaveObserver;
-    
+
     // UI elements
     QAction* m_addInputAction;
     QAction* m_addOutputAction;
@@ -137,7 +144,11 @@ private:
     
     // File management
     QString m_currentFile;
-    
+
+    // Command-line driven initialization
+    QString m_autoTestScript;
+    bool m_firstShow;
+
     // Setup methods
     void setupUI();
     void setupMenus();

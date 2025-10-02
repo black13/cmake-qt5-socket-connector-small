@@ -106,8 +106,12 @@ int main(int argc, char *argv[])
                                       "Load graph from XML file",
                                       "file");
     parser.addOption(loadFileOption);
-    
-    
+
+    // Add test option (runs default enumeration test)
+    QCommandLineOption testOption(QStringList() << "t" << "test",
+                                  "Run XML enumeration test on startup");
+    parser.addOption(testOption);
+
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
@@ -115,19 +119,10 @@ int main(int argc, char *argv[])
     parser.process(app);
     
     // Command line parsing
-    
+
     // Create main window
     Window window;
-    
-    // Initialize JavaScript engine
-    Scene* scene = window.getScene();
-    if (scene) {
-        auto* jsEngine = scene->getJavaScriptEngine();
-        if (!jsEngine) {
-            qDebug() << "Warning: JavaScript engine initialization failed";
-        }
-    }
-    
+
     // Handle file loading
     QString filename;
     if (parser.isSet(loadFileOption)) {
@@ -247,9 +242,9 @@ int main(int argc, char *argv[])
     // Test the NodeRegistry to verify nodes are registered
     qDebug() << "=== NodeGraph Application Starting ===";
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
-    
+
     // Initialize GraphFactory with scene and XML document
-    // Scene* scene = window.getScene(); // Already declared above
+    Scene* scene = window.getScene();
     if (!scene) {
         qCritical() << "✗ Failed to get scene from window";
         return -1;
@@ -284,19 +279,24 @@ int main(int argc, char *argv[])
     
     // Cleanup XML document when done
     // Note: GraphFactory holds reference, so clean up after window closes
-    
+
+    // Set up auto-test script if requested (Window will run it on first show)
+    if (parser.isSet(testOption)) {
+        window.setAutoTestScript("scripts/test_xml_load_enumeration.js");
+    }
+
     window.show();
-    
+
     // Show user-friendly message about file loading status
     if (fileLoadAttempted && originalFilename != filename) {
         // File was attempted but failed to load (filename was cleared)
         QTimer::singleShot(500, [&window, originalFilename]() {
-            QMessageBox::information(&window, "File Not Found", 
+            QMessageBox::information(&window, "File Not Found",
                 QString("The specified file could not be found or loaded:\n\n%1\n\nStarting with an empty graph instead.\n\nYou can create a new graph or open an existing file using File → Open.")
                 .arg(originalFilename));
         });
     }
-    
+
     int result = app.exec();
     
     // Final status before exit
