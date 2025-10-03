@@ -27,11 +27,14 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
-    
+
     // Drag and drop support
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+
+    // Grid rendering
+    void drawBackground(QPainter* painter, const QRectF& rect) override;
 
 signals:
     // Signal emitted when a node is dropped

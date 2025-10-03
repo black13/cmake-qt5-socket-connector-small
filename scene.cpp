@@ -417,6 +417,64 @@ void Scene::cancelGhostEdge()
     qDebug() << "GHOST: Cancelled";
 }
 
+Socket* Scene::findNearestValidSocket(const QPointF& scenePos, Socket* fromSocket, QPointF& snappedPos)
+{
+    if (!fromSocket) {
+        snappedPos = scenePos;
+        return nullptr;
+    }
+
+    Socket* nearestSocket = nullptr;
+    qreal minDistance = getMagneticRadius();
+    snappedPos = scenePos;
+
+    // Check all sockets in the scene for magnetic attraction (cast-free with metadata)
+    for (Node* node : m_nodes.values()) {
+        for (QGraphicsItem* child : node->childItems()) {
+            // Cast-free socket identification using metadata key
+            if (child->data(Gik::KindKey).toInt() != Gik::Kind_Socket) {
+                continue;
+            }
+
+            Socket* socket = static_cast<Socket*>(child);
+
+            // Skip if not a valid target
+            if (socket->getRole() != Socket::Input ||
+                socket == fromSocket ||
+                socket->getParentNode() == fromSocket->getParentNode() ||
+                socket->isConnected() ||
+                fromSocket->isConnected()) {
+                continue;
+            }
+
+            // Calculate distance to socket center
+            QPointF socketPos = socket->scenePos();
+            qreal distance = QLineF(scenePos, socketPos).length();
+
+            // If within magnetic radius and closer than previous best
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestSocket = socket;
+                snappedPos = socketPos; // Snap to socket center
+            }
+        }
+    }
+
+    return nearestSocket;
+}
+
+QPointF Scene::snapPoint(const QPointF& scenePos) const
+{
+    int grid = gridSize();
+    if (grid <= 1) {
+        return scenePos;
+    }
+
+    qreal x = qRound(scenePos.x() / grid) * grid;
+    qreal y = qRound(scenePos.y() / grid) * grid;
+    return QPointF(x, y);
+}
+
 QPen Scene::ghostPen() const
 {
     QPen pen(QColor(0, 255, 0, 150)); // Semi-transparent green

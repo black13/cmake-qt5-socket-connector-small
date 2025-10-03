@@ -63,6 +63,16 @@ public:
     void cancelGhostEdge();
     bool ghostEdgeActive() const { return m_ghostEdgeActive; }
 
+    // Magnetic connection helpers
+    Socket* findNearestValidSocket(const QPointF& scenePos, Socket* fromSocket, QPointF& snappedPos);
+    qreal getMagneticRadius() const { return 40.0; } // Magnetic attraction radius
+
+    // Grid and snap-to-grid
+    QPointF snapPoint(const QPointF& scenePos) const;
+    void setSnapToGrid(bool on) { m_snapToGrid = on; }
+    bool isSnapToGrid() const { return m_snapToGrid; }
+    int gridSize() const { return 40; }  // TODO: make configurable
+
     // Critical destruction safety flag
     static bool isClearing() { return s_clearingGraph; }
 
@@ -85,10 +95,13 @@ private:
     // Helper method for ghost edge styling
     QPen ghostPen() const;
     void resetAllSocketStates();
-    
+
     // Static flag to prevent socket cleanup during clearGraph
     static bool s_clearingGraph;
-    
+
+    // Grid and snap state
+    bool m_snapToGrid = false;
+
     // Shutdown coordination flag
     bool m_shutdownInProgress;
 };
