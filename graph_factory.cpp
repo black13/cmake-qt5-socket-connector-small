@@ -3,7 +3,7 @@
 #include "socket.h"
 #include "edge.h"
 #include "scene.h"
-#include "node_registry.h"
+#include "node_templates.h"  // Template system - NO NodeRegistry needed
 #include "graph_observer.h"
 #include <QDateTime>
 #include <QDebug>
@@ -22,20 +22,30 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
         return nullptr;
     }
     
-    // Get node type from XML
+    // Get node type from XML (for logging only)
     QString nodeType = getXmlProperty(xmlNode, "type");
     if (nodeType.isEmpty()) {
         qWarning() << "GraphFactory::createNodeFromXml - missing type attribute";
         return nullptr;
     }
-    
-    // Create node using registry
-    Node* node = NodeRegistry::instance().createNode(nodeType);
-    if (!node) {
-        qCritical() << "GraphFactory::createNodeFromXml - failed to create node of type:" << nodeType;
+
+    // Validate node type against template system (no NodeRegistry needed)
+    if (!NodeTypeTemplates::hasNodeType(nodeType)) {
+        qCritical() << "GraphFactory::createNodeFromXml - Invalid node type:" << nodeType;
+        qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
         return nullptr;
     }
-    
+
+    // Create node directly - template system is the authority
+    Node* node = new Node();
+    if (!node) {
+        qCritical() << "GraphFactory::createNodeFromXml - failed to create node";
+        return nullptr;
+    }
+
+    // Set node type BEFORE reading XML
+    node->setNodeType(nodeType);
+
     // Attach observer before reading XML - contract requirement
     node->setObserver(this);
     

@@ -32,7 +32,8 @@ class QGraph : public QObject
     Q_OBJECT
 
 public:
-    explicit QGraph(QGraphicsScene* scene, QObject* parent = nullptr);
+    // Take a concrete Scene* (no QGraphicsScene*), so we never need runtime casts.
+    explicit QGraph(Scene* scene, QObject* parent = nullptr);
     ~QGraph() = default;
 
     // Node operations
@@ -87,7 +88,7 @@ signals:
     void graphStabilized();
 
 private:
-    Scene* scene_;  // Access to visual layer and registries
+    Scene* scene_;  // Access to visual layer and registries (typed, no casts)
 
     // Load state tracking
     bool m_isLoadingXml;

@@ -87,3 +87,11 @@ remove_claude_coauthor.sh
 .aider.chat.history.md
 .aider.input.history
 .aider.tags.cache.v4/
+
+# Generated concatenated code
+concatenated_code.txt
+
+# Test files (not in repository)
+tests/
+commits/
+coverage_html/

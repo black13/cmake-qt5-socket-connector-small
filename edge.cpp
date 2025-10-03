@@ -488,15 +488,19 @@ bool Edge::resolveConnections(Scene* scene)
     m_toNode = toNode;
     m_fromNodeValid = true;  // Mark as valid - safe to access
     m_toNodeValid = true;    // Mark as valid - safe to access
-    
+
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
     fromNode->registerEdge(this);
     toNode->registerEdge(this);
-    
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved" 
+
+    // CRITICAL: Connect sockets atomically - set bidirectional references
+    fromSocket->setConnectedEdge(this);
+    toSocket->setConnectedEdge(this);
+
+    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved"
              << m_fromSocketIndex << "->" << m_toSocketIndex;
-    
+
     updatePath();
     return true;
 }
