@@ -7,6 +7,7 @@
 #include <QDropEvent>
 #include <QMimeData>
 #include <QDebug>
+#include <cmath>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -93,26 +94,26 @@ void View::dragMoveEvent(QDragMoveEvent* event)
 void View::dropEvent(QDropEvent* event)
 {
     qDebug() << "View: Drop event received";
-    
+
     // Handle node template drop
     if (event->mimeData()->hasFormat("application/x-node-template")) {
         QByteArray nodeData = event->mimeData()->data("application/x-node-template");
         QString nodeString = QString::fromUtf8(nodeData);
         qDebug() << "View: Decoding drop data:" << nodeString;
-        
+
         QStringList parts = nodeString.split("|");
         qDebug() << "View: Split into" << parts.size() << "parts:" << parts;
-        
+
         if (parts.size() >= 5) {
             QString nodeType = parts[0];
             QString name = parts[1];
             QString description = parts[2];
             int inputSockets = parts[3].toInt();
             int outputSockets = parts[4].toInt();
-            
+
             // Convert drop position to scene coordinates
             QPointF scenePos = mapToScene(event->pos());
-            
+
             qDebug() << "View: Parsed node data:";
             qDebug() << "  - Type:" << nodeType;
             qDebug() << "  - Name:" << name;
@@ -120,12 +121,12 @@ void View::dropEvent(QDropEvent* event)
             qDebug() << "  - Input sockets:" << inputSockets;
             qDebug() << "  - Output sockets:" << outputSockets;
             qDebug() << "  - Scene position:" << scenePos;
-            
+
             qDebug() << "View: Emitting nodeDropped signal to Window";
-            
+
             // Emit signal to notify the window
             emit nodeDropped(scenePos, nodeType, name, inputSockets, outputSockets);
-            
+
             event->acceptProposedAction();
             qDebug() << "✓ View: Drop event accepted and processed";
         } else {
@@ -135,5 +136,49 @@ void View::dropEvent(QDropEvent* event)
     } else {
         qDebug() << "✗ View: Drop event ignored - no node template data";
         event->ignore();
+    }
+}
+
+void View::drawBackground(QPainter* painter, const QRectF& rect)
+{
+    // Draw the base background
+    QGraphicsView::drawBackground(painter, rect);
+
+    // Only draw grid if scene supports it
+    if (!m_scene) return;
+
+    const int gridSize = m_scene->gridSize();
+    if (gridSize <= 1) return;
+
+    // Configure grid appearance
+    QPen gridPen(QColor(200, 200, 200, 100)); // Light gray, semi-transparent
+    gridPen.setWidth(1);
+    painter->setPen(gridPen);
+
+    // Calculate grid bounds based on visible rect
+    const int left = static_cast<int>(std::floor(rect.left() / gridSize)) * gridSize;
+    const int right = static_cast<int>(std::ceil(rect.right() / gridSize)) * gridSize;
+    const int top = static_cast<int>(std::floor(rect.top() / gridSize)) * gridSize;
+    const int bottom = static_cast<int>(std::ceil(rect.bottom() / gridSize)) * gridSize;
+
+    // Draw vertical lines
+    for (int x = left; x <= right; x += gridSize) {
+        painter->drawLine(x, static_cast<int>(rect.top()), x, static_cast<int>(rect.bottom()));
+    }
+
+    // Draw horizontal lines
+    for (int y = top; y <= bottom; y += gridSize) {
+        painter->drawLine(static_cast<int>(rect.left()), y, static_cast<int>(rect.right()), y);
+    }
+
+    // Draw origin indicator (darker lines at 0,0)
+    if (rect.contains(QPointF(0, 0))) {
+        QPen originPen(QColor(150, 150, 150, 150));
+        originPen.setWidth(2);
+        painter->setPen(originPen);
+
+        // Draw origin cross
+        painter->drawLine(-20, 0, 20, 0);   // Horizontal origin line
+        painter->drawLine(0, -20, 0, 20);   // Vertical origin line
     }
 }
