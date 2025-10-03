@@ -187,6 +187,8 @@ set(CORE_SOURCES
     # Factory and registry
     node_registry.h
     node_registry.cpp
+    node_templates.h
+    node_templates.cpp
     graph_factory.h
     graph_factory.cpp
     # UI components

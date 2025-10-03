@@ -28,7 +28,8 @@ class Node;
 class Edge : public QGraphicsItem
 {
 public:
-    // QGraphicsItem type system (required for qgraphicsitem_cast)
+    // QGraphicsItem type system (required by Qt, DO NOT USE in logic)
+    // Policy: Use Gik::KindKey metadata instead of type() for type checking
     enum { Type = UserType + 2 };
     int type() const override { return Type; }
 

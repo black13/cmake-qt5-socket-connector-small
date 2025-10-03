@@ -4,10 +4,12 @@
 #include "edge.h"
 #include "socket.h"
 #include "node_registry.h"
+#include "node_templates.h"
 #include "graph_factory.h"
 #include <QDebug>
 #include <QUuid>
 #include <libxml/tree.h>
+#include <libxml/parser.h>
 
 QGraph::QGraph(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
@@ -27,30 +29,57 @@ QString QGraph::createNode(const QString& type, qreal x, qreal y)
         return QString();
     }
 
-    if (!isValidNodeType(type)) {
-        emit error(QString("QGraph: Invalid node type: %1").arg(type));
+    if (!NodeTypeTemplates::hasNodeType(type)) {
+        emit error(QString("QGraph: Unknown node type: %1").arg(type));
         return QString();
     }
 
     try {
-        // Create node through registry
-        Node* node = NodeRegistry::instance().createNode(type);
-        if (!node) {
-            emit error(QString("QGraph: Failed to create node of type: %1").arg(type));
+        // Generate UUID for new node
+        QUuid nodeId = QUuid::createUuid();
+
+        // Use template system to generate XML with correct socket counts
+        QString xmlString = NodeTypeTemplates::generateNodeXml(type, QPointF(x, y), QVariantMap(), nodeId);
+        if (xmlString.isEmpty()) {
+            emit error(QString("QGraph: Failed to generate XML for node type: %1").arg(type));
             return QString();
         }
 
-        // Set position
-        node->setPos(x, y);
+        qDebug() << "QGraph: Generated XML for" << type << ":" << xmlString;
 
-        // Add to scene (scene handles visual registration)
+        // Parse XML string into DOM
+        xmlDocPtr doc = xmlParseMemory(xmlString.toUtf8().constData(), xmlString.toUtf8().size());
+        if (!doc) {
+            emit error(QString("QGraph: Failed to parse generated XML for type: %1").arg(type));
+            return QString();
+        }
+
+        xmlNodePtr root = xmlDocGetRootElement(doc);
+        if (!root) {
+            xmlFreeDoc(doc);
+            emit error(QString("QGraph: No root element in generated XML for type: %1").arg(type));
+            return QString();
+        }
+
+        // Create node via GraphFactory (handles socket creation from XML attributes)
+        GraphFactory factory(scene_, doc);
+        Node* node = factory.createNodeFromXml(root);
+
+        xmlFreeDoc(doc);
+
+        if (!node) {
+            emit error(QString("QGraph: GraphFactory failed to create node of type: %1").arg(type));
+            return QString();
+        }
+
+        // Add to scene
         scene_->addNode(node);
 
-        QString nodeId = node->getId().toString();
-        emit nodeCreated(nodeId);
+        QString nodeIdStr = node->getId().toString();
+        emit nodeCreated(nodeIdStr);
 
-        qDebug() << "QGraph: Created node" << type << "at" << x << "," << y << "id:" << nodeId.left(8);
-        return nodeId;
+        qDebug() << "QGraph: Created node" << type << "at" << x << "," << y << "id:" << nodeIdStr.left(8);
+        return nodeIdStr;
 
     } catch (const std::exception& e) {
         emit error(QString("QGraph: Exception creating node: %1").arg(e.what()));
@@ -266,6 +295,7 @@ void QGraph::saveXml(const QString& path)
 
         if (result != -1) {
             qDebug() << "QGraph: XML saved successfully to" << path;
+            emit xmlSaved(path);
         } else {
             emit error(QString("QGraph: Failed to save XML to %1").arg(path));
         }
@@ -411,12 +441,12 @@ void QGraph::endPreview(Socket* to)
 
 bool QGraph::isValidNodeType(const QString& type)
 {
-    return NodeRegistry::instance().isRegistered(type);
+    return NodeTypeTemplates::hasNodeType(type);
 }
 
 QStringList QGraph::getValidNodeTypes()
 {
-    return NodeRegistry::instance().getRegisteredTypes();
+    return NodeTypeTemplates::getAvailableTypes();
 }
 
 // Helper methods
