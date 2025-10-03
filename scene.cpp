@@ -81,7 +81,7 @@ void Scene::removeNode(const QUuid& nodeId)
     
     // Clean up edges first (they may reference sockets)
     for (const QUuid& edgeId : edgesToRemove) {
-        removeEdge(edgeId);
+        removeEdgeInternal(edgeId);
     }
     
     // Clean design: sockets cleaned up automatically as node children
@@ -90,20 +90,6 @@ void Scene::removeNode(const QUuid& nodeId)
     removeItem(node);
     m_nodes.remove(nodeId);
     delete node;
-}
-
-void Scene::removeEdge(const QUuid& edgeId)
-{
-    Edge* edge = m_edges.value(edgeId, nullptr);
-    if (!edge) return;
-    
-    // Clean design: edges manage their own socket disconnection via direct pointers
-    // Socket cleanup handled automatically when edge is destroyed
-    
-    // Remove from scene and registry
-    removeItem(edge);
-    m_edges.remove(edgeId);
-    delete edge;
 }
 
 // Clean design: socket management methods removed - sockets handled by parent nodes
@@ -326,7 +312,12 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
     // Update ghost edge visual based on target validity
     QPen ghostPenCurrent = ghostPen();
     QGraphicsItem* itemUnderCursor = itemAt(currentPos, QTransform());
-    Socket* targetSocket = qgraphicsitem_cast<Socket*>(itemUnderCursor);
+
+    // Cast-free: Check metadata instead of qgraphicsitem_cast
+    Socket* targetSocket = nullptr;
+    if (itemUnderCursor && itemUnderCursor->data(Gik::KindKey).toInt() == Gik::Kind_Socket) {
+        targetSocket = static_cast<Socket*>(itemUnderCursor);
+    }
     
     // Reset all socket visual states to normal first
     resetAllSocketStates();
@@ -450,9 +441,12 @@ void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     if (m_ghostEdgeActive && event->button() == Qt::RightButton) {
-        // Find socket under mouse
+        // Find socket under mouse (cast-free with metadata)
         QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
-        Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
+        Socket* targetSocket = nullptr;
+        if (item && item->data(Gik::KindKey).toInt() == Gik::Kind_Socket) {
+            targetSocket = static_cast<Socket*>(item);
+        }
         finishGhostEdge(targetSocket);
         event->accept();
         return;

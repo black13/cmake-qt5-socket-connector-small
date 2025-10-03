@@ -112,6 +112,12 @@ int main(int argc, char *argv[])
                                   "Run XML enumeration test on startup");
     parser.addOption(testOption);
 
+    // Add script option (runs any JavaScript file)
+    QCommandLineOption scriptOption(QStringList() << "s" << "script",
+                                    "Run JavaScript test script on startup",
+                                    "script");
+    parser.addOption(scriptOption);
+
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
@@ -281,7 +287,11 @@ int main(int argc, char *argv[])
     // Note: GraphFactory holds reference, so clean up after window closes
 
     // Set up auto-test script if requested (Window will run it on first show)
-    if (parser.isSet(testOption)) {
+    if (parser.isSet(scriptOption)) {
+        // User specified custom script
+        window.setAutoTestScript(parser.value(scriptOption));
+    } else if (parser.isSet(testOption)) {
+        // Default test script
         window.setAutoTestScript("scripts/test_xml_load_enumeration.js");
     }
 

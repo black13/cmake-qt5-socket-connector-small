@@ -2,6 +2,7 @@
 #include "node.h"
 #include "edge.h"
 #include "scene.h"
+#include "graphics_item_keys.h"
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
@@ -12,6 +13,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
     : QGraphicsItem(parentNode)
     , m_role(role)
     , m_index(index)
+    , m_parentNode(parentNode)
     , m_connectedEdge(nullptr)
     , m_connectionState(Disconnected)
     , m_radius(8.0)
@@ -21,23 +23,27 @@ Socket::Socket(Role role, Node* parentNode, int index)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
-    
+
     // ✅ Set socket z-order: above nodes (0) but below edges (2)
     setZValue(1);
-    
+
+    // ✅ Cast-free design: Set metadata for type checking without qgraphicsitem_cast
+    setData(Gik::KindKey, Gik::Kind_Socket);
+
     // ✅ NO positioning in constructor - will be positioned later with complete information
-    
+
     // Register with parent node for O(1) lookups
     if (parentNode) {
         parentNode->registerSocket(this, m_index);
     }
-    
+
     qDebug() << "+Socket" << m_index << (m_role == Input ? "IN" : "OUT");
 }
 
 Node* Socket::getParentNode() const
 {
-    return qgraphicsitem_cast<Node*>(parentItem());
+    // Cast-free: return cached parent pointer
+    return m_parentNode;
 }
 
 QRectF Socket::boundingRect() const

@@ -33,8 +33,7 @@ public:
     void addSocket(Socket* socket);  // Deprecated - sockets managed by nodes
     
     void removeNode(const QUuid& nodeId);
-    void removeEdge(const QUuid& edgeId);
-    
+
     // Fast UUID-based lookups O(1) - no searching, no casting
     Node* getNode(const QUuid& nodeId) const;
     Edge* getEdge(const QUuid& edgeId) const;
