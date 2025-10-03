@@ -11,15 +11,13 @@
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 
-QGraph::QGraph(QGraphicsScene* scene, QObject* parent)
+QGraph::QGraph(Scene* scene, QObject* parent)
     : QObject(parent)
-    , scene_(qobject_cast<Scene*>(scene))
+    , scene_(scene)
     , m_isLoadingXml(false)
     , m_unresolvedEdges(0)
 {
-    if (!scene_) {
-        qCritical() << "QGraph: Scene pointer is null or not a Scene instance";
-    }
+    Q_ASSERT(scene_ && "QGraph requires a typed Scene*");
 }
 
 QString QGraph::createNode(const QString& type, qreal x, qreal y)
@@ -62,6 +60,7 @@ QString QGraph::createNode(const QString& type, qreal x, qreal y)
         }
 
         // Create node via GraphFactory (handles socket creation from XML attributes)
+        // GraphFactory adds node to scene automatically
         GraphFactory factory(scene_, doc);
         Node* node = factory.createNodeFromXml(root);
 
@@ -72,8 +71,7 @@ QString QGraph::createNode(const QString& type, qreal x, qreal y)
             return QString();
         }
 
-        // Add to scene
-        scene_->addNode(node);
+        // Note: Node already added to scene by GraphFactory
 
         QString nodeIdStr = node->getId().toString();
         emit nodeCreated(nodeIdStr);
@@ -183,6 +181,14 @@ QString QGraph::connect(const QString& fromNodeId, int fromIdx,
 
         // Add to scene
         scene_->addEdge(edge);
+
+        // CRITICAL: Resolve connections to set socket->edge references
+        if (!edge->resolveConnections(scene_)) {
+            qWarning() << "QGraph: Failed to resolve edge connections";
+            scene_->removeEdgeInternal(edge->getId());  // This deletes the edge
+            emit error("QGraph: Failed to resolve edge connections");
+            return QString();
+        }
 
         QString edgeId = edge->getId().toString();
         emit edgeConnected(edgeId);

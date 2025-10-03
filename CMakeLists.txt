@@ -335,7 +335,17 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 10. Build information
+# 10. CI Guardrails - Architectural lint rules
+# ─────────────────────────────────────
+add_custom_target(lint_guard
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/lint_guard.sh
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running architectural lint rules"
+    VERBATIM
+)
+
+# ─────────────────────────────────────
+# 11. Build information
 # ─────────────────────────────────────
 message(STATUS "")
 message(STATUS "─────────────────────────────────────")
