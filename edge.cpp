@@ -4,6 +4,7 @@
 #include "scene.h"
 #include "graphics_item_keys.h"
 #include "layout_metrics.h"
+#include "log_context.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -44,7 +45,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     setData(Gik::KindKey, Gik::Kind_Edge);
     setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
 
-    qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    LOG_EDGE_SIMPLE() << "constructor";
     // Don't call updatePath() here - sockets not resolved yet
 }
 
@@ -59,7 +60,7 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
 
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    LOG_EDGE_SIMPLE() << "destructor";
 }
 
 void Edge::invalidateNode(const Node* node)
@@ -81,13 +82,11 @@ void Edge::onNodeDestroying(const Node* node)
     // This prevents use-after-free while keeping pointer for debugging
     if (node == m_fromNode) {
         m_fromNodeValid = false;
-        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                 << "- fromNode destroying";
+        LOG_EDGE() << "SAFETY: fromNode destroying";
     }
     if (node == m_toNode) {
         m_toNodeValid = false;
-        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                 << "- toNode destroying";
+        LOG_EDGE() << "SAFETY: toNode destroying";
     }
 }
 

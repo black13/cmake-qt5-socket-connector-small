@@ -4,6 +4,7 @@
 #include "scene.h"
 #include "graphics_item_keys.h"
 #include "layout_metrics.h"
+#include "log_context.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -111,8 +112,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged) {
         // Selection tracking logging - what has been selected
         bool isNowSelected = value.toBool();
-        qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << (isNowSelected ? "SELECT" : "DESELECT") << m_nodeType;
+        LOG_NODE_SIMPLE() << (isNowSelected ? "SELECT" : "DESELECT") << m_nodeType;
         
         // Trigger visual update when selection changes
         update();
