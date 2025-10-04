@@ -174,21 +174,25 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 
 void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    m_pressed = true;
-    update(); // Show pressed state immediately
-    
-    // ✅ DISABLE dragging from connected sockets
+    // ✅ Check connection status BEFORE setting pressed state
+    // to avoid "stuck pressed" visuals when event is ignored
     if (isConnected()) {
+        m_pressed = false;
+        update();
         qDebug() << "Socket" << m_index << "is connected - dragging disabled";
         event->ignore(); // Don't start drag operations on connected sockets
         return;
     }
-    
+
     if (event->button() == Qt::LeftButton) {
+        m_pressed = true;
+        update(); // Show pressed state
         qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // TODO: Start edge creation drag
         event->accept();
     } else if (event->button() == Qt::RightButton && m_role == Output) {
+        m_pressed = true;
+        update(); // Show pressed state
         qDebug() << "Socket right-clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // Start ghost edge from output socket
         Scene* scene = qobject_cast<Scene*>(this->scene());
