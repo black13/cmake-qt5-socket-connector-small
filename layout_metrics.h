@@ -29,6 +29,15 @@ namespace LayoutMetrics {
     // Edge update optimization
     constexpr qreal edgeUpdateThreshold = 5.0;  // Manhattan pixels before updating connected edges
 
+    // Edge selection and rendering
+    constexpr qreal edgeSelectionWidth = 20.0;          // Stroker width for clickable area
+    constexpr qreal edgeSelectionMargin = edgeSelectionWidth / 2.0;  // Derived: bounding rect margin (10.0)
+    constexpr qreal edgeVisualGlowWidth = 12.0;         // Selection glow pen width
+    constexpr qreal edgeVisualCoreWidth = 6.0;          // Selection core pen width
+    constexpr qreal edgeHoverGlowWidth = 8.0;           // Hover glow pen width
+    constexpr qreal edgeHoverCoreWidth = 4.0;           // Hover core pen width
+    constexpr qreal edgeNormalWidth = 3.0;              // Normal state pen width
+
     // Derived measurements (computed from above constants)
     constexpr qreal socketCenterY(int index) {
         return nodePaddingTop + index * socketSpacing;

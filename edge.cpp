@@ -3,6 +3,7 @@
 #include "node.h"
 #include "scene.h"
 #include "graphics_item_keys.h"
+#include "layout_metrics.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -111,23 +112,23 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     // IMPROVED: Multi-layer cable-like rendering with depth
     if (isSelected()) {
         // Selection: bright orange with glow effect
-        QPen glowPen(QColor(255, 69, 0, 100), 12);
+        QPen glowPen(QColor(255, 69, 0, 100), LayoutMetrics::edgeVisualGlowWidth);
         glowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(glowPen);
         painter->drawPath(m_path);
-        
-        QPen selectionPen(QColor(255, 69, 0), 6);
+
+        QPen selectionPen(QColor(255, 69, 0), LayoutMetrics::edgeVisualCoreWidth);
         selectionPen.setCapStyle(Qt::RoundCap);
         painter->setPen(selectionPen);
         painter->drawPath(m_path);
     } else if (m_hovered) {
         // Hover: blue with subtle glow
-        QPen hoverGlowPen(QColor(100, 150, 255, 80), 8);
+        QPen hoverGlowPen(QColor(100, 150, 255, 80), LayoutMetrics::edgeHoverGlowWidth);
         hoverGlowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(hoverGlowPen);
         painter->drawPath(m_path);
-        
-        QPen hoverPen(QColor(100, 150, 255), 4);
+
+        QPen hoverPen(QColor(100, 150, 255), LayoutMetrics::edgeHoverCoreWidth);
         hoverPen.setCapStyle(Qt::RoundCap);
         painter->setPen(hoverPen);
         painter->drawPath(m_path);
@@ -148,7 +149,7 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
         painter->drawPath(m_path);
         
         // Layer 3: Main cable body with subtle gradient effect
-        QPen mainPen(QColor(85, 85, 85), 3);
+        QPen mainPen(QColor(85, 85, 85), LayoutMetrics::edgeNormalWidth);
         mainPen.setCapStyle(Qt::RoundCap);
         painter->setPen(mainPen);
         painter->drawPath(m_path);
@@ -168,7 +169,7 @@ QPainterPath Edge::shape() const
 {
     // Create a much wider path for easier selection - very generous selection area
     QPainterPathStroker stroker;
-    stroker.setWidth(20);  // Very wide selection area for easy clicking
+    stroker.setWidth(LayoutMetrics::edgeSelectionWidth);  // Wide selection area for easy clicking
     stroker.setCapStyle(Qt::RoundCap);
     stroker.setJoinStyle(Qt::RoundJoin);
     QPainterPath selectionPath = stroker.createStroke(m_path);
@@ -322,12 +323,11 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     // Update bounding rectangle with validation
     // (prepareGeometryChange() already called at function start)
     QRectF pathBounds = m_path.boundingRect();
+    const qreal margin = LayoutMetrics::edgeSelectionMargin;  // Matches shape() stroker width
     if (pathBounds.isValid()) {
-        // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
-        m_boundingRect = pathBounds.adjusted(-10, -10, 10, 10);
+        m_boundingRect = pathBounds.adjusted(-margin, -margin, margin, margin);
     } else {
-        // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
-        m_boundingRect = QRectF(start, end).normalized().adjusted(-10, -10, 10, 10);
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
     }
 }
 
