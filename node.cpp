@@ -3,17 +3,13 @@
 #include "edge.h"
 #include "scene.h"
 #include "graphics_item_keys.h"
+#include "layout_metrics.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
 #include <QDebug>
 #include <QTimer>
 #include <libxml/tree.h>
-
-// Configuration: Edge update optimization threshold
-// Edges only update when node moves more than this distance (Manhattan metric)
-// Prevents unnecessary edge path recalculations during tiny position adjustments
-static const qreal kEdgeUpdateThreshold = 5.0;  // pixels
 
 Node::Node(const QUuid& id, const QPointF& position)
     : m_id(id)
@@ -123,7 +119,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
     } else if (change == ItemPositionHasChanged) {
         // Only update edges when position actually changes significantly
         QPointF currentPos = value.toPointF();
-        if ((currentPos - m_lastPos).manhattanLength() > kEdgeUpdateThreshold) {
+        if ((currentPos - m_lastPos).manhattanLength() > LayoutMetrics::edgeUpdateThreshold) {
             QPointF oldPos = m_lastPos;
             m_lastPos = currentPos;
             
@@ -272,10 +268,9 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     
     QSizeF actualSocketSize = m_sockets[0]->getSocketSize();
     qreal socketSize = qMax(actualSocketSize.width(), actualSocketSize.height());
-    
-    const qreal socketOffset = 4.0; // Distance from node edge
-    const qreal socketSpacing = 32.0; // Match calculateNodeSize spacing
-    
+
+    const qreal socketOffset = LayoutMetrics::socketOffsetFromEdge;
+
     QRectF nodeRect = boundingRect();
     int inputIndex = 0;
     int outputIndex = 0;
@@ -535,17 +530,17 @@ void Node::calculateNodeSize(int inputCount, int outputCount)
     // Calculate required height based on socket count
     int maxSockets = qMax(inputCount, outputCount);
 
-    // Constants matching socket configuration
-    const qreal socketSpacing = 32.0;  // Must match socket.cpp
-    const qreal minNodeHeight = 50.0;  // Minimum height for node text
-    const qreal topPadding = 14.0;     // Top padding (socket width)
-    const qreal bottomPadding = 14.0;  // Bottom padding (socket width)
-    const qreal minNodeWidth = 100.0;  // Minimum width for node text
+    // Use centralized layout metrics
+    const qreal socketSpacing = LayoutMetrics::socketSpacing;
+    const qreal minNodeHeight = LayoutMetrics::minNodeHeight;
+    const qreal topPadding = LayoutMetrics::nodePaddingTop;
+    const qreal bottomPadding = LayoutMetrics::nodePaddingBottom;
+    const qreal minNodeWidth = LayoutMetrics::minNodeWidth;
 
     // Calculate height based on socket count
     if (maxSockets > 0) {
         // Height = top padding + (sockets * spacing) + bottom padding
-        qreal requiredHeight = topPadding + (maxSockets - 1) * socketSpacing + 14.0 + bottomPadding;
+        qreal requiredHeight = topPadding + (maxSockets - 1) * socketSpacing + LayoutMetrics::socketDiameter + bottomPadding;
         m_height = qMax(minNodeHeight, requiredHeight);
     } else {
         m_height = minNodeHeight;
@@ -560,8 +555,7 @@ void Node::calculateNodeSize(int inputCount, int outputCount)
     m_width = qMax(minNodeWidth, textWidth);
 
     // Ensure node is wide enough to accommodate sockets with proper spacing
-    const qreal socketOffset = 8.0; // Space for socket offset from edges
-    m_width = qMax(m_width, socketOffset * 2 + 20); // Minimum width for sockets
+    m_width = qMax(m_width, LayoutMetrics::socketDiameter * 2 + 20); // Minimum width for sockets
     
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
              << "resized to" << m_width << "x" << m_height 

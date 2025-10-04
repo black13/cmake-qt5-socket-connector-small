@@ -3,6 +3,7 @@
 #include "edge.h"
 #include "scene.h"
 #include "graphics_item_keys.h"
+#include "layout_metrics.h"
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
@@ -16,7 +17,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
     , m_parentNode(parentNode)
     , m_connectedEdge(nullptr)
     , m_connectionState(Disconnected)
-    , m_radius(8.0)
+    , m_radius(LayoutMetrics::socketRadius)
     , m_hovered(false)
     , m_hoverOpacity(0.0)
     , m_pressed(false)
