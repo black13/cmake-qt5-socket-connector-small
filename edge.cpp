@@ -260,7 +260,7 @@ void Edge::updatePath()
 void Edge::buildPath(const QPointF& start, const QPointF& end)
 {
     // Validate input points
-    if (start.isNull() || end.isNull() || !qIsFinite(start.x()) || !qIsFinite(start.y()) || 
+    if (start.isNull() || end.isNull() || !qIsFinite(start.x()) || !qIsFinite(start.y()) ||
         !qIsFinite(end.x()) || !qIsFinite(end.y())) {
         // Notify BSP cache before clearing
         prepareGeometryChange();
@@ -268,7 +268,11 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         m_boundingRect = QRectF();
         return;
     }
-    
+
+    // ✅ CRITICAL: Notify Qt BSP cache BEFORE modifying path
+    // clear() changes geometry, so we must call prepareGeometryChange() first
+    prepareGeometryChange();
+
     // Clear and rebuild path safely
     m_path.clear();
     
@@ -314,11 +318,9 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     
     // Create smooth cubic Bezier curve
     m_path.cubicTo(control1, control2, adjustedEnd);
-    
-    // Notify Qt's BSP cache before changing bounding rectangle
-    prepareGeometryChange();
-    
+
     // Update bounding rectangle with validation
+    // (prepareGeometryChange() already called at function start)
     QRectF pathBounds = m_path.boundingRect();
     if (pathBounds.isValid()) {
         // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
