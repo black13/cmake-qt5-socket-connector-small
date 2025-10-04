@@ -10,10 +10,11 @@
 
 class Node;
 class Edge;
+class Scene;  // Forward declaration for custom scene type
 
 /**
  * GraphFactory - XML-First Object Creation with NodeRegistry
- * 
+ *
  * Simplified factory that uses NodeRegistry for type-based creation.
  * Enforces XML-first discipline while allowing extensible node types.
  */
@@ -21,7 +22,7 @@ class GraphFactory
 {
 public:
     // Initialize factory with scene and XML document
-    GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc);
+    GraphFactory(Scene* scene, xmlDocPtr xmlDoc);
     
     // XML-first creation methods
     Node* createNodeFromXml(xmlNodePtr xmlNode);
@@ -49,7 +50,7 @@ public:
     static QString getXmlProperty(xmlNodePtr node, const QString& name);
 
 private:
-    QGraphicsScene* m_scene;
+    Scene* m_scene;  // ✅ Type-safe: GraphFactory always requires custom Scene
     xmlDocPtr m_xmlDocument;
     
     // Helper methods

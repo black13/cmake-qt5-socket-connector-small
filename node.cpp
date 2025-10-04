@@ -126,7 +126,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
             updateConnectedEdges();
             
             // Notify observers of node movement via scene
-            if (Scene* typedScene = static_cast<Scene*>(scene())) {
+            if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
                 typedScene->notifyNodeMoved(m_id, oldPos, currentPos);
             }
         }
@@ -160,7 +160,7 @@ void Node::setNodeType(const QString& type)
 void Node::createStaticSockets()
 {
     // CRITICAL: Delete edges connected to this node BEFORE deleting sockets
-    Scene* typedScene = static_cast<Scene*>(scene());
+    Scene* typedScene = qobject_cast<Scene*>(scene());
     if (typedScene) {
         QList<QUuid> edgesToDelete;
         for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
@@ -193,7 +193,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
 {
     // CRITICAL: Delete edges connected to this node BEFORE deleting sockets
     // Otherwise edges keep stale Socket* pointers and crash on updatePath()
-    Scene* typedScene = static_cast<Scene*>(scene());
+    Scene* typedScene = qobject_cast<Scene*>(scene());
     if (typedScene) {
         QList<QUuid> edgesToDelete;
         for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
@@ -229,19 +229,19 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
         Socket* inputSocket = new Socket(Socket::Input, this, socketIndex++);
         // Register socket with scene if node has observer (GraphFactory)
         if (hasObserver()) {
-            Scene* scene = static_cast<Scene*>(this->scene());
+            Scene* scene = qobject_cast<Scene*>(this->scene());
             if (scene) {
                 scene->addSocket(inputSocket);
             }
         }
     }
-    
+
     // Create output sockets (continuing index sequence)
     for (int i = 0; i < outputCount; ++i) {
         Socket* outputSocket = new Socket(Socket::Output, this, socketIndex++);
         // Register socket with scene if node has observer (GraphFactory)
         if (hasObserver()) {
-            Scene* scene = static_cast<Scene*>(this->scene());
+            Scene* scene = qobject_cast<Scene*>(this->scene());
             if (scene) {
                 scene->addSocket(outputSocket);
             }

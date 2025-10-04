@@ -8,7 +8,7 @@
 #include <QDateTime>
 #include <QDebug>
 
-GraphFactory::GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc)
+GraphFactory::GraphFactory(Scene* scene, xmlDocPtr xmlDoc)
     : m_scene(scene)
     , m_xmlDocument(xmlDoc)
 {
@@ -59,12 +59,8 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
         return nullptr;
     }
     
-    // Add to typed scene collection
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addNode(node);
-    } else {
-        m_scene->addItem(node);
-    }
+    // Add to scene's typed collection
+    m_scene->addNode(node);
     
     qDebug() << "GraphFactory: Created node from XML, type:" << nodeType 
              << "id:" << node->getId().toString(QUuid::WithoutBraces).left(8);
@@ -99,12 +95,8 @@ Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge)
     // Let the edge read its XML and configure itself
     edge->read(xmlEdge);
     
-    // Add to typed scene collection
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addEdge(edge);
-    } else {
-        m_scene->addItem(edge);
-    }
+    // Add to scene's typed collection
+    m_scene->addEdge(edge);
     
     qDebug() << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
              << "from node:" << fromNode.left(8) << "socket" << fromIndex
@@ -200,11 +192,7 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
     edge->setResolvedSockets(fromSocket, toSocket);
     
     // Add to scene
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addEdge(edge);
-    } else {
-        m_scene->addItem(edge);
-    }
+    m_scene->addEdge(edge);
     
     // Create XML for persistence (lazy serialization)
     xmlNodePtr xmlEdge = createXmlEdgeNodeIndex(fromNode->getId(), fromSocket->getIndex(), 
@@ -319,14 +307,12 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     // PHASE 3: Resolve all edge connections now that all nodes exist
     qDebug() << "=== Resolving Edge Connections ===";
     int successfulConnections = 0;
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        for (Edge* edge : allEdges) {
-            qDebug() << "Resolving edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            if (edge->resolveConnections(typedScene)) {
-                successfulConnections++;
-            } else {
-                qWarning() << "FAILED to resolve edge connections:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            }
+    for (Edge* edge : allEdges) {
+        qDebug() << "Resolving edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+        if (edge->resolveConnections(m_scene)) {
+            successfulConnections++;
+        } else {
+            qWarning() << "FAILED to resolve edge connections:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
         }
     }
     
@@ -459,16 +445,10 @@ bool GraphFactory::validateGraphIntegrity() const
         return false;
     }
     
-    Scene* typedScene = static_cast<Scene*>(m_scene);
-    if (!typedScene) {
-        qCritical() << "GraphFactory::validateGraphIntegrity - scene not typed";
-        return false;
-    }
-    
     bool valid = true;
-    
+
     // Validate all nodes have UUIDs and observers
-    for (Node* node : typedScene->getNodes().values()) {
+    for (Node* node : m_scene->getNodes().values()) {
         if (!node) {
             qCritical() << "Validation: null node in scene";
             valid = false;
@@ -492,29 +472,29 @@ bool GraphFactory::validateGraphIntegrity() const
     }
     
     // Validate all edges have valid socket connections
-    for (Edge* edge : typedScene->getEdges().values()) {
+    for (Edge* edge : m_scene->getEdges().values()) {
         if (!edge) {
             qCritical() << "Validation: null edge in scene";
             valid = false;
             continue;
         }
-        
+
         if (edge->getId().isNull()) {
             qCritical() << "Validation: edge without UUID";
             valid = false;
         }
-        
+
         // Clean design: edges should have been resolved during loading
         // Skip validation - edges were validated during resolveConnections() call
     }
-    
+
     // Validate scene count matches typed collections
     int sceneItems = m_scene->items().size();
-    int typedItems = typedScene->getNodes().size() + typedScene->getEdges().size();
-    
+    int typedItems = m_scene->getNodes().size() + m_scene->getEdges().size();
+
     // Account for sockets as children
     int socketCount = 0;
-    for (Node* node : typedScene->getNodes().values()) {
+    for (Node* node : m_scene->getNodes().values()) {
         socketCount += node->getSocketCount();
     }
     typedItems += socketCount;
@@ -546,10 +526,8 @@ Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int inde
         return nullptr;
     }
     
-    // Add to typed scene collection if available
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addSocket(socket);
-    }
+    // Add to scene's typed collection
+    m_scene->addSocket(socket);
     
     qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
              << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
