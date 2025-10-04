@@ -22,7 +22,9 @@ Socket::Socket(Role role, Node* parentNode, int index)
     , m_pressed(false)
 {
     setAcceptHoverEvents(true);
-    setFlag(QGraphicsItem::ItemIsSelectable, true);
+    // ✅ Sockets should NOT be selectable - only nodes and edges
+    // This prevents sockets from stealing selection from their parent node
+    setFlag(QGraphicsItem::ItemIsSelectable, false);
 
     // ✅ Set socket z-order: above nodes (0) but below edges (2)
     setZValue(1);

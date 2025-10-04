@@ -358,6 +358,8 @@ void Edge::read(xmlNodePtr node)
     xmlChar* idStr = xmlGetProp(node, BAD_CAST "id");
     if (idStr) {
         m_id = QUuid(QString::fromUtf8((char*)idStr));
+        // ✅ CRITICAL: Update metadata when UUID changes from XML
+        setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
         xmlFree(idStr);
     }
     
