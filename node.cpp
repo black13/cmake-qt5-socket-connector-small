@@ -479,6 +479,8 @@ void Node::read(xmlNodePtr node)
         m_id = QUuid(QString::fromUtf8((char*)idStr));
         // ✅ CRITICAL: Update metadata when UUID changes from XML
         setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
+        // ✅ CRITICAL: Invalidate cached display ID when UUID changes
+        m_cachedDisplayId.clear();
         xmlFree(idStr);
     }
     
