@@ -10,6 +10,11 @@
 #include <QTimer>
 #include <libxml/tree.h>
 
+// Configuration: Edge update optimization threshold
+// Edges only update when node moves more than this distance (Manhattan metric)
+// Prevents unnecessary edge path recalculations during tiny position adjustments
+static const qreal kEdgeUpdateThreshold = 5.0;  // pixels
+
 Node::Node(const QUuid& id, const QPointF& position)
     : m_id(id)
     , m_nodeType("DEFAULT")
@@ -118,7 +123,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
     } else if (change == ItemPositionHasChanged) {
         // Only update edges when position actually changes significantly
         QPointF currentPos = value.toPointF();
-        if ((currentPos - m_lastPos).manhattanLength() > 5.0) {
+        if ((currentPos - m_lastPos).manhattanLength() > kEdgeUpdateThreshold) {
             QPointF oldPos = m_lastPos;
             m_lastPos = currentPos;
             
