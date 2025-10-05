@@ -255,10 +255,10 @@ if exist "build_Debug" (
     > "%USER_FILE_DEBUG%" (
         echo ^<?xml version="1.0" encoding="utf-8"?^>
         echo ^<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"^>
-        echo   ^<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"^>
-        echo     ^<LocalDebuggerCommand^>$(ProjectDir)$(OutDir)NodeGraph.exe^</LocalDebuggerCommand^>
+        echo   ^<PropertyGroup Condition="'^$(Configuration^)|^$(Platform^)'=='Debug|x64'"^>
+        echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
-        echo     ^<LocalDebuggerWorkingDirectory^>$(ProjectDir)^</LocalDebuggerWorkingDirectory^>
+        echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>
@@ -272,10 +272,10 @@ if exist "build_Release" (
     > "%USER_FILE_RELEASE%" (
         echo ^<?xml version="1.0" encoding="utf-8"?^>
         echo ^<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"^>
-        echo   ^<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'"^>
-        echo     ^<LocalDebuggerCommand^>$(ProjectDir)$(OutDir)NodeGraph.exe^</LocalDebuggerCommand^>
+        echo   ^<PropertyGroup Condition="'^$(Configuration^)|^$(Platform^)'=='Release|x64'"^>
+        echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
-        echo     ^<LocalDebuggerWorkingDirectory^>$(ProjectDir)^</LocalDebuggerWorkingDirectory^>
+        echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>
