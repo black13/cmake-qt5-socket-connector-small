@@ -275,23 +275,45 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
 
     // Clear and rebuild path safely
     m_path.clear();
-    
+
     // ✅ ENHANCED: Connect directly to socket centers (no adjustment needed)
     // Since updatePath() now provides socket centers, use them directly
     QPointF adjustedStart = start;
     QPointF adjustedEnd = end;
-    
-    m_path.moveTo(adjustedStart);
-    
+
     // IMPROVED: Dynamic curve calculation based on distance and orientation
     qreal dx = adjustedEnd.x() - adjustedStart.x();
     qreal dy = adjustedEnd.y() - adjustedStart.y();
     qreal distance = std::sqrt(dx * dx + dy * dy);
-    
+
+    // ✅ GUARD: Check for zero-length edges (degenerate case)
+    // If sockets are at same position, draw straight line instead of curve
+    constexpr qreal kMinEdgeLength = 1.0;  // Minimum 1 pixel
+    if (distance < kMinEdgeLength) {
+        m_path.moveTo(adjustedStart);
+        m_path.lineTo(adjustedEnd);  // Degenerate to straight line
+
+        // Set minimal bounding rect
+        const qreal margin = LayoutMetrics::edgeSelectionMargin;
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
+        return;
+    }
+
+    // ✅ GUARD: Validate calculated distance for NaN/Inf
+    if (!qIsFinite(distance)) {
+        m_path.moveTo(adjustedStart);
+        m_path.lineTo(adjustedEnd);  // Fallback to straight line
+
+        const qreal margin = LayoutMetrics::edgeSelectionMargin;
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
+        return;
+    }
+
+    m_path.moveTo(adjustedStart);
+
     // Adaptive control point calculation for better curves
     qreal horizontalFactor = qAbs(dx) / qMax(distance, 1.0);
-    qreal verticalFactor = qAbs(dy) / qMax(distance, 1.0);
-    
+
     // Dynamic control offset based on distance and direction
     qreal controlOffset;
     if (horizontalFactor > 0.8) {
@@ -301,10 +323,16 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         // More vertical: tighter curves for better routing
         controlOffset = qMax(40.0, qMin(distance * 0.2, 80.0));
     }
-    
+
+    // ✅ GUARD: Clamp control offset to reasonable bounds
+    // Prevent extreme offsets that create wild curves or overflow
+    constexpr qreal kMinControlOffset = 5.0;   // Minimum 5 pixels for visible curve
+    constexpr qreal kMaxControlOffset = 300.0; // Maximum 300 pixels to prevent overflow
+    controlOffset = qBound(kMinControlOffset, controlOffset, kMaxControlOffset);
+
     // Enhanced control point positioning for natural cable-like curves
     QPointF control1, control2;
-    
+
     if (dx >= 0) {
         // Left-to-right: standard horizontal Bezier
         control1 = adjustedStart + QPointF(controlOffset, 0);
@@ -315,7 +343,19 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         control1 = adjustedStart + QPointF(controlOffset * 0.6, dy > 0 ? verticalOffset : -verticalOffset);
         control2 = adjustedEnd - QPointF(controlOffset * 0.6, dy > 0 ? verticalOffset : -verticalOffset);
     }
-    
+
+    // ✅ GUARD: Validate control points before creating curve
+    // Ensure control points are finite and not degenerate
+    if (!qIsFinite(control1.x()) || !qIsFinite(control1.y()) ||
+        !qIsFinite(control2.x()) || !qIsFinite(control2.y())) {
+        // Fallback to straight line if control points invalid
+        m_path.lineTo(adjustedEnd);
+
+        const qreal margin = LayoutMetrics::edgeSelectionMargin;
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
+        return;
+    }
+
     // Create smooth cubic Bezier curve
     m_path.cubicTo(control1, control2, adjustedEnd);
 
