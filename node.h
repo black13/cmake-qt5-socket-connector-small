@@ -18,6 +18,7 @@
 // Forward declarations to avoid circular includes
 class Socket;
 class Edge;
+class GraphFactory;
 
 /**
  * Node - A self-serializing visual node
@@ -80,10 +81,10 @@ public:
     // Change notification - simple callback, no connect
     void setChangeCallback(void (*callback)(Node*));
     
-    // Observer interface for GraphFactory - contract enforcement
-    void setObserver(void* observer) { m_observer = observer; }
-    bool hasObserver() const { return m_observer != nullptr; }
-    void* getObserver() const { return m_observer; }
+    // Factory tracking for contract enforcement (type-safe)
+    void setFactory(GraphFactory* factory) { m_factory = factory; }
+    bool hasFactory() const { return m_factory != nullptr; }
+    GraphFactory* getFactory() const { return m_factory; }
     
     // Edge connection management - O(degree) performance optimization
     void registerEdge(Edge* edge);
@@ -110,9 +111,9 @@ private:
     
     // Simple callback - no QObject connect
     void (*m_changeCallback)(Node*);
-    
-    // Observer for contract enforcement
-    void* m_observer;
+
+    // Factory pointer for contract enforcement (type-safe, non-owning)
+    GraphFactory* m_factory;
     
     // Per-node position tracking (fixes global static bug)
     QPointF m_lastPos;

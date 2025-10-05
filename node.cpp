@@ -18,7 +18,7 @@ Node::Node(const QUuid& id, const QPointF& position)
     , m_width(80.0)
     , m_height(50.0)
     , m_changeCallback(nullptr)
-    , m_observer(nullptr)
+    , m_factory(nullptr)
     , m_lastPos(position)
 {
     setPos(position);
@@ -228,8 +228,8 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Create input sockets (indexes 0, 1, 2, ...)
     for (int i = 0; i < inputCount; ++i) {
         Socket* inputSocket = new Socket(Socket::Input, this, socketIndex++);
-        // Register socket with scene if node has observer (GraphFactory)
-        if (hasObserver()) {
+        // Register socket with scene if node was created by factory
+        if (hasFactory()) {
             Scene* scene = qobject_cast<Scene*>(this->scene());
             if (scene) {
                 scene->addSocket(inputSocket);
@@ -240,8 +240,8 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Create output sockets (continuing index sequence)
     for (int i = 0; i < outputCount; ++i) {
         Socket* outputSocket = new Socket(Socket::Output, this, socketIndex++);
-        // Register socket with scene if node has observer (GraphFactory)
-        if (hasObserver()) {
+        // Register socket with scene if node was created by factory
+        if (hasFactory()) {
             Scene* scene = qobject_cast<Scene*>(this->scene());
             if (scene) {
                 scene->addSocket(outputSocket);

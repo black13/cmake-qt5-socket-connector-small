@@ -46,15 +46,15 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
     // Set node type BEFORE reading XML
     node->setNodeType(nodeType);
 
-    // Attach observer before reading XML - contract requirement
-    node->setObserver(this);
-    
+    // Attach factory pointer before reading XML - contract requirement
+    node->setFactory(this);
+
     // Let the node read its XML and configure itself
     node->read(xmlNode);
-    
-    // Verify observer is still attached
-    if (!node->hasObserver()) {
-        qCritical() << "GraphFactory::createNodeFromXml - observer detached during read";
+
+    // Verify factory pointer is still attached
+    if (!node->hasFactory()) {
+        qCritical() << "GraphFactory::createNodeFromXml - factory detached during read";
         delete node;
         return nullptr;
     }
