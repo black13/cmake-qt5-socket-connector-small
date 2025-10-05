@@ -95,3 +95,4 @@ concatenated_code.txt
 tests/
 commits/
 coverage_html/
+buildllvm.sh
