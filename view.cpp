@@ -1,5 +1,6 @@
 #include "view.h"
 #include "scene.h"
+#include "layout_metrics.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QDragEnterEvent>
@@ -171,14 +172,21 @@ void View::drawBackground(QPainter* painter, const QRectF& rect)
         painter->drawLine(static_cast<int>(rect.left()), y, static_cast<int>(rect.right()), y);
     }
 
-    // Draw origin indicator (darker lines at 0,0)
+    // Draw origin indicator (darker lines at 0,0) with adaptive sizing
     if (rect.contains(QPointF(0, 0))) {
         QPen originPen(QColor(150, 150, 150, 150));
         originPen.setWidth(2);
         painter->setPen(originPen);
 
-        // Draw origin cross
-        painter->drawLine(-20, 0, 20, 0);   // Horizontal origin line
-        painter->drawLine(0, -20, 0, 20);   // Vertical origin line
+        // Adaptive origin cross size based on zoom level
+        qreal zoomFactor = transform().m11();  // Get horizontal scale factor
+        qreal armLength = LayoutMetrics::originIndicatorBaseSize * zoomFactor;
+        armLength = qBound(LayoutMetrics::originIndicatorMinSize,
+                          armLength,
+                          LayoutMetrics::originIndicatorMaxSize);
+
+        // Draw origin cross with adaptive size
+        painter->drawLine(-armLength, 0, armLength, 0);   // Horizontal origin line
+        painter->drawLine(0, -armLength, 0, armLength);   // Vertical origin line
     }
 }

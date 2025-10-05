@@ -38,6 +38,12 @@ namespace LayoutMetrics {
     constexpr qreal edgeHoverCoreWidth = 4.0;           // Hover core pen width
     constexpr qreal edgeNormalWidth = 3.0;              // Normal state pen width
 
+    // Grid and origin visualization
+    constexpr int gridSizeDefault = 20;                 // Default grid spacing in pixels
+    constexpr qreal originIndicatorBaseSize = 20.0;     // Base origin cross arm length (scales with zoom)
+    constexpr qreal originIndicatorMinSize = 10.0;      // Minimum arm length when zoomed out
+    constexpr qreal originIndicatorMaxSize = 50.0;      // Maximum arm length when zoomed in
+
     // Derived measurements (computed from above constants)
     constexpr qreal socketCenterY(int index) {
         return nodePaddingTop + index * socketSpacing;
