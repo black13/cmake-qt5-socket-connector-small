@@ -13,9 +13,9 @@ class Edge;
 class Scene;  // Forward declaration for custom scene type
 
 /**
- * GraphFactory - XML-First Object Creation with NodeRegistry
+ * GraphFactory - XML-First Object Creation with Templates
  *
- * Simplified factory that uses NodeRegistry for type-based creation.
+ * Simplified factory that uses NodeTypeTemplates for type-based creation.
  * Enforces XML-first discipline while allowing extensible node types.
  */
 class GraphFactory

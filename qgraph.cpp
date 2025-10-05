@@ -3,7 +3,6 @@
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
-#include "node_registry.h"
 #include "node_templates.h"
 #include "graph_factory.h"
 #include <QDebug>

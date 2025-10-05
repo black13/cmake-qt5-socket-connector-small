@@ -18,7 +18,6 @@
 #include "node.h"
 #include "edge.h"
 #include "graph_factory.h"
-#include "node_registry.h"
 #include "javascript_engine.h"
 
 void setupLogging()
@@ -191,63 +190,9 @@ int main(int argc, char *argv[])
         qDebug() << "✓ XML document created with root element";
     }
     
-    // Register all supported node types
-    qDebug() << "=== Registering Node Types ===";
-    
-    // Core node types
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("PROC", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("PROC"); 
-        return node; 
-    });
-    
-    // Palette node types - each with proper type designation
-    NodeRegistry::instance().registerNode("SOURCE", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SOURCE"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("SINK", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SINK"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("TRANSFORM", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("TRANSFORM"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("MERGE", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("MERGE"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("SPLIT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SPLIT"); 
-        return node; 
-    });
-    
-    // Legacy compatibility for older tests
-    NodeRegistry::instance().registerNode("PROCESSOR", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("PROCESSOR"); 
-        return node; 
-    });
-    
-    // Test the NodeRegistry to verify nodes are registered
+    // Node types are defined by NodeTypeTemplates system (node_templates.cpp)
+    // GraphFactory uses templates, not NodeRegistry
     qDebug() << "=== NodeGraph Application Starting ===";
-    qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
 
     // Initialize GraphFactory with scene and XML document
     Scene* scene = window.getScene();

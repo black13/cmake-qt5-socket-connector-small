@@ -210,11 +210,11 @@ Node* tst_Main::createNode(const QString& type)
     qDebug() << "Node created with ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
     
     // Ensure proper socket initialization based on type
-    if (type == "OUT") {
-        qDebug() << "Creating OUT node with 0 inputs, 1 output";
+    if (type == "SOURCE") {
+        qDebug() << "Creating SOURCE node with 0 inputs, 1 output";
         node->createSocketsFromXml(0, 1);  // 0 inputs, 1 output
-    } else if (type == "IN") {
-        qDebug() << "Creating IN node with 1 input, 0 outputs";
+    } else if (type == "SINK") {
+        qDebug() << "Creating SINK node with 1 input, 0 outputs";
         node->createSocketsFromXml(1, 0);  // 1 input, 0 outputs
     } else {
         qDebug() << "Creating default node with 1 input, 1 output";
@@ -231,27 +231,27 @@ Node* tst_Main::createNode(const QString& type)
 void tst_Main::testCreateNode()
 {
     qDebug() << "\n=== Testing Basic Node Creation ===";
-    
+
     // Test creating nodes directly (bypass factory/registry for now)
-    Node* outNode = new Node();
-    outNode->setNodeType("OUT");
-    outNode->createSocketsFromXml(0, 1);  // 0 inputs, 1 output
-    m_testScene->addNode(outNode);
-    
-    QVERIFY(outNode != nullptr);
-    QCOMPARE(outNode->getNodeType(), QString("OUT"));
-    QVERIFY(!outNode->getId().isNull());
-    QCOMPARE(outNode->getSocketCount(), 1);
-    
-    Node* inNode = new Node();
-    inNode->setNodeType("IN");
-    inNode->createSocketsFromXml(1, 0);  // 1 input, 0 outputs
-    m_testScene->addNode(inNode);
-    
-    QVERIFY(inNode != nullptr);
-    QCOMPARE(inNode->getNodeType(), QString("IN"));
-    QVERIFY(!inNode->getId().isNull());
-    QCOMPARE(inNode->getSocketCount(), 1);
+    Node* sourceNode = new Node();
+    sourceNode->setNodeType("SOURCE");
+    sourceNode->createSocketsFromXml(0, 1);  // 0 inputs, 1 output
+    m_testScene->addNode(sourceNode);
+
+    QVERIFY(sourceNode != nullptr);
+    QCOMPARE(sourceNode->getNodeType(), QString("SOURCE"));
+    QVERIFY(!sourceNode->getId().isNull());
+    QCOMPARE(sourceNode->getSocketCount(), 1);
+
+    Node* sinkNode = new Node();
+    sinkNode->setNodeType("SINK");
+    sinkNode->createSocketsFromXml(1, 0);  // 1 input, 0 outputs
+    m_testScene->addNode(sinkNode);
+
+    QVERIFY(sinkNode != nullptr);
+    QCOMPARE(sinkNode->getNodeType(), QString("SINK"));
+    QVERIFY(!sinkNode->getId().isNull());
+    QCOMPARE(sinkNode->getSocketCount(), 1);
     
     // Verify scene has correct node count
     QCOMPARE(m_testScene->getNodes().size(), 2);
@@ -288,32 +288,32 @@ void tst_Main::testFactoryNodeCreation()
     qDebug() << "\n=== Testing Factory/Registry Node Creation ===";
     
     // First register node types (this should be moved to a shared function)
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SINK", []() {
+        Node* node = new Node();
+        node->setNodeType("SINK");
+        return node;
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SOURCE", []() {
+        Node* node = new Node();
+        node->setNodeType("SOURCE");
+        return node;
     });
-    
+
     qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
-    
-    // Test factory node creation with proper XML structure  
-    Node* outNode = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
-    QVERIFY(outNode != nullptr);
-    QCOMPARE(outNode->getNodeType(), QString("OUT"));
-    QCOMPARE(outNode->getSocketCount(), 1);
-    
-    Node* inNode = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
-    QVERIFY(inNode != nullptr);
-    QCOMPARE(inNode->getNodeType(), QString("IN"));
-    QCOMPARE(inNode->getSocketCount(), 1);
+
+    // Test factory node creation with proper XML structure
+    Node* sourceNode = m_factory->createNode("SOURCE", QPointF(100, 100), 0, 1);
+    QVERIFY(sourceNode != nullptr);
+    QCOMPARE(sourceNode->getNodeType(), QString("SOURCE"));
+    QCOMPARE(sourceNode->getSocketCount(), 1);
+
+    Node* sinkNode = m_factory->createNode("SINK", QPointF(200, 100), 1, 0);
+    QVERIFY(sinkNode != nullptr);
+    QCOMPARE(sinkNode->getNodeType(), QString("SINK"));
+    QCOMPARE(sinkNode->getSocketCount(), 1);
     
     // Test edge creation through factory
-    Edge* edge = m_factory->createEdge(outNode, 0, inNode, 0);
+    Edge* edge = m_factory->createEdge(sourceNode, 0, sinkNode, 0);
     QVERIFY(edge != nullptr);
     
     // Test edge resolution
@@ -325,17 +325,17 @@ void tst_Main::testFactoryNodeCreation()
 void tst_Main::testXmlLoadSave()
 {
     qDebug() << "\n=== Testing XML Load/Save Round-Trip ===";
-    
+
     // Register node types
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SINK", []() {
+        Node* node = new Node();
+        node->setNodeType("SINK");
+        return node;
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SOURCE", []() {
+        Node* node = new Node();
+        node->setNodeType("SOURCE");
+        return node;
     });
     
     // Get test data directory from environment variable
@@ -370,8 +370,8 @@ void tst_Main::testXmlLoadSave()
     if (!loaded) {
         qDebug() << "No test file available, creating minimal test instead";
         // Create a minimal graph for testing
-        Node* node1 = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
-        Node* node2 = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
+        Node* node1 = m_factory->createNode("SOURCE", QPointF(100, 100), 0, 1);
+        Node* node2 = m_factory->createNode("SINK", QPointF(200, 100), 1, 0);
         Edge* edge = m_factory->createEdge(node1, 0, node2, 0);
         QVERIFY(node1 && node2 && edge);
     } else {
@@ -391,24 +391,24 @@ void tst_Main::testXmlLoadSave()
 void tst_Main::testCompleteWorkflow()
 {
     qDebug() << "\n=== Testing Complete Workflow ===";
-    
+
     // Register node types
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SINK", []() {
+        Node* node = new Node();
+        node->setNodeType("SINK");
+        return node;
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SOURCE", []() {
+        Node* node = new Node();
+        node->setNodeType("SOURCE");
+        return node;
     });
-    
+
     // Step 1: Create a test graph
     qDebug() << "Step 1: Creating test graph...";
-    Node* sourceNode = m_factory->createNode("OUT", QPointF(50, 50), 0, 1);
-    Node* middleNode = m_factory->createNode("OUT", QPointF(150, 50), 1, 1);  
-    Node* sinkNode = m_factory->createNode("IN", QPointF(250, 50), 1, 0);
+    Node* sourceNode = m_factory->createNode("SOURCE", QPointF(50, 50), 0, 1);
+    Node* middleNode = m_factory->createNode("SOURCE", QPointF(150, 50), 1, 1);
+    Node* sinkNode = m_factory->createNode("SINK", QPointF(250, 50), 1, 0);
     
     QVERIFY(sourceNode && middleNode && sinkNode);
     
@@ -477,7 +477,7 @@ void tst_Main::testNodePositionToXml()
     QVERIFY(setupEnvironment());
     
     // Create a node at initial position
-    auto node = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
+    auto node = m_factory->createNode("SOURCE", QPointF(100, 100), 0, 1);
     QVERIFY(node != nullptr);
     
     QUuid nodeId = node->getId();
@@ -510,8 +510,8 @@ void tst_Main::testEdgeModificationToXml()
     QVERIFY(setupEnvironment());
     
     // Create two nodes
-    auto node1 = m_factory->createNode("OUT", QPointF(100, 100), 0, 1);
-    auto node2 = m_factory->createNode("IN", QPointF(200, 100), 1, 0);
+    auto node1 = m_factory->createNode("SOURCE", QPointF(100, 100), 0, 1);
+    auto node2 = m_factory->createNode("SINK", QPointF(200, 100), 1, 0);
     QVERIFY(node1 && node2);
     
     QUuid node1Id = node1->getId();
@@ -600,15 +600,15 @@ void tst_Main::performXmlLoadTest(const QString& filename, const QString& testNa
 qint64 tst_Main::measureXmlLoadTime(const QString& filename)
 {
     // Register node types
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SINK", []() {
+        Node* node = new Node();
+        node->setNodeType("SINK");
+        return node;
     });
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
+    NodeRegistry::instance().registerNode("SOURCE", []() {
+        Node* node = new Node();
+        node->setNodeType("SOURCE");
+        return node;
     });
     
     logTestSummary(QString("LOAD_START: %1").arg(QFileInfo(filename).baseName()));

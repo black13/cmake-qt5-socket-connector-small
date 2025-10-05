@@ -19,6 +19,7 @@
 // Forward declarations to avoid circular includes
 class Socket;
 class Edge;
+class GraphFactory;
 
 /**
  * Node - A self-serializing visual node
@@ -33,7 +34,8 @@ class Edge;
 class Node : public QGraphicsItem
 {
 public:
-    // QGraphicsItem type system (required for qgraphicsitem_cast)
+    // QGraphicsItem type system (required by Qt, DO NOT USE in logic)
+    // Policy: Use Gik::KindKey metadata instead of type() for type checking
     enum { Type = UserType + 1 };
     int type() const override { return Type; }
 
@@ -80,10 +82,10 @@ public:
     // Change notification - simple callback, no connect
     void setChangeCallback(void (*callback)(Node*));
     
-    // Observer interface for GraphFactory - contract enforcement
-    void setObserver(void* observer) { m_observer = observer; }
-    bool hasObserver() const { return m_observer != nullptr; }
-    void* getObserver() const { return m_observer; }
+    // Factory tracking for contract enforcement (type-safe)
+    void setFactory(GraphFactory* factory) { m_factory = factory; }
+    bool hasFactory() const { return m_factory != nullptr; }
+    GraphFactory* getFactory() const { return m_factory; }
     
     // Edge connection management - O(degree) performance optimization
     void registerEdge(Edge* edge);
@@ -110,9 +112,9 @@ private:
     
     // Simple callback - no QObject connect
     void (*m_changeCallback)(Node*);
-    
-    // Observer for contract enforcement
-    void* m_observer;
+
+    // Factory pointer for contract enforcement (type-safe, non-owning)
+    GraphFactory* m_factory;
     
     // Per-node position tracking (fixes global static bug)
     QPointF m_lastPos;
@@ -134,6 +136,8 @@ private:
 #include "edge.h"
 #include "scene.h"
 #include "graphics_item_keys.h"
+#include "layout_metrics.h"
+#include "log_context.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -147,7 +151,7 @@ Node::Node(const QUuid& id, const QPointF& position)
     , m_width(80.0)
     , m_height(50.0)
     , m_changeCallback(nullptr)
-    , m_observer(nullptr)
+    , m_factory(nullptr)
     , m_lastPos(position)
 {
     setPos(position);
@@ -241,15 +245,14 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged) {
         // Selection tracking logging - what has been selected
         bool isNowSelected = value.toBool();
-        qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
-                 << (isNowSelected ? "SELECT" : "DESELECT") << m_nodeType;
+        LOG_NODE_SIMPLE() << (isNowSelected ? "SELECT" : "DESELECT") << m_nodeType;
         
         // Trigger visual update when selection changes
         update();
     } else if (change == ItemPositionHasChanged) {
         // Only update edges when position actually changes significantly
         QPointF currentPos = value.toPointF();
-        if ((currentPos - m_lastPos).manhattanLength() > 5.0) {
+        if ((currentPos - m_lastPos).manhattanLength() > LayoutMetrics::edgeUpdateThreshold) {
             QPointF oldPos = m_lastPos;
             m_lastPos = currentPos;
             
@@ -257,7 +260,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
             updateConnectedEdges();
             
             // Notify observers of node movement via scene
-            if (Scene* typedScene = static_cast<Scene*>(scene())) {
+            if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
                 typedScene->notifyNodeMoved(m_id, oldPos, currentPos);
             }
         }
@@ -291,7 +294,7 @@ void Node::setNodeType(const QString& type)
 void Node::createStaticSockets()
 {
     // CRITICAL: Delete edges connected to this node BEFORE deleting sockets
-    Scene* typedScene = static_cast<Scene*>(scene());
+    Scene* typedScene = qobject_cast<Scene*>(scene());
     if (typedScene) {
         QList<QUuid> edgesToDelete;
         for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
@@ -324,7 +327,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
 {
     // CRITICAL: Delete edges connected to this node BEFORE deleting sockets
     // Otherwise edges keep stale Socket* pointers and crash on updatePath()
-    Scene* typedScene = static_cast<Scene*>(scene());
+    Scene* typedScene = qobject_cast<Scene*>(scene());
     if (typedScene) {
         QList<QUuid> edgesToDelete;
         for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
@@ -358,21 +361,21 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Create input sockets (indexes 0, 1, 2, ...)
     for (int i = 0; i < inputCount; ++i) {
         Socket* inputSocket = new Socket(Socket::Input, this, socketIndex++);
-        // Register socket with scene if node has observer (GraphFactory)
-        if (hasObserver()) {
-            Scene* scene = static_cast<Scene*>(this->scene());
+        // Register socket with scene if node was created by factory
+        if (hasFactory()) {
+            Scene* scene = qobject_cast<Scene*>(this->scene());
             if (scene) {
                 scene->addSocket(inputSocket);
             }
         }
     }
-    
+
     // Create output sockets (continuing index sequence)
     for (int i = 0; i < outputCount; ++i) {
         Socket* outputSocket = new Socket(Socket::Output, this, socketIndex++);
-        // Register socket with scene if node has observer (GraphFactory)
-        if (hasObserver()) {
-            Scene* scene = static_cast<Scene*>(this->scene());
+        // Register socket with scene if node was created by factory
+        if (hasFactory()) {
+            Scene* scene = qobject_cast<Scene*>(this->scene());
             if (scene) {
                 scene->addSocket(outputSocket);
             }
@@ -398,10 +401,9 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     
     QSizeF actualSocketSize = m_sockets[0]->getSocketSize();
     qreal socketSize = qMax(actualSocketSize.width(), actualSocketSize.height());
-    
-    const qreal socketOffset = 4.0; // Distance from node edge
-    const qreal socketSpacing = 32.0; // Match calculateNodeSize spacing
-    
+
+    const qreal socketOffset = LayoutMetrics::socketOffsetFromEdge;
+
     QRectF nodeRect = boundingRect();
     int inputIndex = 0;
     int outputIndex = 0;
@@ -608,6 +610,10 @@ void Node::read(xmlNodePtr node)
     xmlChar* idStr = xmlGetProp(node, BAD_CAST "id");
     if (idStr) {
         m_id = QUuid(QString::fromUtf8((char*)idStr));
+        // ✅ CRITICAL: Update metadata when UUID changes from XML
+        setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
+        // ✅ CRITICAL: Invalidate cached display ID when UUID changes
+        m_cachedDisplayId.clear();
         xmlFree(idStr);
     }
     
@@ -653,39 +659,38 @@ void Node::read(xmlNodePtr node)
 
 void Node::calculateNodeSize(int inputCount, int outputCount)
 {
+    // ✅ CRITICAL: Notify Qt BSP cache BEFORE changing geometry
+    prepareGeometryChange();
+
     // Calculate required height based on socket count
     int maxSockets = qMax(inputCount, outputCount);
-    
-    // Constants matching socket configuration
-    const qreal socketSpacing = 32.0;  // Must match socket.cpp
-    const qreal minNodeHeight = 50.0;  // Minimum height for node text
-    const qreal topPadding = 14.0;     // Top padding (socket width)
-    const qreal bottomPadding = 14.0;  // Bottom padding (socket width)
-    const qreal minNodeWidth = 100.0;  // Minimum width for node text
-    
+
+    // Use centralized layout metrics
+    const qreal socketSpacing = LayoutMetrics::socketSpacing;
+    const qreal minNodeHeight = LayoutMetrics::minNodeHeight;
+    const qreal topPadding = LayoutMetrics::nodePaddingTop;
+    const qreal bottomPadding = LayoutMetrics::nodePaddingBottom;
+    const qreal minNodeWidth = LayoutMetrics::minNodeWidth;
+
     // Calculate height based on socket count
     if (maxSockets > 0) {
         // Height = top padding + (sockets * spacing) + bottom padding
-        qreal requiredHeight = topPadding + (maxSockets - 1) * socketSpacing + 14.0 + bottomPadding;
+        qreal requiredHeight = topPadding + (maxSockets - 1) * socketSpacing + LayoutMetrics::socketDiameter + bottomPadding;
         m_height = qMax(minNodeHeight, requiredHeight);
     } else {
         m_height = minNodeHeight;
     }
-    
+
     // Calculate width based on node type and content
     QString displayText = m_nodeType + " " + m_id.toString(QUuid::WithoutBraces).left(8);
     QFont font("Arial", 10);
     QFontMetrics metrics(font);
     qreal textWidth = metrics.horizontalAdvance(displayText) + 20; // Add padding
-    
+
     m_width = qMax(minNodeWidth, textWidth);
-    
+
     // Ensure node is wide enough to accommodate sockets with proper spacing
-    const qreal socketOffset = 8.0; // Space for socket offset from edges
-    m_width = qMax(m_width, socketOffset * 2 + 20); // Minimum width for sockets
-    
-    // Notify Qt graphics system of geometry change
-    prepareGeometryChange();
+    m_width = qMax(m_width, LayoutMetrics::socketDiameter * 2 + 20); // Minimum width for sockets
     
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
              << "resized to" << m_width << "x" << m_height 
@@ -793,13 +798,14 @@ public:
 private:
     Role m_role;
     int m_index;                 // Socket index within parent node (0, 1, 2...)
-    Edge* m_connectedEdge;       // Connected edge (if any)  
+    Node* m_parentNode;          // Cached parent pointer (avoid qgraphicsitem_cast)
+    Edge* m_connectedEdge;       // Connected edge (if any)
     ConnectionState m_connectionState; // Visual connection state
     qreal m_radius;
     bool m_hovered;
     qreal m_hoverOpacity; // Smooth hover opacity transition
     bool m_pressed; // Click feedback state
-    
+
     // Performance optimization: cache index string (created once, not every frame)
     mutable QString m_cachedIndexString;
     
@@ -811,6 +817,8 @@ private:
 #include "node.h"
 #include "edge.h"
 #include "scene.h"
+#include "graphics_item_keys.h"
+#include "layout_metrics.h"
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
@@ -821,32 +829,39 @@ Socket::Socket(Role role, Node* parentNode, int index)
     : QGraphicsItem(parentNode)
     , m_role(role)
     , m_index(index)
+    , m_parentNode(parentNode)
     , m_connectedEdge(nullptr)
     , m_connectionState(Disconnected)
-    , m_radius(8.0)
+    , m_radius(LayoutMetrics::socketRadius)
     , m_hovered(false)
     , m_hoverOpacity(0.0)
     , m_pressed(false)
 {
     setAcceptHoverEvents(true);
-    setFlag(QGraphicsItem::ItemIsSelectable, true);
-    
+    // ✅ Sockets should NOT be selectable - only nodes and edges
+    // This prevents sockets from stealing selection from their parent node
+    setFlag(QGraphicsItem::ItemIsSelectable, false);
+
     // ✅ Set socket z-order: above nodes (0) but below edges (2)
     setZValue(1);
-    
+
+    // ✅ Cast-free design: Set metadata for type checking without qgraphicsitem_cast
+    setData(Gik::KindKey, Gik::Kind_Socket);
+
     // ✅ NO positioning in constructor - will be positioned later with complete information
-    
+
     // Register with parent node for O(1) lookups
     if (parentNode) {
         parentNode->registerSocket(this, m_index);
     }
-    
+
     qDebug() << "+Socket" << m_index << (m_role == Input ? "IN" : "OUT");
 }
 
 Node* Socket::getParentNode() const
 {
-    return qgraphicsitem_cast<Node*>(parentItem());
+    // Cast-free: return cached parent pointer
+    return m_parentNode;
 }
 
 QRectF Socket::boundingRect() const
@@ -975,21 +990,25 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 
 void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    m_pressed = true;
-    update(); // Show pressed state immediately
-    
-    // ✅ DISABLE dragging from connected sockets
+    // ✅ Check connection status BEFORE setting pressed state
+    // to avoid "stuck pressed" visuals when event is ignored
     if (isConnected()) {
+        m_pressed = false;
+        update();
         qDebug() << "Socket" << m_index << "is connected - dragging disabled";
         event->ignore(); // Don't start drag operations on connected sockets
         return;
     }
-    
+
     if (event->button() == Qt::LeftButton) {
+        m_pressed = true;
+        update(); // Show pressed state
         qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // TODO: Start edge creation drag
         event->accept();
     } else if (event->button() == Qt::RightButton && m_role == Output) {
+        m_pressed = true;
+        update(); // Show pressed state
         qDebug() << "Socket right-clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // Start ghost edge from output socket
         Scene* scene = qobject_cast<Scene*>(this->scene());
@@ -1081,7 +1100,8 @@ class Node;
 class Edge : public QGraphicsItem
 {
 public:
-    // QGraphicsItem type system (required for qgraphicsitem_cast)
+    // QGraphicsItem type system (required by Qt, DO NOT USE in logic)
+    // Policy: Use Gik::KindKey metadata instead of type() for type checking
     enum { Type = UserType + 2 };
     int type() const override { return Type; }
 
@@ -1180,6 +1200,8 @@ private:
 #include "node.h"
 #include "scene.h"
 #include "graphics_item_keys.h"
+#include "layout_metrics.h"
+#include "log_context.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
@@ -1220,7 +1242,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     setData(Gik::KindKey, Gik::Kind_Edge);
     setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
 
-    qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    LOG_EDGE_SIMPLE() << "constructor";
     // Don't call updatePath() here - sockets not resolved yet
 }
 
@@ -1235,7 +1257,7 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
 
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    LOG_EDGE_SIMPLE() << "destructor";
 }
 
 void Edge::invalidateNode(const Node* node)
@@ -1257,13 +1279,11 @@ void Edge::onNodeDestroying(const Node* node)
     // This prevents use-after-free while keeping pointer for debugging
     if (node == m_fromNode) {
         m_fromNodeValid = false;
-        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                 << "- fromNode destroying";
+        LOG_EDGE() << "SAFETY: fromNode destroying";
     }
     if (node == m_toNode) {
         m_toNodeValid = false;
-        qDebug() << "SAFETY: Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                 << "- toNode destroying";
+        LOG_EDGE() << "SAFETY: toNode destroying";
     }
 }
 
@@ -1288,23 +1308,23 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
     // IMPROVED: Multi-layer cable-like rendering with depth
     if (isSelected()) {
         // Selection: bright orange with glow effect
-        QPen glowPen(QColor(255, 69, 0, 100), 12);
+        QPen glowPen(QColor(255, 69, 0, 100), LayoutMetrics::edgeVisualGlowWidth);
         glowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(glowPen);
         painter->drawPath(m_path);
-        
-        QPen selectionPen(QColor(255, 69, 0), 6);
+
+        QPen selectionPen(QColor(255, 69, 0), LayoutMetrics::edgeVisualCoreWidth);
         selectionPen.setCapStyle(Qt::RoundCap);
         painter->setPen(selectionPen);
         painter->drawPath(m_path);
     } else if (m_hovered) {
         // Hover: blue with subtle glow
-        QPen hoverGlowPen(QColor(100, 150, 255, 80), 8);
+        QPen hoverGlowPen(QColor(100, 150, 255, 80), LayoutMetrics::edgeHoverGlowWidth);
         hoverGlowPen.setCapStyle(Qt::RoundCap);
         painter->setPen(hoverGlowPen);
         painter->drawPath(m_path);
-        
-        QPen hoverPen(QColor(100, 150, 255), 4);
+
+        QPen hoverPen(QColor(100, 150, 255), LayoutMetrics::edgeHoverCoreWidth);
         hoverPen.setCapStyle(Qt::RoundCap);
         painter->setPen(hoverPen);
         painter->drawPath(m_path);
@@ -1325,7 +1345,7 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
         painter->drawPath(m_path);
         
         // Layer 3: Main cable body with subtle gradient effect
-        QPen mainPen(QColor(85, 85, 85), 3);
+        QPen mainPen(QColor(85, 85, 85), LayoutMetrics::edgeNormalWidth);
         mainPen.setCapStyle(Qt::RoundCap);
         painter->setPen(mainPen);
         painter->drawPath(m_path);
@@ -1345,7 +1365,7 @@ QPainterPath Edge::shape() const
 {
     // Create a much wider path for easier selection - very generous selection area
     QPainterPathStroker stroker;
-    stroker.setWidth(20);  // Very wide selection area for easy clicking
+    stroker.setWidth(LayoutMetrics::edgeSelectionWidth);  // Wide selection area for easy clicking
     stroker.setCapStyle(Qt::RoundCap);
     stroker.setJoinStyle(Qt::RoundJoin);
     QPainterPath selectionPath = stroker.createStroke(m_path);
@@ -1437,7 +1457,7 @@ void Edge::updatePath()
 void Edge::buildPath(const QPointF& start, const QPointF& end)
 {
     // Validate input points
-    if (start.isNull() || end.isNull() || !qIsFinite(start.x()) || !qIsFinite(start.y()) || 
+    if (start.isNull() || end.isNull() || !qIsFinite(start.x()) || !qIsFinite(start.y()) ||
         !qIsFinite(end.x()) || !qIsFinite(end.y())) {
         // Notify BSP cache before clearing
         prepareGeometryChange();
@@ -1445,7 +1465,11 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         m_boundingRect = QRectF();
         return;
     }
-    
+
+    // ✅ CRITICAL: Notify Qt BSP cache BEFORE modifying path
+    // clear() changes geometry, so we must call prepareGeometryChange() first
+    prepareGeometryChange();
+
     // Clear and rebuild path safely
     m_path.clear();
     
@@ -1491,18 +1515,15 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
     
     // Create smooth cubic Bezier curve
     m_path.cubicTo(control1, control2, adjustedEnd);
-    
-    // Notify Qt's BSP cache before changing bounding rectangle
-    prepareGeometryChange();
-    
+
     // Update bounding rectangle with validation
+    // (prepareGeometryChange() already called at function start)
     QRectF pathBounds = m_path.boundingRect();
+    const qreal margin = LayoutMetrics::edgeSelectionMargin;  // Matches shape() stroker width
     if (pathBounds.isValid()) {
-        // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
-        m_boundingRect = pathBounds.adjusted(-10, -10, 10, 10);
+        m_boundingRect = pathBounds.adjusted(-margin, -margin, margin, margin);
     } else {
-        // Inflate by strokeWidth/2 = 10 to match stroker.setWidth(20)
-        m_boundingRect = QRectF(start, end).normalized().adjusted(-10, -10, 10, 10);
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
     }
 }
 
@@ -1535,6 +1556,8 @@ void Edge::read(xmlNodePtr node)
     xmlChar* idStr = xmlGetProp(node, BAD_CAST "id");
     if (idStr) {
         m_id = QUuid(QString::fromUtf8((char*)idStr));
+        // ✅ CRITICAL: Update metadata when UUID changes from XML
+        setData(Gik::UuidKey, m_id.toString(QUuid::WithoutBraces));
         xmlFree(idStr);
     }
     
@@ -1665,15 +1688,19 @@ bool Edge::resolveConnections(Scene* scene)
     m_toNode = toNode;
     m_fromNodeValid = true;  // Mark as valid - safe to access
     m_toNodeValid = true;    // Mark as valid - safe to access
-    
+
     // PERFORMANCE OPTIMIZATION: Register this edge with both connected nodes
     // This enables O(degree) edge updates instead of O(totalEdges)
     fromNode->registerEdge(this);
     toNode->registerEdge(this);
-    
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved" 
+
+    // CRITICAL: Connect sockets atomically - set bidirectional references
+    fromSocket->setConnectedEdge(this);
+    toSocket->setConnectedEdge(this);
+
+    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved"
              << m_fromSocketIndex << "->" << m_toSocketIndex;
-    
+
     updatePath();
     return true;
 }
@@ -1831,7 +1858,8 @@ class QGraph : public QObject
     Q_OBJECT
 
 public:
-    explicit QGraph(QGraphicsScene* scene, QObject* parent = nullptr);
+    // Take a concrete Scene* (no QGraphicsScene*), so we never need runtime casts.
+    explicit QGraph(Scene* scene, QObject* parent = nullptr);
     ~QGraph() = default;
 
     // Node operations
@@ -1886,7 +1914,7 @@ signals:
     void graphStabilized();
 
 private:
-    Scene* scene_;  // Access to visual layer and registries
+    Scene* scene_;  // Access to visual layer and registries (typed, no casts)
 
     // Load state tracking
     bool m_isLoadingXml;
@@ -1908,20 +1936,20 @@ private:
 #include "edge.h"
 #include "socket.h"
 #include "node_registry.h"
+#include "node_templates.h"
 #include "graph_factory.h"
 #include <QDebug>
 #include <QUuid>
 #include <libxml/tree.h>
+#include <libxml/parser.h>
 
-QGraph::QGraph(QGraphicsScene* scene, QObject* parent)
+QGraph::QGraph(Scene* scene, QObject* parent)
     : QObject(parent)
-    , scene_(qobject_cast<Scene*>(scene))
+    , scene_(scene)
     , m_isLoadingXml(false)
     , m_unresolvedEdges(0)
 {
-    if (!scene_) {
-        qCritical() << "QGraph: Scene pointer is null or not a Scene instance";
-    }
+    Q_ASSERT(scene_ && "QGraph requires a typed Scene*");
 }
 
 QString QGraph::createNode(const QString& type, qreal x, qreal y)
@@ -1931,30 +1959,57 @@ QString QGraph::createNode(const QString& type, qreal x, qreal y)
         return QString();
     }
 
-    if (!isValidNodeType(type)) {
-        emit error(QString("QGraph: Invalid node type: %1").arg(type));
+    if (!NodeTypeTemplates::hasNodeType(type)) {
+        emit error(QString("QGraph: Unknown node type: %1").arg(type));
         return QString();
     }
 
     try {
-        // Create node through registry
-        Node* node = NodeRegistry::instance().createNode(type);
-        if (!node) {
-            emit error(QString("QGraph: Failed to create node of type: %1").arg(type));
+        // Generate UUID for new node
+        QUuid nodeId = QUuid::createUuid();
+
+        // Use template system to generate XML with correct socket counts
+        QString xmlString = NodeTypeTemplates::generateNodeXml(type, QPointF(x, y), QVariantMap(), nodeId);
+        if (xmlString.isEmpty()) {
+            emit error(QString("QGraph: Failed to generate XML for node type: %1").arg(type));
             return QString();
         }
 
-        // Set position
-        node->setPos(x, y);
+        qDebug() << "QGraph: Generated XML for" << type << ":" << xmlString;
 
-        // Add to scene (scene handles visual registration)
-        scene_->addNode(node);
+        // Parse XML string into DOM
+        xmlDocPtr doc = xmlParseMemory(xmlString.toUtf8().constData(), xmlString.toUtf8().size());
+        if (!doc) {
+            emit error(QString("QGraph: Failed to parse generated XML for type: %1").arg(type));
+            return QString();
+        }
 
-        QString nodeId = node->getId().toString();
-        emit nodeCreated(nodeId);
+        xmlNodePtr root = xmlDocGetRootElement(doc);
+        if (!root) {
+            xmlFreeDoc(doc);
+            emit error(QString("QGraph: No root element in generated XML for type: %1").arg(type));
+            return QString();
+        }
 
-        qDebug() << "QGraph: Created node" << type << "at" << x << "," << y << "id:" << nodeId.left(8);
-        return nodeId;
+        // Create node via GraphFactory (handles socket creation from XML attributes)
+        // GraphFactory adds node to scene automatically
+        GraphFactory factory(scene_, doc);
+        Node* node = factory.createNodeFromXml(root);
+
+        xmlFreeDoc(doc);
+
+        if (!node) {
+            emit error(QString("QGraph: GraphFactory failed to create node of type: %1").arg(type));
+            return QString();
+        }
+
+        // Note: Node already added to scene by GraphFactory
+
+        QString nodeIdStr = node->getId().toString();
+        emit nodeCreated(nodeIdStr);
+
+        qDebug() << "QGraph: Created node" << type << "at" << x << "," << y << "id:" << nodeIdStr.left(8);
+        return nodeIdStr;
 
     } catch (const std::exception& e) {
         emit error(QString("QGraph: Exception creating node: %1").arg(e.what()));
@@ -2058,6 +2113,14 @@ QString QGraph::connect(const QString& fromNodeId, int fromIdx,
 
         // Add to scene
         scene_->addEdge(edge);
+
+        // CRITICAL: Resolve connections to set socket->edge references
+        if (!edge->resolveConnections(scene_)) {
+            qWarning() << "QGraph: Failed to resolve edge connections";
+            scene_->removeEdgeInternal(edge->getId());  // This deletes the edge
+            emit error("QGraph: Failed to resolve edge connections");
+            return QString();
+        }
 
         QString edgeId = edge->getId().toString();
         emit edgeConnected(edgeId);
@@ -2170,6 +2233,7 @@ void QGraph::saveXml(const QString& path)
 
         if (result != -1) {
             qDebug() << "QGraph: XML saved successfully to" << path;
+            emit xmlSaved(path);
         } else {
             emit error(QString("QGraph: Failed to save XML to %1").arg(path));
         }
@@ -2315,12 +2379,12 @@ void QGraph::endPreview(Socket* to)
 
 bool QGraph::isValidNodeType(const QString& type)
 {
-    return NodeRegistry::instance().isRegistered(type);
+    return NodeTypeTemplates::hasNodeType(type);
 }
 
 QStringList QGraph::getValidNodeTypes()
 {
-    return NodeRegistry::instance().getRegisteredTypes();
+    return NodeTypeTemplates::getAvailableTypes();
 }
 
 // Helper methods
@@ -3061,10 +3125,11 @@ QVariantMap GraphController::edgeToVariant(Edge* edge)
 
 class Node;
 class Edge;
+class Scene;  // Forward declaration for custom scene type
 
 /**
  * GraphFactory - XML-First Object Creation with NodeRegistry
- * 
+ *
  * Simplified factory that uses NodeRegistry for type-based creation.
  * Enforces XML-first discipline while allowing extensible node types.
  */
@@ -3072,7 +3137,7 @@ class GraphFactory
 {
 public:
     // Initialize factory with scene and XML document
-    GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc);
+    GraphFactory(Scene* scene, xmlDocPtr xmlDoc);
     
     // XML-first creation methods
     Node* createNodeFromXml(xmlNodePtr xmlNode);
@@ -3100,7 +3165,7 @@ public:
     static QString getXmlProperty(xmlNodePtr node, const QString& name);
 
 private:
-    QGraphicsScene* m_scene;
+    Scene* m_scene;  // ✅ Type-safe: GraphFactory always requires custom Scene
     xmlDocPtr m_xmlDocument;
     
     // Helper methods
@@ -3119,12 +3184,12 @@ private:
 #include "socket.h"
 #include "edge.h"
 #include "scene.h"
-#include "node_registry.h"
+#include "node_templates.h"  // Template system - NO NodeRegistry needed
 #include "graph_observer.h"
 #include <QDateTime>
 #include <QDebug>
 
-GraphFactory::GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc)
+GraphFactory::GraphFactory(Scene* scene, xmlDocPtr xmlDoc)
     : m_scene(scene)
     , m_xmlDocument(xmlDoc)
 {
@@ -3138,39 +3203,45 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
         return nullptr;
     }
     
-    // Get node type from XML
+    // Get node type from XML (for logging only)
     QString nodeType = getXmlProperty(xmlNode, "type");
     if (nodeType.isEmpty()) {
         qWarning() << "GraphFactory::createNodeFromXml - missing type attribute";
         return nullptr;
     }
-    
-    // Create node using registry
-    Node* node = NodeRegistry::instance().createNode(nodeType);
-    if (!node) {
-        qCritical() << "GraphFactory::createNodeFromXml - failed to create node of type:" << nodeType;
+
+    // Validate node type against template system (no NodeRegistry needed)
+    if (!NodeTypeTemplates::hasNodeType(nodeType)) {
+        qCritical() << "GraphFactory::createNodeFromXml - Invalid node type:" << nodeType;
+        qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
         return nullptr;
     }
-    
-    // Attach observer before reading XML - contract requirement
-    node->setObserver(this);
-    
+
+    // Create node directly - template system is the authority
+    Node* node = new Node();
+    if (!node) {
+        qCritical() << "GraphFactory::createNodeFromXml - failed to create node";
+        return nullptr;
+    }
+
+    // Set node type BEFORE reading XML
+    node->setNodeType(nodeType);
+
+    // Attach factory pointer before reading XML - contract requirement
+    node->setFactory(this);
+
     // Let the node read its XML and configure itself
     node->read(xmlNode);
-    
-    // Verify observer is still attached
-    if (!node->hasObserver()) {
-        qCritical() << "GraphFactory::createNodeFromXml - observer detached during read";
+
+    // Verify factory pointer is still attached
+    if (!node->hasFactory()) {
+        qCritical() << "GraphFactory::createNodeFromXml - factory detached during read";
         delete node;
         return nullptr;
     }
     
-    // Add to typed scene collection
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addNode(node);
-    } else {
-        m_scene->addItem(node);
-    }
+    // Add to scene's typed collection
+    m_scene->addNode(node);
     
     qDebug() << "GraphFactory: Created node from XML, type:" << nodeType 
              << "id:" << node->getId().toString(QUuid::WithoutBraces).left(8);
@@ -3205,12 +3276,8 @@ Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge)
     // Let the edge read its XML and configure itself
     edge->read(xmlEdge);
     
-    // Add to typed scene collection
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addEdge(edge);
-    } else {
-        m_scene->addItem(edge);
-    }
+    // Add to scene's typed collection
+    m_scene->addEdge(edge);
     
     qDebug() << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
              << "from node:" << fromNode.left(8) << "socket" << fromIndex
@@ -3306,11 +3373,7 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
     edge->setResolvedSockets(fromSocket, toSocket);
     
     // Add to scene
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addEdge(edge);
-    } else {
-        m_scene->addItem(edge);
-    }
+    m_scene->addEdge(edge);
     
     // Create XML for persistence (lazy serialization)
     xmlNodePtr xmlEdge = createXmlEdgeNodeIndex(fromNode->getId(), fromSocket->getIndex(), 
@@ -3425,14 +3488,12 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     // PHASE 3: Resolve all edge connections now that all nodes exist
     qDebug() << "=== Resolving Edge Connections ===";
     int successfulConnections = 0;
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        for (Edge* edge : allEdges) {
-            qDebug() << "Resolving edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            if (edge->resolveConnections(typedScene)) {
-                successfulConnections++;
-            } else {
-                qWarning() << "FAILED to resolve edge connections:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            }
+    for (Edge* edge : allEdges) {
+        qDebug() << "Resolving edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
+        if (edge->resolveConnections(m_scene)) {
+            successfulConnections++;
+        } else {
+            qWarning() << "FAILED to resolve edge connections:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
         }
     }
     
@@ -3565,16 +3626,10 @@ bool GraphFactory::validateGraphIntegrity() const
         return false;
     }
     
-    Scene* typedScene = static_cast<Scene*>(m_scene);
-    if (!typedScene) {
-        qCritical() << "GraphFactory::validateGraphIntegrity - scene not typed";
-        return false;
-    }
-    
     bool valid = true;
-    
+
     // Validate all nodes have UUIDs and observers
-    for (Node* node : typedScene->getNodes().values()) {
+    for (Node* node : m_scene->getNodes().values()) {
         if (!node) {
             qCritical() << "Validation: null node in scene";
             valid = false;
@@ -3598,29 +3653,29 @@ bool GraphFactory::validateGraphIntegrity() const
     }
     
     // Validate all edges have valid socket connections
-    for (Edge* edge : typedScene->getEdges().values()) {
+    for (Edge* edge : m_scene->getEdges().values()) {
         if (!edge) {
             qCritical() << "Validation: null edge in scene";
             valid = false;
             continue;
         }
-        
+
         if (edge->getId().isNull()) {
             qCritical() << "Validation: edge without UUID";
             valid = false;
         }
-        
+
         // Clean design: edges should have been resolved during loading
         // Skip validation - edges were validated during resolveConnections() call
     }
-    
+
     // Validate scene count matches typed collections
     int sceneItems = m_scene->items().size();
-    int typedItems = typedScene->getNodes().size() + typedScene->getEdges().size();
-    
+    int typedItems = m_scene->getNodes().size() + m_scene->getEdges().size();
+
     // Account for sockets as children
     int socketCount = 0;
-    for (Node* node : typedScene->getNodes().values()) {
+    for (Node* node : m_scene->getNodes().values()) {
         socketCount += node->getSocketCount();
     }
     typedItems += socketCount;
@@ -3652,10 +3707,8 @@ Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int inde
         return nullptr;
     }
     
-    // Add to typed scene collection if available
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addSocket(socket);
-    }
+    // Add to scene's typed collection
+    m_scene->addSocket(socket);
     
     qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
              << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
@@ -5001,11 +5054,14 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
-    
+
     // Drag and drop support
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+
+    // Grid rendering
+    void drawBackground(QPainter* painter, const QRectF& rect) override;
 
 signals:
     // Signal emitted when a node is dropped
@@ -5020,6 +5076,7 @@ private:
 /// ===== FILE: view.cpp =====
 #include "view.h"
 #include "scene.h"
+#include "layout_metrics.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QDragEnterEvent>
@@ -5027,6 +5084,7 @@ private:
 #include <QDropEvent>
 #include <QMimeData>
 #include <QDebug>
+#include <cmath>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -5113,26 +5171,26 @@ void View::dragMoveEvent(QDragMoveEvent* event)
 void View::dropEvent(QDropEvent* event)
 {
     qDebug() << "View: Drop event received";
-    
+
     // Handle node template drop
     if (event->mimeData()->hasFormat("application/x-node-template")) {
         QByteArray nodeData = event->mimeData()->data("application/x-node-template");
         QString nodeString = QString::fromUtf8(nodeData);
         qDebug() << "View: Decoding drop data:" << nodeString;
-        
+
         QStringList parts = nodeString.split("|");
         qDebug() << "View: Split into" << parts.size() << "parts:" << parts;
-        
+
         if (parts.size() >= 5) {
             QString nodeType = parts[0];
             QString name = parts[1];
             QString description = parts[2];
             int inputSockets = parts[3].toInt();
             int outputSockets = parts[4].toInt();
-            
+
             // Convert drop position to scene coordinates
             QPointF scenePos = mapToScene(event->pos());
-            
+
             qDebug() << "View: Parsed node data:";
             qDebug() << "  - Type:" << nodeType;
             qDebug() << "  - Name:" << name;
@@ -5140,12 +5198,12 @@ void View::dropEvent(QDropEvent* event)
             qDebug() << "  - Input sockets:" << inputSockets;
             qDebug() << "  - Output sockets:" << outputSockets;
             qDebug() << "  - Scene position:" << scenePos;
-            
+
             qDebug() << "View: Emitting nodeDropped signal to Window";
-            
+
             // Emit signal to notify the window
             emit nodeDropped(scenePos, nodeType, name, inputSockets, outputSockets);
-            
+
             event->acceptProposedAction();
             qDebug() << "✓ View: Drop event accepted and processed";
         } else {
@@ -5155,6 +5213,57 @@ void View::dropEvent(QDropEvent* event)
     } else {
         qDebug() << "✗ View: Drop event ignored - no node template data";
         event->ignore();
+    }
+}
+
+void View::drawBackground(QPainter* painter, const QRectF& rect)
+{
+    // Draw the base background
+    QGraphicsView::drawBackground(painter, rect);
+
+    // Only draw grid if scene supports it
+    if (!m_scene) return;
+
+    const int gridSize = m_scene->gridSize();
+    if (gridSize <= 1) return;
+
+    // Configure grid appearance
+    QPen gridPen(QColor(200, 200, 200, 100)); // Light gray, semi-transparent
+    gridPen.setWidth(1);
+    painter->setPen(gridPen);
+
+    // Calculate grid bounds based on visible rect
+    const int left = static_cast<int>(std::floor(rect.left() / gridSize)) * gridSize;
+    const int right = static_cast<int>(std::ceil(rect.right() / gridSize)) * gridSize;
+    const int top = static_cast<int>(std::floor(rect.top() / gridSize)) * gridSize;
+    const int bottom = static_cast<int>(std::ceil(rect.bottom() / gridSize)) * gridSize;
+
+    // Draw vertical lines
+    for (int x = left; x <= right; x += gridSize) {
+        painter->drawLine(x, static_cast<int>(rect.top()), x, static_cast<int>(rect.bottom()));
+    }
+
+    // Draw horizontal lines
+    for (int y = top; y <= bottom; y += gridSize) {
+        painter->drawLine(static_cast<int>(rect.left()), y, static_cast<int>(rect.right()), y);
+    }
+
+    // Draw origin indicator (darker lines at 0,0) with adaptive sizing
+    if (rect.contains(QPointF(0, 0))) {
+        QPen originPen(QColor(150, 150, 150, 150));
+        originPen.setWidth(2);
+        painter->setPen(originPen);
+
+        // Adaptive origin cross size based on zoom level
+        qreal zoomFactor = transform().m11();  // Get horizontal scale factor
+        qreal armLength = LayoutMetrics::originIndicatorBaseSize * zoomFactor;
+        armLength = qBound(LayoutMetrics::originIndicatorMinSize,
+                          armLength,
+                          LayoutMetrics::originIndicatorMaxSize);
+
+        // Draw origin cross with adaptive size
+        painter->drawLine(-armLength, 0, armLength, 0);   // Horizontal origin line
+        painter->drawLine(0, -armLength, 0, armLength);   // Vertical origin line
     }
 }
 
@@ -5195,8 +5304,7 @@ public:
     void addSocket(Socket* socket);  // Deprecated - sockets managed by nodes
     
     void removeNode(const QUuid& nodeId);
-    void removeEdge(const QUuid& edgeId);
-    
+
     // Fast UUID-based lookups O(1) - no searching, no casting
     Node* getNode(const QUuid& nodeId) const;
     Edge* getEdge(const QUuid& edgeId) const;
@@ -5226,6 +5334,16 @@ public:
     void cancelGhostEdge();
     bool ghostEdgeActive() const { return m_ghostEdgeActive; }
 
+    // Magnetic connection helpers
+    Socket* findNearestValidSocket(const QPointF& scenePos, Socket* fromSocket, QPointF& snappedPos);
+    qreal getMagneticRadius() const { return 40.0; } // Magnetic attraction radius
+
+    // Grid and snap-to-grid
+    QPointF snapPoint(const QPointF& scenePos) const;
+    void setSnapToGrid(bool on) { m_snapToGrid = on; }
+    bool isSnapToGrid() const { return m_snapToGrid; }
+    int gridSize() const { return 40; }  // TODO: make configurable
+
     // Critical destruction safety flag
     static bool isClearing() { return s_clearingGraph; }
 
@@ -5248,10 +5366,13 @@ private:
     // Helper method for ghost edge styling
     QPen ghostPen() const;
     void resetAllSocketStates();
-    
+
     // Static flag to prevent socket cleanup during clearGraph
     static bool s_clearingGraph;
-    
+
+    // Grid and snap state
+    bool m_snapToGrid = false;
+
     // Shutdown coordination flag
     bool m_shutdownInProgress;
 };
@@ -5341,7 +5462,7 @@ void Scene::removeNode(const QUuid& nodeId)
     
     // Clean up edges first (they may reference sockets)
     for (const QUuid& edgeId : edgesToRemove) {
-        removeEdge(edgeId);
+        removeEdgeInternal(edgeId);
     }
     
     // Clean design: sockets cleaned up automatically as node children
@@ -5350,20 +5471,6 @@ void Scene::removeNode(const QUuid& nodeId)
     removeItem(node);
     m_nodes.remove(nodeId);
     delete node;
-}
-
-void Scene::removeEdge(const QUuid& edgeId)
-{
-    Edge* edge = m_edges.value(edgeId, nullptr);
-    if (!edge) return;
-    
-    // Clean design: edges manage their own socket disconnection via direct pointers
-    // Socket cleanup handled automatically when edge is destroyed
-    
-    // Remove from scene and registry
-    removeItem(edge);
-    m_edges.remove(edgeId);
-    delete edge;
 }
 
 // Clean design: socket management methods removed - sockets handled by parent nodes
@@ -5586,7 +5693,12 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
     // Update ghost edge visual based on target validity
     QPen ghostPenCurrent = ghostPen();
     QGraphicsItem* itemUnderCursor = itemAt(currentPos, QTransform());
-    Socket* targetSocket = qgraphicsitem_cast<Socket*>(itemUnderCursor);
+
+    // Cast-free: Check metadata instead of qgraphicsitem_cast
+    Socket* targetSocket = nullptr;
+    if (itemUnderCursor && itemUnderCursor->data(Gik::KindKey).toInt() == Gik::Kind_Socket) {
+        targetSocket = static_cast<Socket*>(itemUnderCursor);
+    }
     
     // Reset all socket visual states to normal first
     resetAllSocketStates();
@@ -5686,6 +5798,64 @@ void Scene::cancelGhostEdge()
     qDebug() << "GHOST: Cancelled";
 }
 
+Socket* Scene::findNearestValidSocket(const QPointF& scenePos, Socket* fromSocket, QPointF& snappedPos)
+{
+    if (!fromSocket) {
+        snappedPos = scenePos;
+        return nullptr;
+    }
+
+    Socket* nearestSocket = nullptr;
+    qreal minDistance = getMagneticRadius();
+    snappedPos = scenePos;
+
+    // Check all sockets in the scene for magnetic attraction (cast-free with metadata)
+    for (Node* node : m_nodes.values()) {
+        for (QGraphicsItem* child : node->childItems()) {
+            // Cast-free socket identification using metadata key
+            if (child->data(Gik::KindKey).toInt() != Gik::Kind_Socket) {
+                continue;
+            }
+
+            Socket* socket = static_cast<Socket*>(child);
+
+            // Skip if not a valid target
+            if (socket->getRole() != Socket::Input ||
+                socket == fromSocket ||
+                socket->getParentNode() == fromSocket->getParentNode() ||
+                socket->isConnected() ||
+                fromSocket->isConnected()) {
+                continue;
+            }
+
+            // Calculate distance to socket center
+            QPointF socketPos = socket->scenePos();
+            qreal distance = QLineF(scenePos, socketPos).length();
+
+            // If within magnetic radius and closer than previous best
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestSocket = socket;
+                snappedPos = socketPos; // Snap to socket center
+            }
+        }
+    }
+
+    return nearestSocket;
+}
+
+QPointF Scene::snapPoint(const QPointF& scenePos) const
+{
+    int grid = gridSize();
+    if (grid <= 1) {
+        return scenePos;
+    }
+
+    qreal x = qRound(scenePos.x() / grid) * grid;
+    qreal y = qRound(scenePos.y() / grid) * grid;
+    return QPointF(x, y);
+}
+
 QPen Scene::ghostPen() const
 {
     QPen pen(QColor(0, 255, 0, 150)); // Semi-transparent green
@@ -5710,9 +5880,12 @@ void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     if (m_ghostEdgeActive && event->button() == Qt::RightButton) {
-        // Find socket under mouse
+        // Find socket under mouse (cast-free with metadata)
         QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
-        Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
+        Socket* targetSocket = nullptr;
+        if (item && item->data(Gik::KindKey).toInt() == Gik::Kind_Socket) {
+            targetSocket = static_cast<Socket*>(item);
+        }
         finishGhostEdge(targetSocket);
         event->accept();
         return;
@@ -7704,6 +7877,12 @@ int main(int argc, char *argv[])
                                   "Run XML enumeration test on startup");
     parser.addOption(testOption);
 
+    // Add script option (runs any JavaScript file)
+    QCommandLineOption scriptOption(QStringList() << "s" << "script",
+                                    "Run JavaScript test script on startup",
+                                    "script");
+    parser.addOption(scriptOption);
+
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
@@ -7873,7 +8052,11 @@ int main(int argc, char *argv[])
     // Note: GraphFactory holds reference, so clean up after window closes
 
     // Set up auto-test script if requested (Window will run it on first show)
-    if (parser.isSet(testOption)) {
+    if (parser.isSet(scriptOption)) {
+        // User specified custom script
+        window.setAutoTestScript(parser.value(scriptOption));
+    } else if (parser.isSet(testOption)) {
+        // Default test script
         window.setAutoTestScript("scripts/test_xml_load_enumeration.js");
     }
 

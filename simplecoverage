@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graph version="1.0">
+  <node id="ceb143e7-4029-4c45-8dcd-b986f7a18af9" x="-174" y="-185" type="SINK" inputs="1" outputs="0"/>
+  <node id="bdb3ef60-e4a4-4e2b-a57e-bd4799bb444f" x="-511" y="-331" type="SOURCE" inputs="0" outputs="1"/>
+  <edge id="f3a0ef1e-ce59-4672-b881-694892a78a36" fromNode="bdb3ef60-e4a4-4e2b-a57e-bd4799bb444f" toNode="ceb143e7-4029-4c45-8dcd-b986f7a18af9" fromSocketIndex="0" toSocketIndex="0"/>
+</graph>
