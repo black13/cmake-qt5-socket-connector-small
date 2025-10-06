@@ -268,7 +268,7 @@ bool Window::loadGraph(const QString& filename)
     
     // Use GraphFactory to load from XML file
     qDebug() << "Starting GraphFactory XML load...";
-    if (m_factory->loadFromXmlFile(filename)) {
+    if (m_graph->loadXml(filename)) {
         qint64 elapsed = timer.elapsed();
         
         // Set current file for Ctrl+S functionality

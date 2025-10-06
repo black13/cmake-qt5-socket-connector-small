@@ -309,62 +309,120 @@ void QGraph::saveXml(const QString& path)
     }
 }
 
-void QGraph::loadXml(const QString& path)
+
+bool QGraph::loadXml(const QString& path)
 {
     if (!scene_) {
         emit error("QGraph: Scene not initialized");
-        return;
+        return false;
     }
 
     qDebug() << "QGraph: Loading XML from" << path;
     emit xmlLoadStarted(path);
     m_isLoadingXml = true;
 
+    // Parse file
+    xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
+    if (!doc) {
+        m_isLoadingXml = false;
+        emit error(QString("QGraph: Failed to parse XML file: %1").arg(path));
+        emit xmlLoadComplete(path, false);
+        return false;
+    }
+
+    // Get <graph> root
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root) {
+        xmlFreeDoc(doc);
+        m_isLoadingXml = false;
+        emit error(QString("QGraph: XML has no root element: %1").arg(path));
+        emit xmlLoadComplete(path, false);
+        return false;
+    }
+
+    // Bulk update: suppress observer storms
+    GraphSubject::beginBatch();
+
+    bool ok = true;
     try {
-        // Clear existing graph first
+        // Start clean
         scene_->clearGraphInternal();
 
-        // Create temporary XML document for GraphFactory
-        xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
-        if (!doc) {
-            m_isLoadingXml = false;
-            emit error(QString("QGraph: Failed to parse XML file: %1").arg(path));
-            emit xmlLoadComplete(path, false);
-            return;
-        }
-
-        // Use GraphFactory for proper phased loading with batching
-        // GraphFactory automatically handles:
-        // - GraphSubject::beginBatch() to suppress observer storm
-        // - PHASE 1: Load all nodes
-        // - PHASE 2: Load all edges
-        // - PHASE 3: Resolve edge connections
-        // - GraphSubject::endBatch() to resume notifications
+        // Factory uses doc+scene to create nodes from XML
         GraphFactory factory(scene_, doc);
-        bool success = factory.loadFromXmlFile(path);
 
-        // Cleanup
-        xmlFreeDoc(doc);
-
-        m_isLoadingXml = false;
-
-        if (success) {
-            updateUnresolvedEdgeCount();
-            qDebug() << "QGraph: XML loaded successfully from" << path;
-            emit xmlLoadComplete(path, true);
-
-            if (isStable()) {
-                emit graphStabilized();
+        // 1) Load NODES (support both <graph><nodes><node/></nodes> and flat <graph><node/>)
+        auto loadNodeEl = [&](xmlNodePtr n) {
+            if (n && xmlStrcmp(n->name, BAD_CAST "node") == 0) {
+                if (!factory.createNodeFromXml(n)) {
+                    qWarning() << "QGraph: Failed to create node from XML";
+                    ok = false;
+                }
             }
-        } else {
-            emit error(QString("QGraph: Failed to load XML from %1").arg(path));
-            emit xmlLoadComplete(path, false);
+            };
+        for (xmlNodePtr c = root->children; c; c = c->next) {
+            if (xmlStrcmp(c->name, BAD_CAST "nodes") == 0) {
+                for (xmlNodePtr n = c->children; n; n = n->next) loadNodeEl(n);
+            }
+            else {
+                loadNodeEl(c);
+            }
         }
 
-    } catch (const std::exception& e) {
-        m_isLoadingXml = false;
-        emit error(QString("QGraph: Exception loading XML: %1").arg(e.what()));
+        // 2) Load EDGES after nodes exist (support <connections><edge/> and flat <edge/>)
+        QVector<Edge*> edgesToResolve;
+
+        auto loadEdgeEl = [&](xmlNodePtr e) {
+            if (e && xmlStrcmp(e->name, BAD_CAST "edge") == 0) {
+                Edge* edge = new Edge(QUuid::createUuid(), QUuid(), QUuid());
+                edge->read(e);               // stores node UUIDs + socket indices
+                scene_->addEdge(edge);
+                edgesToResolve.push_back(edge);
+            }
+            };
+        for (xmlNodePtr c = root->children; c; c = c->next) {
+            if (xmlStrcmp(c->name, BAD_CAST "connections") == 0) {
+                for (xmlNodePtr e = c->children; e; e = e->next) loadEdgeEl(e);
+            }
+            else {
+                loadEdgeEl(c);
+            }
+        }
+
+        // 3) Resolve edge endpoints now that all nodes exist
+        for (Edge* e : edgesToResolve) {
+            if (!e->resolveConnections(scene_)) {
+                qWarning() << "QGraph: Failed to resolve edge" << e->getId().toString(QUuid::WithoutBraces);
+                ok = false;
+            }
+        }
+
+    }
+    catch (const std::exception& ex) {
+        qCritical() << "QGraph: Exception during load:" << ex.what();
+        ok = false;
+    }
+    catch (...) {
+        qCritical() << "QGraph: Unknown exception during load";
+        ok = false;
+    }
+
+    GraphSubject::endBatch();
+    xmlFreeDoc(doc);
+
+    m_isLoadingXml = false;
+
+    if (ok) {
+        updateUnresolvedEdgeCount();
+        qDebug() << "QGraph: XML loaded successfully from" << path;
+        emit xmlLoadComplete(path, true);
+        if (isStable()) emit graphStabilized();
+        return true;
+    }
+    else {
+        emit error(QString("QGraph: Failed to fully load/resolve XML from %1").arg(path));
         emit xmlLoadComplete(path, false);
+        return false;
     }
 }
 

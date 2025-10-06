@@ -53,7 +53,7 @@ public:
     Q_INVOKABLE bool deleteSelected();  // Delete all selected items
     Q_INVOKABLE void clear();
     Q_INVOKABLE void saveXml(const QString& path);
-    Q_INVOKABLE void loadXml(const QString& path);
+    Q_INVOKABLE bool loadXml(const QString& path);
     Q_INVOKABLE QString getXmlString();
     Q_INVOKABLE QVariantMap getStats();
 
