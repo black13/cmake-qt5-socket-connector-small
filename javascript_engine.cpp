@@ -2,7 +2,6 @@
 #include "node.h"
 #include "edge.h"
 #include "scene.h"
-#include "graph_controller.h"
 #include "graph_factory.h"
 #include "qgraph.h"
 #include <QFile>
@@ -14,7 +13,6 @@ JavaScriptEngine::JavaScriptEngine(QObject* parent)
     : QObject(parent)
     , m_engine(new QJSEngine(this))
     , m_scene(nullptr)
-    , m_graphController(nullptr)
     , m_qgraph(nullptr)
 {
     setupGlobalAPI();
@@ -243,41 +241,6 @@ void JavaScriptEngine::registerGraphAPI()
     m_engine->globalObject().setProperty("Algorithms", algorithms);
     
     qDebug() << "JavaScriptEngine: Graph algorithms registered";
-}
-
-void JavaScriptEngine::registerGraphController(Scene* scene, GraphFactory* factory)
-{
-    m_scene = scene;
-    
-    // Create GraphController instance
-    m_graphController = new GraphController(scene, factory, this);
-    
-    // Register as global Graph object
-    QJSValue controllerValue = m_engine->newQObject(m_graphController);
-    m_engine->globalObject().setProperty("Graph", controllerValue);
-    
-    // Connect signals for debugging
-    connect(m_graphController, &GraphController::nodeCreated, [](const QString& uuid) {
-        qDebug() << "JavaScript: Node created:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::nodeDeleted, [](const QString& uuid) {
-        qDebug() << "JavaScript: Node deleted:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::edgeCreated, [](const QString& uuid) {
-        qDebug() << "JavaScript: Edge created:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::edgeDeleted, [](const QString& uuid) {
-        qDebug() << "JavaScript: Edge deleted:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::error, [](const QString& message) {
-        qDebug() << "JavaScript Graph Error:" << message;
-    });
-    
-    qDebug() << "JavaScriptEngine: GraphController registered as 'Graph' global object";
 }
 
 void JavaScriptEngine::registerQGraph(QGraph* graph)
