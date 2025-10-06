@@ -70,13 +70,8 @@ public slots:
     // File management
     void setCurrentFile(const QString& filename);
     QString getCurrentFile() const { return m_currentFile; }
-    
-    // Interactive node creation
-    void createInputNode();
-    void createOutputNode();
-    void createProcessorNode();
-    
-    // Node creation from palette (will be implemented with proper includes)
+
+    // Node creation from palette (template system only)
     void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
                               const QString& name, int inputSockets, int outputSockets);
     
@@ -97,10 +92,9 @@ private slots:
     
     // Selection info update
     void updateSelectionInfo();
-    
-    // Palette integration
-    void onNodeCreationRequested();
-    
+
+    // Palette integration removed - nodes created via drag-and-drop only
+
 protected:
     // Handle keyboard shortcuts
     void keyPressEvent(QKeyEvent* event) override;
@@ -114,11 +108,8 @@ private:
     xmlDocPtr m_xmlDocument;
     XmlAutosaveObserver* m_autosaveObserver;
 
-    // UI elements
-    QAction* m_addInputAction;
-    QAction* m_addOutputAction;
-    QAction* m_addProcessorAction;
-    
+    // UI elements - legacy actions removed (use NodePalette instead)
+
     // Professional node palette system
     QDockWidget* m_nodePaletteDock;
     NodePaletteWidget* m_nodePalette;

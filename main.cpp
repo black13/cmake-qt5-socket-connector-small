@@ -122,8 +122,20 @@ int main(int argc, char *argv[])
     
     // Process command line arguments
     parser.process(app);
-    
-    // Command line parsing
+
+    // Command line parsing - debug what was received
+    qDebug() << "=== Command Line Arguments ===";
+    qDebug() << "Arguments:" << QCoreApplication::arguments();
+    qDebug() << "Script option set:" << parser.isSet(scriptOption);
+    if (parser.isSet(scriptOption)) {
+        qDebug() << "Script path:" << parser.value(scriptOption);
+    }
+    qDebug() << "Test option set:" << parser.isSet(testOption);
+    qDebug() << "Load file option set:" << parser.isSet(loadFileOption);
+    if (parser.isSet(loadFileOption)) {
+        qDebug() << "Load file path:" << parser.value(loadFileOption);
+    }
+    qDebug() << "Positional arguments:" << parser.positionalArguments();
 
     // Create main window
     Window window;

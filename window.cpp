@@ -115,21 +115,8 @@ Window::~Window()
 
 void Window::setupActions()
 {
-    // Create actions for node creation
-    m_addInputAction = new QAction("Add Input", this);
-    m_addInputAction->setToolTip("Add Input Node (Ctrl+1)");
-    m_addInputAction->setShortcut(QKeySequence("Ctrl+1"));
-    connect(m_addInputAction, &QAction::triggered, this, &Window::createInputNode);
-    
-    m_addOutputAction = new QAction("Add Output", this);
-    m_addOutputAction->setToolTip("Add Output Node (Ctrl+2)");
-    m_addOutputAction->setShortcut(QKeySequence("Ctrl+2"));
-    connect(m_addOutputAction, &QAction::triggered, this, &Window::createOutputNode);
-    
-    m_addProcessorAction = new QAction("Add Processor", this);
-    m_addProcessorAction->setToolTip("Add Processor Node (Ctrl+3)");
-    m_addProcessorAction->setShortcut(QKeySequence("Ctrl+3"));
-    connect(m_addProcessorAction, &QAction::triggered, this, &Window::createProcessorNode);
+    // Legacy node creation actions removed - use NodePalette instead
+    // All node types are created through the template system (SOURCE, SINK, TRANSFORM, MERGE, SPLIT)
 }
 
 
@@ -137,15 +124,6 @@ void Window::keyPressEvent(QKeyEvent* event)
 {
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
-            case Qt::Key_1:
-                createInputNode();
-                break;
-            case Qt::Key_2:
-                createOutputNode();
-                break;
-            case Qt::Key_3:
-                createProcessorNode();
-                break;
             case Qt::Key_S:
                 if (event->modifiers() & Qt::ShiftModifier) {
                     // Ctrl+Shift+S = Save As
@@ -321,66 +299,6 @@ bool Window::loadGraph(const QString& filename)
             QString("Failed to load graph from file.\n\nFile: %1")
             .arg(QFileInfo(filename).fileName()));
         return false;
-    }
-}
-
-void Window::createInputNode()
-{
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create input node using factory (XML-first approach)
-    Node* node = m_factory->createNode("IN", position, 0, 2);  // 0 inputs, 2 outputs
-    
-    if (node) {
-        qDebug() << "✓ Created input node at" << position;
-    } else {
-        qDebug() << "✗ Failed to create input node";
-    }
-}
-
-void Window::createOutputNode()
-{
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create output node using factory (XML-first approach)
-    Node* node = m_factory->createNode("OUT", position, 2, 0);  // 2 inputs, 0 outputs
-    
-    if (node) {
-        qDebug() << "✓ Created output node at" << position;
-    } else {
-        qDebug() << "✗ Failed to create output node";
-    }
-}
-
-void Window::createProcessorNode()
-{
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create processor node using factory (XML-first approach)
-    Node* node = m_factory->createNode("PROC", position, 2, 2);  // 2 inputs, 2 outputs
-    
-    if (node) {
-        qDebug() << "✓ Created processor node at" << position;
-    } else {
-        qDebug() << "✗ Failed to create processor node";
     }
 }
 
@@ -570,14 +488,9 @@ void Window::createViewMenu()
 void Window::createToolsMenu()
 {
     m_toolsMenu = menuBar()->addMenu("&Tools");
-    
-    // Node creation submenu
-    QMenu* createNodeMenu = m_toolsMenu->addMenu("&Create Node");
-    createNodeMenu->addAction(m_addInputAction);
-    createNodeMenu->addAction(m_addOutputAction);
-    createNodeMenu->addAction(m_addProcessorAction);
-    
-    m_toolsMenu->addSeparator();
+
+    // Legacy "Create Node" submenu removed - use NodePalette instead
+    // All node creation now goes through template system (drag from palette)
     
     QAction* validateAction = new QAction("&Validate Graph", this);
     validateAction->setStatusTip("Check graph for errors and inconsistencies");
@@ -688,9 +601,8 @@ void Window::setupDockWidgets()
     // Add dock widget to left side
     addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
     
-    // Connect palette signals
-    connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested, 
-            this, &Window::onNodeCreationRequested);
+    // Note: Node creation handled via drag-and-drop (View::nodeDropped signal)
+    // NodeCreationRequested signal not used - nodes created only through template system
     
 }
 
@@ -988,17 +900,5 @@ void Window::showEvent(QShowEvent* event)
     }
 }
 
-void Window::onNodeCreationRequested()
-{
-    // The signal includes the nodeTemplate, but we need to handle it via sender() for now
-    // due to header file forward declaration limitations
-    
-    // For double-click from palette, create node at center of view
-    QPointF centerPoint = m_view->mapToScene(m_view->rect().center());
-    
-    // We'll implement drag-and-drop separately - for now just handle the signal connection
-    
-    // Create a default input node for testing
-    createNodeFromPalette(centerPoint, "IN", "Input", 0, 2);
-}
+// onNodeCreationRequested() removed - nodes created only via drag-and-drop from palette
 
