@@ -101,20 +101,28 @@ function run_tests() {
     # Set environment variable for coverage data output
     export LLVM_PROFILE_FILE="nodegraph-%p.profraw"
 
-    print_info "Running JavaScript test scripts..."
+    print_info "Running test scenarios for coverage..."
     print_info "Coverage data will be written to: ${LLVM_PROFILE_FILE}"
 
-    # Run JavaScript tests to exercise code paths
     # Need DISPLAY for Qt GUI (use headless X server or Xvfb if available)
     export DISPLAY=${DISPLAY:-:0}
 
-    # Run edge curve guards test
-    print_info "Running edge curve guards test..."
+    # Test 1: Load existing XML file (exercises deserialization path)
+    if [[ -f "../tests_medium.xml" ]]; then
+        print_info "Test 1: Loading medium graph from XML (500 nodes)..."
+        timeout 15s "${EXECUTABLE}" ../tests_medium.xml || true
+    elif [[ -f "../tests_small.xml" ]]; then
+        print_info "Test 1: Loading small graph from XML (100 nodes)..."
+        timeout 15s "${EXECUTABLE}" ../tests_small.xml || true
+    fi
+
+    # Test 2: JavaScript tests (exercises creation path)
+    print_info "Test 2: Running edge curve guards test..."
     timeout 30s "${EXECUTABLE}" --script ../scripts/test_edge_curve_guards.js || true
 
-    # Run geometry discipline test if it exists
+    # Test 3: Geometry discipline test if it exists
     if [[ -f "../scripts/test_geometry_discipline.js" ]]; then
-        print_info "Running geometry discipline test..."
+        print_info "Test 3: Running geometry discipline test..."
         timeout 30s "${EXECUTABLE}" --script ../scripts/test_geometry_discipline.js || true
     fi
 
