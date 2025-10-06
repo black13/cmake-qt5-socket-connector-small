@@ -101,11 +101,22 @@ function run_tests() {
     # Set environment variable for coverage data output
     export LLVM_PROFILE_FILE="nodegraph-%p.profraw"
 
-    print_info "Running test script..."
+    print_info "Running JavaScript test scripts..."
     print_info "Coverage data will be written to: ${LLVM_PROFILE_FILE}"
 
-    # Run with test script
-    timeout 10s "${EXECUTABLE}" --test || true
+    # Run JavaScript tests to exercise code paths
+    # Need DISPLAY for Qt GUI (use headless X server or Xvfb if available)
+    export DISPLAY=${DISPLAY:-:0}
+
+    # Run edge curve guards test
+    print_info "Running edge curve guards test..."
+    timeout 30s "${EXECUTABLE}" --script ../scripts/test_edge_curve_guards.js || true
+
+    # Run geometry discipline test if it exists
+    if [[ -f "../scripts/test_geometry_discipline.js" ]]; then
+        print_info "Running geometry discipline test..."
+        timeout 30s "${EXECUTABLE}" --script ../scripts/test_geometry_discipline.js || true
+    fi
 
     # Check if any .profraw files were generated
     PROFRAW_COUNT=$(ls -1 nodegraph-*.profraw 2>/dev/null | wc -l)
