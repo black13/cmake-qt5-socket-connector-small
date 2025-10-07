@@ -1472,23 +1472,45 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
 
     // Clear and rebuild path safely
     m_path.clear();
-    
+
     // ✅ ENHANCED: Connect directly to socket centers (no adjustment needed)
     // Since updatePath() now provides socket centers, use them directly
     QPointF adjustedStart = start;
     QPointF adjustedEnd = end;
-    
-    m_path.moveTo(adjustedStart);
-    
+
     // IMPROVED: Dynamic curve calculation based on distance and orientation
     qreal dx = adjustedEnd.x() - adjustedStart.x();
     qreal dy = adjustedEnd.y() - adjustedStart.y();
     qreal distance = std::sqrt(dx * dx + dy * dy);
-    
+
+    // ✅ GUARD: Check for zero-length edges (degenerate case)
+    // If sockets are at same position, draw straight line instead of curve
+    constexpr qreal kMinEdgeLength = 1.0;  // Minimum 1 pixel
+    if (distance < kMinEdgeLength) {
+        m_path.moveTo(adjustedStart);
+        m_path.lineTo(adjustedEnd);  // Degenerate to straight line
+
+        // Set minimal bounding rect
+        const qreal margin = LayoutMetrics::edgeSelectionMargin;
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
+        return;
+    }
+
+    // ✅ GUARD: Validate calculated distance for NaN/Inf
+    if (!qIsFinite(distance)) {
+        m_path.moveTo(adjustedStart);
+        m_path.lineTo(adjustedEnd);  // Fallback to straight line
+
+        const qreal margin = LayoutMetrics::edgeSelectionMargin;
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
+        return;
+    }
+
+    m_path.moveTo(adjustedStart);
+
     // Adaptive control point calculation for better curves
     qreal horizontalFactor = qAbs(dx) / qMax(distance, 1.0);
-    qreal verticalFactor = qAbs(dy) / qMax(distance, 1.0);
-    
+
     // Dynamic control offset based on distance and direction
     qreal controlOffset;
     if (horizontalFactor > 0.8) {
@@ -1498,10 +1520,16 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         // More vertical: tighter curves for better routing
         controlOffset = qMax(40.0, qMin(distance * 0.2, 80.0));
     }
-    
+
+    // ✅ GUARD: Clamp control offset to reasonable bounds
+    // Prevent extreme offsets that create wild curves or overflow
+    constexpr qreal kMinControlOffset = 5.0;   // Minimum 5 pixels for visible curve
+    constexpr qreal kMaxControlOffset = 300.0; // Maximum 300 pixels to prevent overflow
+    controlOffset = qBound(kMinControlOffset, controlOffset, kMaxControlOffset);
+
     // Enhanced control point positioning for natural cable-like curves
     QPointF control1, control2;
-    
+
     if (dx >= 0) {
         // Left-to-right: standard horizontal Bezier
         control1 = adjustedStart + QPointF(controlOffset, 0);
@@ -1512,7 +1540,19 @@ void Edge::buildPath(const QPointF& start, const QPointF& end)
         control1 = adjustedStart + QPointF(controlOffset * 0.6, dy > 0 ? verticalOffset : -verticalOffset);
         control2 = adjustedEnd - QPointF(controlOffset * 0.6, dy > 0 ? verticalOffset : -verticalOffset);
     }
-    
+
+    // ✅ GUARD: Validate control points before creating curve
+    // Ensure control points are finite and not degenerate
+    if (!qIsFinite(control1.x()) || !qIsFinite(control1.y()) ||
+        !qIsFinite(control2.x()) || !qIsFinite(control2.y())) {
+        // Fallback to straight line if control points invalid
+        m_path.lineTo(adjustedEnd);
+
+        const qreal margin = LayoutMetrics::edgeSelectionMargin;
+        m_boundingRect = QRectF(start, end).normalized().adjusted(-margin, -margin, margin, margin);
+        return;
+    }
+
     // Create smooth cubic Bezier curve
     m_path.cubicTo(control1, control2, adjustedEnd);
 
@@ -1879,7 +1919,7 @@ public:
     Q_INVOKABLE bool deleteSelected();  // Delete all selected items
     Q_INVOKABLE void clear();
     Q_INVOKABLE void saveXml(const QString& path);
-    Q_INVOKABLE void loadXml(const QString& path);
+    Q_INVOKABLE bool loadXml(const QString& path);
     Q_INVOKABLE QString getXmlString();
     Q_INVOKABLE QVariantMap getStats();
 
@@ -1935,7 +1975,6 @@ private:
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
-#include "node_registry.h"
 #include "node_templates.h"
 #include "graph_factory.h"
 #include <QDebug>
@@ -2242,62 +2281,120 @@ void QGraph::saveXml(const QString& path)
     }
 }
 
-void QGraph::loadXml(const QString& path)
+
+bool QGraph::loadXml(const QString& path)
 {
     if (!scene_) {
         emit error("QGraph: Scene not initialized");
-        return;
+        return false;
     }
 
     qDebug() << "QGraph: Loading XML from" << path;
     emit xmlLoadStarted(path);
     m_isLoadingXml = true;
 
+    // Parse file
+    xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
+    if (!doc) {
+        m_isLoadingXml = false;
+        emit error(QString("QGraph: Failed to parse XML file: %1").arg(path));
+        emit xmlLoadComplete(path, false);
+        return false;
+    }
+
+    // Get <graph> root
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root) {
+        xmlFreeDoc(doc);
+        m_isLoadingXml = false;
+        emit error(QString("QGraph: XML has no root element: %1").arg(path));
+        emit xmlLoadComplete(path, false);
+        return false;
+    }
+
+    // Bulk update: suppress observer storms
+    GraphSubject::beginBatch();
+
+    bool ok = true;
     try {
-        // Clear existing graph first
+        // Start clean
         scene_->clearGraphInternal();
 
-        // Create temporary XML document for GraphFactory
-        xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
-        if (!doc) {
-            m_isLoadingXml = false;
-            emit error(QString("QGraph: Failed to parse XML file: %1").arg(path));
-            emit xmlLoadComplete(path, false);
-            return;
-        }
-
-        // Use GraphFactory for proper phased loading with batching
-        // GraphFactory automatically handles:
-        // - GraphSubject::beginBatch() to suppress observer storm
-        // - PHASE 1: Load all nodes
-        // - PHASE 2: Load all edges
-        // - PHASE 3: Resolve edge connections
-        // - GraphSubject::endBatch() to resume notifications
+        // Factory uses doc+scene to create nodes from XML
         GraphFactory factory(scene_, doc);
-        bool success = factory.loadFromXmlFile(path);
 
-        // Cleanup
-        xmlFreeDoc(doc);
-
-        m_isLoadingXml = false;
-
-        if (success) {
-            updateUnresolvedEdgeCount();
-            qDebug() << "QGraph: XML loaded successfully from" << path;
-            emit xmlLoadComplete(path, true);
-
-            if (isStable()) {
-                emit graphStabilized();
+        // 1) Load NODES (support both <graph><nodes><node/></nodes> and flat <graph><node/>)
+        auto loadNodeEl = [&](xmlNodePtr n) {
+            if (n && xmlStrcmp(n->name, BAD_CAST "node") == 0) {
+                if (!factory.createNodeFromXml(n)) {
+                    qWarning() << "QGraph: Failed to create node from XML";
+                    ok = false;
+                }
             }
-        } else {
-            emit error(QString("QGraph: Failed to load XML from %1").arg(path));
-            emit xmlLoadComplete(path, false);
+            };
+        for (xmlNodePtr c = root->children; c; c = c->next) {
+            if (xmlStrcmp(c->name, BAD_CAST "nodes") == 0) {
+                for (xmlNodePtr n = c->children; n; n = n->next) loadNodeEl(n);
+            }
+            else {
+                loadNodeEl(c);
+            }
         }
 
-    } catch (const std::exception& e) {
-        m_isLoadingXml = false;
-        emit error(QString("QGraph: Exception loading XML: %1").arg(e.what()));
+        // 2) Load EDGES after nodes exist (support <connections><edge/> and flat <edge/>)
+        QVector<Edge*> edgesToResolve;
+
+        auto loadEdgeEl = [&](xmlNodePtr e) {
+            if (e && xmlStrcmp(e->name, BAD_CAST "edge") == 0) {
+                Edge* edge = new Edge(QUuid::createUuid(), QUuid(), QUuid());
+                edge->read(e);               // stores node UUIDs + socket indices
+                scene_->addEdge(edge);
+                edgesToResolve.push_back(edge);
+            }
+            };
+        for (xmlNodePtr c = root->children; c; c = c->next) {
+            if (xmlStrcmp(c->name, BAD_CAST "connections") == 0) {
+                for (xmlNodePtr e = c->children; e; e = e->next) loadEdgeEl(e);
+            }
+            else {
+                loadEdgeEl(c);
+            }
+        }
+
+        // 3) Resolve edge endpoints now that all nodes exist
+        for (Edge* e : edgesToResolve) {
+            if (!e->resolveConnections(scene_)) {
+                qWarning() << "QGraph: Failed to resolve edge" << e->getId().toString(QUuid::WithoutBraces);
+                ok = false;
+            }
+        }
+
+    }
+    catch (const std::exception& ex) {
+        qCritical() << "QGraph: Exception during load:" << ex.what();
+        ok = false;
+    }
+    catch (...) {
+        qCritical() << "QGraph: Unknown exception during load";
+        ok = false;
+    }
+
+    GraphSubject::endBatch();
+    xmlFreeDoc(doc);
+
+    m_isLoadingXml = false;
+
+    if (ok) {
+        updateUnresolvedEdgeCount();
+        qDebug() << "QGraph: XML loaded successfully from" << path;
+        emit xmlLoadComplete(path, true);
+        if (isStable()) emit graphStabilized();
+        return true;
+    }
+    else {
+        emit error(QString("QGraph: Failed to fully load/resolve XML from %1").arg(path));
         emit xmlLoadComplete(path, false);
+        return false;
     }
 }
 
@@ -2488,630 +2585,6 @@ void QGraph::updateUnresolvedEdgeCount()
 }
 
 
-/// ===== FILE: graph_controller.h =====
-#pragma once
-
-#include <QObject>
-#include <QString>
-#include <QVariantMap>
-#include <QUuid>
-
-class Scene;
-class GraphFactory;
-class XmlLiveSync;
-class Node;
-class Edge;
-class QGraph;
-
-/**
- * GraphController - JavaScript-accessible graph control interface
- * 
- * Provides runtime control over the node graph system via JavaScript:
- * - Create/delete nodes and edges
- * - Save/load XML 
- * - Query graph statistics
- * - Trigger XML synchronization
- * 
- * This class is exposed to QJSEngine as the "Graph" global object
- */
-class GraphController : public QObject
-{
-    Q_OBJECT
-
-public:
-    explicit GraphController(Scene* scene, GraphFactory* factory, QObject* parent = nullptr);
-    ~GraphController() = default;
-
-public slots:
-    // Node operations
-    QString createNode(const QString& type, qreal x, qreal y);
-    bool deleteNode(const QString& uuid);
-    bool moveNode(const QString& uuid, qreal dx, qreal dy);
-    QVariantMap getNode(const QString& uuid);
-    QVariantList getNodes();
-    
-    // Edge operations  
-    QString connect(const QString& fromNodeId, int fromIndex, 
-                   const QString& toNodeId, int toIndex);
-    bool deleteEdge(const QString& uuid);
-    QVariantList getEdges();
-    
-    // Graph-wide operations
-    void clear();
-    void saveXml(const QString& path);
-    void loadXml(const QString& path);
-    void rebuildXml();
-    QString getXmlString();
-    QVariantMap getStats();
-    
-    // Utility functions
-    bool isValidNodeType(const QString& type);
-    QStringList getValidNodeTypes();
-    
-signals:
-    void nodeCreated(const QString& uuid);
-    void nodeDeleted(const QString& uuid);
-    void edgeCreated(const QString& uuid);
-    void edgeDeleted(const QString& uuid);
-    void graphCleared();
-    void xmlSaved(const QString& path);
-    void xmlLoaded(const QString& path);
-    void error(const QString& message);
-
-private:
-    Scene* m_scene;
-    GraphFactory* m_factory;
-    QGraph* m_graph;  // Delegate to QGraph for operations
-
-    // Helper methods
-    Node* findNode(const QString& uuid);
-    Edge* findEdge(const QString& uuid);
-    QVariantMap nodeToVariant(Node* node);
-    QVariantMap edgeToVariant(Edge* edge);
-};
-
-
-/// ===== FILE: graph_controller.cpp =====
-#include "graph_controller.h"
-#include "scene.h"
-#include "graph_factory.h"
-#include "qgraph.h"
-#include "node.h"
-#include "edge.h"
-#include "socket.h"
-#include "node_registry.h"
-#include <QDebug>
-#include <QFile>
-#include <QTextStream>
-#include <libxml/tree.h>
-#include <libxml/parser.h>
-
-GraphController::GraphController(Scene* scene, GraphFactory* factory, QObject* parent)
-    : QObject(parent)
-    , m_scene(scene)
-    , m_factory(factory)
-    , m_graph(new QGraph(scene, this))  // QGraph as child for automatic cleanup
-{
-    qDebug() << "GraphController: JavaScript interface initialized with QGraph";
-}
-
-QString GraphController::createNode(const QString& type, qreal x, qreal y)
-{
-    if (!m_scene || !m_factory) {
-        emit error("GraphController: Scene or factory not initialized");
-        return QString();
-    }
-    
-    // Log node type validation
-    QStringList validTypes = getValidNodeTypes();
-    qDebug() << "GraphController: Validating node type" << type;
-    qDebug() << "GraphController: Available types:" << validTypes;
-    
-    if (!isValidNodeType(type)) {
-        qDebug() << "GraphController: ❌ INVALID node type:" << type;
-        emit error(QString("GraphController: Invalid node type: %1").arg(type));
-        return QString();
-    } else {
-        qDebug() << "GraphController: ✅ VALID node type:" << type;
-    }
-    
-    qDebug() << "GraphController: Creating node" << type << "at" << x << "," << y;
-    
-    try {
-        Node* node = m_factory->createNode(type, QPointF(x, y));
-        if (node) {
-            QString uuid = node->getId().toString();
-            qDebug() << "GraphController: ✅ Node created successfully!";
-            qDebug() << "GraphController: Node UUID:" << uuid;
-            qDebug() << "GraphController: Node type:" << node->getNodeType();
-            qDebug() << "GraphController: Node position:" << node->pos();
-            emit nodeCreated(uuid);
-            return uuid;
-        } else {
-            qDebug() << "GraphController: ❌ Factory returned null node";
-            emit error("GraphController: Factory failed to create node");
-        }
-    } catch (const std::exception& e) {
-        qDebug() << "GraphController: ❌ Exception during node creation:" << e.what();
-        emit error(QString("GraphController: Error creating node: %1").arg(e.what()));
-    }
-    
-    qDebug() << "GraphController: ❌ Node creation failed - returning empty string";
-    return QString();
-}
-
-bool GraphController::deleteNode(const QString& uuid)
-{
-    if (!m_scene) {
-        emit error("GraphController: Scene not initialized");
-        return false;
-    }
-    
-    Node* node = findNode(uuid);
-    if (!node) {
-        emit error(QString("GraphController: Node not found: %1").arg(uuid));
-        return false;
-    }
-    
-    qDebug() << "GraphController: Deleting node" << uuid;
-    
-    try {
-        // Use QGraph for deletion (QGraph calls Scene internally)
-        bool success = m_graph->deleteNode(uuid);
-        if (success) {
-            emit nodeDeleted(uuid);
-        }
-        return success;
-    } catch (const std::exception& e) {
-        emit error(QString("GraphController: Error deleting node: %1").arg(e.what()));
-        return false;
-    }
-}
-
-bool GraphController::moveNode(const QString& uuid, qreal dx, qreal dy)
-{
-    Node* node = findNode(uuid);
-    if (!node) {
-        emit error(QString("GraphController: Node not found: %1").arg(uuid));
-        return false;
-    }
-    
-    QPointF currentPos = node->pos();
-    QPointF newPos = currentPos + QPointF(dx, dy);
-    
-    qDebug() << "GraphController: Moving node" << uuid << "by" << dx << "," << dy;
-    
-    node->setPos(newPos);
-    return true;
-}
-
-QVariantMap GraphController::getNode(const QString& uuid)
-{
-    Node* node = findNode(uuid);
-    if (!node) {
-        return QVariantMap();
-    }
-    
-    return nodeToVariant(node);
-}
-
-QVariantList GraphController::getNodes()
-{
-    QVariantList nodes;
-    
-    if (!m_scene) {
-        return nodes;
-    }
-    
-    const auto& nodeMap = m_scene->getNodes();
-    for (Node* node : nodeMap.values()) {
-        nodes.append(nodeToVariant(node));
-    }
-    
-    return nodes;
-}
-
-QString GraphController::connect(const QString& fromNodeId, int fromIndex, 
-                                const QString& toNodeId, int toIndex)
-{
-    if (!m_scene || !m_factory) {
-        emit error("GraphController: Scene or factory not initialized");
-        return QString();
-    }
-    
-    Node* fromNode = findNode(fromNodeId);
-    Node* toNode = findNode(toNodeId);
-    
-    if (!fromNode || !toNode) {
-        emit error(QString("GraphController: Node not found for connection: %1 -> %2")
-                  .arg(fromNodeId).arg(toNodeId));
-        return QString();
-    }
-    
-    qDebug() << "GraphController: Connecting" << fromNodeId << "[" << fromIndex << "] ->" 
-             << toNodeId << "[" << toIndex << "]";
-    
-    try {
-        // Find the appropriate sockets
-        Socket* fromSocket = nullptr;
-        Socket* toSocket = nullptr;
-        
-        // Get child sockets from nodes
-        const auto& fromItems = fromNode->childItems();
-        const auto& toItems = toNode->childItems();
-        
-        for (QGraphicsItem* item : fromItems) {
-            if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
-                if (socket->getIndex() == fromIndex && socket->getRole() == Socket::Output) {
-                    fromSocket = socket;
-                    break;
-                }
-            }
-        }
-        
-        for (QGraphicsItem* item : toItems) {
-            if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
-                if (socket->getIndex() == toIndex && socket->getRole() == Socket::Input) {
-                    toSocket = socket;
-                    break;
-                }
-            }
-        }
-        
-        if (!fromSocket || !toSocket) {
-            emit error(QString("GraphController: Socket not found for connection"));
-            return QString();
-        }
-        
-        Edge* edge = m_factory->createEdge(fromNode, fromIndex, toNode, toIndex);
-        if (edge) {
-            QString uuid = edge->getId().toString();
-            emit edgeCreated(uuid);
-            qDebug() << "GraphController: Created edge" << uuid;
-            return uuid;
-        }
-    } catch (const std::exception& e) {
-        emit error(QString("GraphController: Error creating connection: %1").arg(e.what()));
-    }
-    
-    return QString();
-}
-
-bool GraphController::deleteEdge(const QString& uuid)
-{
-    if (!m_scene) {
-        emit error("GraphController: Scene not initialized");
-        return false;
-    }
-    
-    Edge* edge = findEdge(uuid);
-    if (!edge) {
-        emit error(QString("GraphController: Edge not found: %1").arg(uuid));
-        return false;
-    }
-    
-    qDebug() << "GraphController: Deleting edge" << uuid;
-    
-    try {
-        // Use QGraph for deletion (QGraph calls Scene internally)
-        bool success = m_graph->deleteEdge(uuid);
-        if (success) {
-            emit edgeDeleted(uuid);
-        }
-        return success;
-    } catch (const std::exception& e) {
-        emit error(QString("GraphController: Error deleting edge: %1").arg(e.what()));
-        return false;
-    }
-}
-
-QVariantList GraphController::getEdges()
-{
-    QVariantList edges;
-    
-    if (!m_scene) {
-        return edges;
-    }
-    
-    const auto& edgeMap = m_scene->getEdges();
-    for (Edge* edge : edgeMap.values()) {
-        edges.append(edgeToVariant(edge));
-    }
-    
-    return edges;
-}
-
-void GraphController::clear()
-{
-    if (!m_scene) {
-        emit error("GraphController: Scene not initialized");
-        return;
-    }
-    
-    qDebug() << "GraphController: Clearing graph";
-
-    m_graph->clear();  // Use QGraph (emits graphCleared internally)
-    emit graphCleared();
-}
-
-void GraphController::saveXml(const QString& path)
-{
-    if (!m_scene) {
-        emit error("GraphController: Scene not initialized");
-        return;
-    }
-    
-    qDebug() << "GraphController: Saving XML to" << path;
-    
-    try {
-        // Create XML document
-        xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
-        xmlNodePtr root = xmlNewNode(NULL, BAD_CAST "graph");
-        xmlDocSetRootElement(doc, root);
-        xmlNewProp(root, BAD_CAST "version", BAD_CAST "1.0");
-        
-        // Add nodes
-        const auto& nodes = m_scene->getNodes();
-        for (Node* node : nodes.values()) {
-            node->write(doc, root);
-        }
-        
-        // Add edges
-        const auto& edges = m_scene->getEdges();
-        for (Edge* edge : edges.values()) {
-            edge->write(doc, root);
-        }
-        
-        // Save to file
-        int result = xmlSaveFileEnc(path.toUtf8().constData(), doc, "UTF-8");
-        xmlFreeDoc(doc);
-        
-        if (result != -1) {
-            emit xmlSaved(path);
-            qDebug() << "GraphController: XML saved successfully";
-        } else {
-            emit error(QString("GraphController: Failed to save XML to %1").arg(path));
-        }
-    } catch (const std::exception& e) {
-        emit error(QString("GraphController: Error saving XML: %1").arg(e.what()));
-    }
-}
-
-void GraphController::loadXml(const QString& path)
-{
-    if (!m_scene || !m_factory) {
-        emit error("GraphController: Scene or factory not initialized");
-        return;
-    }
-    
-    qDebug() << "GraphController: Loading XML from" << path;
-    
-    try {
-        // Clear existing graph
-        m_graph->clear();
-        
-        // Parse XML file
-        xmlDocPtr doc = xmlParseFile(path.toUtf8().constData());
-        if (!doc) {
-            emit error(QString("GraphController: Failed to parse XML file: %1").arg(path));
-            return;
-        }
-        
-        xmlNodePtr root = xmlDocGetRootElement(doc);
-        if (!root) {
-            xmlFreeDoc(doc);
-            emit error(QString("GraphController: Invalid XML structure in: %1").arg(path));
-            return;
-        }
-        
-        // Load nodes and edges through factory
-        m_factory->loadFromXmlFile(path);
-        
-        xmlFreeDoc(doc);
-        emit xmlLoaded(path);
-        qDebug() << "GraphController: XML loaded successfully";
-    } catch (const std::exception& e) {
-        emit error(QString("GraphController: Error loading XML: %1").arg(e.what()));
-    }
-}
-
-void GraphController::rebuildXml()
-{
-    qDebug() << "GraphController: Rebuilding XML from scene";
-    
-    // This would trigger XmlLiveSync to rebuild the XML from the current scene state
-    // For now, we'll just log the action
-    qDebug() << "GraphController: XML rebuild requested";
-}
-
-QString GraphController::getXmlString()
-{
-    if (!m_scene) {
-        return QString();
-    }
-    
-    try {
-        // Create XML document
-        xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
-        xmlNodePtr root = xmlNewNode(NULL, BAD_CAST "graph");
-        xmlDocSetRootElement(doc, root);
-        xmlNewProp(root, BAD_CAST "version", BAD_CAST "1.0");
-        
-        // Add nodes
-        const auto& nodes = m_scene->getNodes();
-        for (Node* node : nodes.values()) {
-            node->write(doc, root);
-        }
-        
-        // Add edges
-        const auto& edges = m_scene->getEdges();
-        for (Edge* edge : edges.values()) {
-            edge->write(doc, root);
-        }
-        
-        // Convert to string
-        xmlChar* xmlStr;
-        int size;
-        xmlDocDumpFormatMemoryEnc(doc, &xmlStr, &size, "UTF-8", 1);
-        
-        QString result = QString::fromUtf8(reinterpret_cast<const char*>(xmlStr));
-        
-        xmlFree(xmlStr);
-        xmlFreeDoc(doc);
-        
-        return result;
-    } catch (const std::exception& e) {
-        emit error(QString("GraphController: Error generating XML string: %1").arg(e.what()));
-        return QString();
-    }
-}
-
-QVariantMap GraphController::getStats()
-{
-    QVariantMap stats;
-    
-    if (!m_scene) {
-        stats["nodes"] = 0;
-        stats["edges"] = 0;
-        return stats;
-    }
-    
-    const auto& nodes = m_scene->getNodes();
-    const auto& edges = m_scene->getEdges();
-    
-    stats["nodes"] = nodes.size();
-    stats["edges"] = edges.size();
-    
-    // Count by node type
-    QVariantMap nodeTypes;
-    for (Node* node : nodes.values()) {
-        QString type = node->getNodeType();
-        nodeTypes[type] = nodeTypes[type].toInt() + 1;
-    }
-    stats["nodeTypes"] = nodeTypes;
-    
-    return stats;
-}
-
-bool GraphController::isValidNodeType(const QString& type)
-{
-    QStringList registeredTypes = NodeRegistry::instance().getRegisteredTypes();
-    bool isValid = registeredTypes.contains(type);
-    qDebug() << "GraphController: Type validation:" << type << "→" << (isValid ? "VALID" : "INVALID");
-    return isValid;
-}
-
-QStringList GraphController::getValidNodeTypes()
-{
-    QStringList types = NodeRegistry::instance().getRegisteredTypes();
-    qDebug() << "GraphController: Available node types:" << types;
-    return types;
-}
-
-Node* GraphController::findNode(const QString& uuid)
-{
-    if (!m_scene) {
-        return nullptr;
-    }
-    
-    QUuid nodeId = QUuid::fromString(uuid);
-    return m_scene->getNode(nodeId);
-}
-
-Edge* GraphController::findEdge(const QString& uuid)
-{
-    if (!m_scene) {
-        return nullptr;
-    }
-    
-    QUuid edgeId = QUuid::fromString(uuid);
-    return m_scene->getEdge(edgeId);
-}
-
-QVariantMap GraphController::nodeToVariant(Node* node)
-{
-    QVariantMap nodeData;
-    
-    if (!node) {
-        return nodeData;
-    }
-    
-    nodeData["id"] = node->getId().toString();
-    nodeData["type"] = node->getNodeType();
-    nodeData["x"] = node->pos().x();
-    nodeData["y"] = node->pos().y();
-    
-    // Add node dimensions
-    QRectF bounds = node->boundingRect();
-    nodeData["width"] = bounds.width();
-    nodeData["height"] = bounds.height();
-    
-    // Add selection state
-    nodeData["selected"] = node->isSelected();
-    
-    // Add socket information with enhanced details
-    QVariantList sockets;
-    int inputCount = 0;
-    int outputCount = 0;
-    
-    for (QGraphicsItem* item : node->childItems()) {
-        if (Socket* socket = qgraphicsitem_cast<Socket*>(item)) {
-            QVariantMap socketData;
-            socketData["index"] = socket->getIndex();
-            socketData["type"] = (socket->getRole() == Socket::Input) ? "input" : "output";
-            socketData["connected"] = socket->isConnected();
-            
-            // Add socket position relative to node
-            QPointF socketPos = socket->pos();
-            socketData["relativeX"] = socketPos.x();
-            socketData["relativeY"] = socketPos.y();
-            
-            sockets.append(socketData);
-            
-            if (socket->getRole() == Socket::Input) {
-                inputCount++;
-            } else {
-                outputCount++;
-            }
-        }
-    }
-    
-    nodeData["sockets"] = sockets;
-    nodeData["inputCount"] = inputCount;
-    nodeData["outputCount"] = outputCount;
-    nodeData["totalSockets"] = sockets.size();
-    
-    // Add edge connection information
-    nodeData["connectedEdges"] = node->getIncidentEdgeCount();
-    
-    return nodeData;
-}
-
-QVariantMap GraphController::edgeToVariant(Edge* edge)
-{
-    QVariantMap edgeData;
-    
-    if (!edge) {
-        return edgeData;
-    }
-    
-    edgeData["id"] = edge->getId().toString();
-    
-    // Add connection information
-    Socket* fromSocket = edge->getFromSocket();
-    Socket* toSocket = edge->getToSocket();
-    
-    if (fromSocket && toSocket) {
-        edgeData["fromNode"] = fromSocket->getParentNode()->getId().toString();
-        edgeData["fromIndex"] = fromSocket->getIndex();
-        edgeData["toNode"] = toSocket->getParentNode()->getId().toString();
-        edgeData["toIndex"] = toSocket->getIndex();
-    }
-    
-    return edgeData;
-}
-
-
 /// ===== FILE: graph_factory.h =====
 #pragma once
 
@@ -3128,9 +2601,9 @@ class Edge;
 class Scene;  // Forward declaration for custom scene type
 
 /**
- * GraphFactory - XML-First Object Creation with NodeRegistry
+ * GraphFactory - XML-First Object Creation with Templates
  *
- * Simplified factory that uses NodeRegistry for type-based creation.
+ * Simplified factory that uses NodeTypeTemplates for type-based creation.
  * Enforces XML-first discipline while allowing extensible node types.
  */
 class GraphFactory
@@ -3138,43 +2611,23 @@ class GraphFactory
 public:
     // Initialize factory with scene and XML document
     GraphFactory(Scene* scene, xmlDocPtr xmlDoc);
-    
+
     // XML-first creation methods
     Node* createNodeFromXml(xmlNodePtr xmlNode);
-    Edge* createEdgeFromXml(xmlNodePtr xmlEdge);
-    
+
     // Runtime creation (creates XML first, then objects)
     Node* createNode(const QString& nodeType, const QPointF& position, int inputs = 1, int outputs = 1);
-    Edge* createEdge(Node* fromNode, int fromSocketIndex, Node* toNode, int toSocketIndex);
-    
-    // Atomic edge connection - enforces proper edge creation
-    Edge* connectSockets(Socket* fromSocket, Socket* toSocket);
-    
-    // Post-load validation
-    bool validateGraphIntegrity() const;
-    
-    // XML file loading
-    bool loadFromXmlFile(const QString& filePath);
-    
-    // Clean design: socket resolution handled by edges internally
-    
-    // Socket factory method - prevents manual socket creation
-    Socket* createSocket(Socket::Role role, Node* parentNode, int index);
-    
+
     // Utility to get XML property
     static QString getXmlProperty(xmlNodePtr node, const QString& name);
 
 private:
     Scene* m_scene;  // ✅ Type-safe: GraphFactory always requires custom Scene
     xmlDocPtr m_xmlDocument;
-    
+
     // Helper methods
     xmlNodePtr createXmlNode(const QString& nodeType, const QPointF& position, int inputs = 1, int outputs = 1);
-    xmlNodePtr createXmlEdgeNodeIndex(const QUuid& fromNodeId, int fromSocketIndex, const QUuid& toNodeId, int toSocketIndex);
-    
-    // Get nodes/edges parent elements in XML
     xmlNodePtr getNodesElement();
-    xmlNodePtr getEdgesElement();
 };
 
 
@@ -3249,42 +2702,6 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode)
     return node;
 }
 
-Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge)
-{
-    if (!xmlEdge) {
-        qWarning() << "GraphFactory::createEdgeFromXml - null XML edge";
-        return nullptr;
-    }
-    
-    // Get edge properties from XML (new node+index format)
-    QString edgeId = getXmlProperty(xmlEdge, "id");
-    QString fromNode = getXmlProperty(xmlEdge, "fromNode");
-    QString toNode = getXmlProperty(xmlEdge, "toNode");
-    QString fromIndex = getXmlProperty(xmlEdge, "fromSocketIndex");
-    QString toIndex = getXmlProperty(xmlEdge, "toSocketIndex");
-    
-    if (edgeId.isEmpty() || fromNode.isEmpty() || toNode.isEmpty() || 
-        fromIndex.isEmpty() || toIndex.isEmpty()) {
-        qWarning() << "GraphFactory::createEdgeFromXml - missing required node+index attributes";
-        qWarning() << "Required: id, fromNode, toNode, fromSocketIndex, toSocketIndex";
-        return nullptr;
-    }
-    
-    // Create edge object with temporary UUIDs (will be resolved in read())
-    Edge* edge = new Edge(QUuid::fromString(edgeId), QUuid(), QUuid());
-    
-    // Let the edge read its XML and configure itself
-    edge->read(xmlEdge);
-    
-    // Add to scene's typed collection
-    m_scene->addEdge(edge);
-    
-    qDebug() << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
-             << "from node:" << fromNode.left(8) << "socket" << fromIndex
-             << "to node:" << toNode.left(8) << "socket" << toIndex;
-    
-    return edge;
-}
 
 Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position, int inputs, int outputs)
 {
@@ -3304,213 +2721,6 @@ Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position,
     return createNodeFromXml(xmlNode);
 }
 
-Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode, int toSocketIndex)
-{
-    if (!m_xmlDocument) {
-        qCritical() << "GraphFactory::createEdge - no XML document";
-        return nullptr;
-    }
-    
-    if (!fromNode || !toNode) {
-        qCritical() << "GraphFactory::createEdge - null node(s)";
-        return nullptr;
-    }
-    
-    // Get actual socket UUIDs by finding sockets by index
-    Socket* fromSocket = fromNode->getSocketByIndex(fromSocketIndex);
-    Socket* toSocket = toNode->getSocketByIndex(toSocketIndex);
-    
-    if (!fromSocket || !toSocket) {
-        qCritical() << "GraphFactory::createEdge - invalid socket index(es)";
-        return nullptr;
-    }
-    
-    // Create XML edge using clean node+index format
-    xmlNodePtr xmlEdge = createXmlEdgeNodeIndex(fromNode->getId(), fromSocketIndex, toNode->getId(), toSocketIndex);
-    if (!xmlEdge) {
-        qCritical() << "GraphFactory::createEdge - failed to create XML edge";
-        return nullptr;
-    }
-    
-    qDebug() << "GraphFactory: Created XML edge from node" << fromNode->getId().toString(QUuid::WithoutBraces).left(8) 
-             << "socket" << fromSocketIndex << "to node" << toNode->getId().toString(QUuid::WithoutBraces).left(8)
-             << "socket" << toSocketIndex;
-    
-    // Create object from XML
-    return createEdgeFromXml(xmlEdge);
-}
-
-Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
-{
-    if (!fromSocket || !toSocket) {
-        qCritical() << "GraphFactory::connectSockets - null socket(s)";
-        return nullptr;
-    }
-    
-    if (!m_xmlDocument) {
-        qCritical() << "GraphFactory::connectSockets - no XML document";
-        return nullptr;
-    }
-    
-    // Get parent nodes for clean node+index approach
-    Node* fromNode = fromSocket->getParentNode();
-    Node* toNode = toSocket->getParentNode();
-    
-    if (!fromNode || !toNode) {
-        qCritical() << "GraphFactory::connectSockets - sockets have no parent nodes";
-        return nullptr;
-    }
-    
-    // Optimized: Create edge directly in memory, serialize later
-    QUuid edgeId = QUuid::createUuid();
-    Edge* edge = new Edge(edgeId, QUuid(), QUuid());
-    
-    // Set connection data directly without XML round-trip
-    edge->setConnectionData(fromNode->getId().toString(QUuid::WithoutBraces), toNode->getId().toString(QUuid::WithoutBraces),
-                           fromSocket->getIndex(), toSocket->getIndex());
-    
-    // Resolve connections immediately since we have the sockets
-    edge->setResolvedSockets(fromSocket, toSocket);
-    
-    // Add to scene
-    m_scene->addEdge(edge);
-    
-    // Create XML for persistence (lazy serialization)
-    xmlNodePtr xmlEdge = createXmlEdgeNodeIndex(fromNode->getId(), fromSocket->getIndex(), 
-                                                toNode->getId(), toSocket->getIndex());
-    if (!xmlEdge) {
-        qWarning() << "GraphFactory::connectSockets - XML serialization failed (edge still created)";
-    }
-    
-    // Connect sockets atomically
-    fromSocket->setConnectedEdge(edge);
-    toSocket->setConnectedEdge(edge);
-    
-    qDebug() << "GraphFactory: Atomically connected sockets" 
-             << "index" << fromSocket->getIndex()
-             << "to index" << toSocket->getIndex();
-    
-    return edge;
-}
-
-bool GraphFactory::loadFromXmlFile(const QString& filePath)
-{
-    qDebug() << "=== GraphFactory: Loading from XML File ===" << filePath;
-    
-    // OPTIMIZATION: Enable batch mode to prevent observer storm during bulk loading
-    GraphSubject::beginBatch();
-    
-    // Parse XML file
-    xmlDocPtr doc = xmlParseFile(filePath.toUtf8().constData());
-    if (!doc) {
-        qCritical() << "GraphFactory::loadFromXmlFile - failed to parse XML file:" << filePath;
-        GraphSubject::endBatch();  // Clean up batch mode on error
-        return false;
-    }
-    
-    xmlNodePtr root = xmlDocGetRootElement(doc);
-    if (!root) {
-        qCritical() << "GraphFactory::loadFromXmlFile - no root element";
-        xmlFreeDoc(doc);
-        GraphSubject::endBatch();  // Clean up batch mode on error
-        return false;
-    }
-    
-    if (xmlStrcmp(root->name, (const xmlChar*)"graph") != 0) {
-        qCritical() << "Invalid XML file: root element should be 'graph'";
-        xmlFreeDoc(doc);
-        GraphSubject::endBatch();  // Clean up batch mode on error
-        return false;
-    }
-    
-    qDebug() << "✓ XML file parsed successfully";
-    
-    // PHASE 1: Load ALL nodes first - handle both direct and nested formats
-    QVector<Node*> allNodes;
-    
-    // Check if nodes are direct children or nested under <nodes>
-    xmlNodePtr nodesContainer = nullptr;
-    for (xmlNodePtr child = root->children; child; child = child->next) {
-        if (child->type == XML_ELEMENT_NODE && xmlStrcmp(child->name, (const xmlChar*)"nodes") == 0) {
-            nodesContainer = child;
-            break;
-        }
-    }
-    
-    // Load nodes from appropriate location
-    xmlNodePtr nodeParent = nodesContainer ? nodesContainer : root;
-    qDebug() << "=== Loading Nodes" << (nodesContainer ? "from <nodes> wrapper" : "directly from root") << "===";
-    
-    for (xmlNodePtr xmlNode = nodeParent->children; xmlNode; xmlNode = xmlNode->next) {
-        if (xmlNode->type == XML_ELEMENT_NODE && xmlStrcmp(xmlNode->name, (const xmlChar*)"node") == 0) {
-            
-            // Check if this node has the format we support (inputs/outputs attributes)
-            xmlChar* inputsAttr = xmlGetProp(xmlNode, BAD_CAST "inputs");
-            xmlChar* outputsAttr = xmlGetProp(xmlNode, BAD_CAST "outputs");
-            
-            if (inputsAttr && outputsAttr) {
-                // Our format: <node inputs="1" outputs="1" />
-                Node* node = createNodeFromXml(xmlNode);
-                if (node) {
-                    allNodes.append(node);
-                    qDebug() << "✓ Loaded node:" << node->getNodeType() 
-                             << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
-                }
-                xmlFree(inputsAttr);
-                xmlFree(outputsAttr);
-            } else {
-                // Nested socket format: <node><socket /></node> - skip
-                qDebug() << "Skipping node with nested socket format (not supported)";
-                if (inputsAttr) xmlFree(inputsAttr);
-                if (outputsAttr) xmlFree(outputsAttr);
-            }
-        }
-    }
-    
-    // PHASE 2: Load edges (but don't resolve connections yet)
-    QVector<Edge*> allEdges;
-    qDebug() << "=== Loading Edges directly from root ===";
-    for (xmlNodePtr xmlNode = root->children; xmlNode; xmlNode = xmlNode->next) {
-        if (xmlNode->type == XML_ELEMENT_NODE && xmlStrcmp(xmlNode->name, (const xmlChar*)"edge") == 0) {
-            Edge* edge = createEdgeFromXml(xmlNode);
-            if (edge) {
-                allEdges.append(edge);
-                qDebug() << "✓ Loaded edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            }
-        }
-    }
-    
-    qDebug() << "=== XML Loading Complete ===";
-    qDebug() << "✓ Loaded" << allNodes.size() << "nodes and" << allEdges.size() << "edges";
-    
-    xmlFreeDoc(doc);
-    
-    // PHASE 3: Resolve all edge connections now that all nodes exist
-    qDebug() << "=== Resolving Edge Connections ===";
-    int successfulConnections = 0;
-    for (Edge* edge : allEdges) {
-        qDebug() << "Resolving edge:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-        if (edge->resolveConnections(m_scene)) {
-            successfulConnections++;
-        } else {
-            qWarning() << "FAILED to resolve edge connections:" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-        }
-    }
-    
-    qDebug() << "✓ Graph loaded:" << allNodes.size() << "nodes," << successfulConnections << "/" << allEdges.size() << "edges connected";
-    
-    // OPTIMIZATION: End batch mode to resume normal observer notifications
-    GraphSubject::endBatch();
-    
-    // Validate graph integrity in debug builds
-    #ifdef QT_DEBUG
-    if (!validateGraphIntegrity()) {
-        qWarning() << "Graph integrity validation failed after loading";
-    }
-    #endif
-    
-    return true;
-}
 
 QString GraphFactory::getXmlProperty(xmlNodePtr node, const QString& name)
 {
@@ -3550,31 +2760,6 @@ xmlNodePtr GraphFactory::createXmlNode(const QString& nodeType, const QPointF& p
     return nodeElement;
 }
 
-xmlNodePtr GraphFactory::createXmlEdgeNodeIndex(const QUuid& fromNodeId, int fromSocketIndex, const QUuid& toNodeId, int toSocketIndex)
-{
-    xmlNodePtr edgesElement = getEdgesElement();
-    if (!edgesElement) {
-        qCritical() << "GraphFactory::createXmlEdgeNodeIndex - no edges element in XML";
-        return nullptr;
-    }
-    
-    // Create new edge element
-    xmlNodePtr edgeElement = xmlNewChild(edgesElement, nullptr, BAD_CAST "edge", nullptr);
-    
-    // Set attributes using clean node+index format
-    QUuid edgeId = QUuid::createUuid();
-    xmlSetProp(edgeElement, BAD_CAST "id", BAD_CAST edgeId.toString(QUuid::WithoutBraces).toUtf8().constData());
-    xmlSetProp(edgeElement, BAD_CAST "fromNode", BAD_CAST fromNodeId.toString(QUuid::WithoutBraces).toUtf8().constData());
-    xmlSetProp(edgeElement, BAD_CAST "toNode", BAD_CAST toNodeId.toString(QUuid::WithoutBraces).toUtf8().constData());
-    xmlSetProp(edgeElement, BAD_CAST "fromSocketIndex", BAD_CAST QString::number(fromSocketIndex).toUtf8().constData());
-    xmlSetProp(edgeElement, BAD_CAST "toSocketIndex", BAD_CAST QString::number(toSocketIndex).toUtf8().constData());
-    
-    qDebug() << "GraphFactory: Created XML edge, id:" << edgeId.toString(QUuid::WithoutBraces).left(8)
-             << "from node:" << fromNodeId.toString(QUuid::WithoutBraces).left(8) << "socket" << fromSocketIndex
-             << "to node:" << toNodeId.toString(QUuid::WithoutBraces).left(8) << "socket" << toSocketIndex;
-    
-    return edgeElement;
-}
 
 xmlNodePtr GraphFactory::getNodesElement()
 {
@@ -3595,253 +2780,7 @@ xmlNodePtr GraphFactory::getNodesElement()
     return nodesElement;
 }
 
-xmlNodePtr GraphFactory::getEdgesElement()
-{
-    if (!m_xmlDocument) return nullptr;
-    
-    xmlNodePtr root = xmlDocGetRootElement(m_xmlDocument);
-    if (!root) return nullptr;
-    
-    // Find or create <edges> or <connections> element
-    for (xmlNodePtr child = root->children; child; child = child->next) {
-        if (xmlStrcmp(child->name, BAD_CAST "edges") == 0 ||
-            xmlStrcmp(child->name, BAD_CAST "connections") == 0) {
-            return child;
-        }
-    }
-    
-    // Create connections element if it doesn't exist
-    xmlNodePtr connectionsElement = xmlNewChild(root, nullptr, BAD_CAST "connections", nullptr);
-    return connectionsElement;
-}
 
-// Clean design: socket resolution handled by edges internally - method removed
-
-// No socket resolver needed in clean design - edges use direct socket pointers
-
-bool GraphFactory::validateGraphIntegrity() const
-{
-    if (!m_scene) {
-        qCritical() << "GraphFactory::validateGraphIntegrity - no scene";
-        return false;
-    }
-    
-    bool valid = true;
-
-    // Validate all nodes have UUIDs and observers
-    for (Node* node : m_scene->getNodes().values()) {
-        if (!node) {
-            qCritical() << "Validation: null node in scene";
-            valid = false;
-            continue;
-        }
-        
-        if (node->getId().isNull()) {
-            qCritical() << "Validation: node without UUID";
-            valid = false;
-        }
-        
-        // Check sockets belong to parent node
-        for (QGraphicsItem* child : node->childItems()) {
-            if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-                if (socket->getParentNode() != node) {
-                    qCritical() << "Validation: socket parent mismatch";
-                    valid = false;
-                }
-            }
-        }
-    }
-    
-    // Validate all edges have valid socket connections
-    for (Edge* edge : m_scene->getEdges().values()) {
-        if (!edge) {
-            qCritical() << "Validation: null edge in scene";
-            valid = false;
-            continue;
-        }
-
-        if (edge->getId().isNull()) {
-            qCritical() << "Validation: edge without UUID";
-            valid = false;
-        }
-
-        // Clean design: edges should have been resolved during loading
-        // Skip validation - edges were validated during resolveConnections() call
-    }
-
-    // Validate scene count matches typed collections
-    int sceneItems = m_scene->items().size();
-    int typedItems = m_scene->getNodes().size() + m_scene->getEdges().size();
-
-    // Account for sockets as children
-    int socketCount = 0;
-    for (Node* node : m_scene->getNodes().values()) {
-        socketCount += node->getSocketCount();
-    }
-    typedItems += socketCount;
-    
-    if (sceneItems != typedItems) {
-        qWarning() << "Validation: scene item count mismatch - scene:" << sceneItems 
-                   << "typed:" << typedItems;
-        // This is a warning, not an error - some items might be temporary
-    }
-    
-    if (valid) {
-        qDebug() << "✓ Graph integrity validation passed";
-    }
-    
-    return valid;
-}
-
-Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int index)
-{
-    if (!parentNode) {
-        qCritical() << "GraphFactory::createSocket - null parent node";
-        return nullptr;
-    }
-    
-    // Create socket with factory access
-    Socket* socket = new Socket(role, parentNode, index);
-    if (!socket) {
-        qCritical() << "GraphFactory::createSocket - failed to create socket";
-        return nullptr;
-    }
-    
-    // Add to scene's typed collection
-    m_scene->addSocket(socket);
-    
-    qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
-             << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
-    
-    return socket;
-}
-
-
-/// ===== FILE: node_registry.h =====
-#pragma once
-
-#include <QString>
-#include <QMap>
-#include <functional>
-
-class Node;
-
-/**
- * NodeRegistry - Factory registry for node types
- * 
- * Allows registering node types by string name and creating instances
- * without the factory knowing about concrete types.
- * 
- * Usage:
- *   NodeRegistry::instance().registerNode("SOURCE", []() { return new SourceNode(); });
- *   Node* node = NodeRegistry::instance().createNode("SOURCE");
- */
-
-using NodeFactoryFunction = std::function<Node*()>;
-
-class NodeRegistry
-{
-public:
-    // Singleton instance
-    static NodeRegistry& instance();
-    
-    // Register a node type with its factory function
-    void registerNode(const QString& typeName, NodeFactoryFunction factory);
-    
-    // Create a node instance by type name
-    Node* createNode(const QString& typeName) const;
-    
-    // Check if a type is registered
-    bool isRegistered(const QString& typeName) const;
-    
-    // Get all registered type names
-    QStringList getRegisteredTypes() const;
-    
-    // Clear all registrations (for testing)
-    void clear();
-
-private:
-    NodeRegistry() = default;
-    NodeRegistry(const NodeRegistry&) = delete;
-    NodeRegistry& operator=(const NodeRegistry&) = delete;
-    
-    QMap<QString, NodeFactoryFunction> m_factories;
-};
-
-/**
- * Convenience macro for registering node types
- * Use this in the .cpp file of each node type:
- * 
- * REGISTER_NODE_TYPE("SOURCE", SourceNode)
- */
-#define REGISTER_NODE_TYPE(typeName, className) \
-    namespace { \
-        struct Register##className { \
-            Register##className() { \
-                NodeRegistry::instance().registerNode(typeName, []() { \
-                    return new className(); \
-                }); \
-            } \
-        }; \
-        static Register##className register##className##Instance; \
-    }
-
-
-
-/// ===== FILE: node_registry.cpp =====
-#include "node_registry.h"
-#include "node.h"
-#include <QDebug>
-
-NodeRegistry& NodeRegistry::instance()
-{
-    static NodeRegistry registry;
-    return registry;
-}
-
-void NodeRegistry::registerNode(const QString& typeName, NodeFactoryFunction factory)
-{
-    if (m_factories.contains(typeName)) {
-        qWarning() << "NodeRegistry: Overwriting existing registration for type:" << typeName;
-    }
-    
-    m_factories[typeName] = factory;
-    qDebug() << "NodeRegistry: Registered node type:" << typeName;
-}
-
-Node* NodeRegistry::createNode(const QString& typeName) const
-{
-    auto it = m_factories.find(typeName);
-    if (it != m_factories.end()) {
-        Node* node = it.value()();
-        if (node) {
-            qDebug() << "NodeRegistry: Created node of type:" << typeName;
-            return node;
-        } else {
-            qCritical() << "NodeRegistry: Factory function returned null for type:" << typeName;
-        }
-    } else {
-        qWarning() << "NodeRegistry: Unknown node type requested:" << typeName;
-        qDebug() << "Available types:" << getRegisteredTypes();
-    }
-    return nullptr;
-}
-
-bool NodeRegistry::isRegistered(const QString& typeName) const
-{
-    return m_factories.contains(typeName);
-}
-
-QStringList NodeRegistry::getRegisteredTypes() const
-{
-    return m_factories.keys();
-}
-
-void NodeRegistry::clear()
-{
-    qDebug() << "NodeRegistry: Clearing all registrations";
-    m_factories.clear();
-}
 
 
 /// ===== FILE: window.h =====
@@ -3917,13 +2856,8 @@ public slots:
     // File management
     void setCurrentFile(const QString& filename);
     QString getCurrentFile() const { return m_currentFile; }
-    
-    // Interactive node creation
-    void createInputNode();
-    void createOutputNode();
-    void createProcessorNode();
-    
-    // Node creation from palette (will be implemented with proper includes)
+
+    // Node creation from palette (template system only)
     void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
                               const QString& name, int inputSockets, int outputSockets);
     
@@ -3944,10 +2878,9 @@ private slots:
     
     // Selection info update
     void updateSelectionInfo();
-    
-    // Palette integration
-    void onNodeCreationRequested();
-    
+
+    // Palette integration removed - nodes created via drag-and-drop only
+
 protected:
     // Handle keyboard shortcuts
     void keyPressEvent(QKeyEvent* event) override;
@@ -3961,11 +2894,8 @@ private:
     xmlDocPtr m_xmlDocument;
     XmlAutosaveObserver* m_autosaveObserver;
 
-    // UI elements
-    QAction* m_addInputAction;
-    QAction* m_addOutputAction;
-    QAction* m_addProcessorAction;
-    
+    // UI elements - legacy actions removed (use NodePalette instead)
+
     // Professional node palette system
     QDockWidget* m_nodePaletteDock;
     NodePaletteWidget* m_nodePalette;
@@ -4134,21 +3064,8 @@ Window::~Window()
 
 void Window::setupActions()
 {
-    // Create actions for node creation
-    m_addInputAction = new QAction("Add Input", this);
-    m_addInputAction->setToolTip("Add Input Node (Ctrl+1)");
-    m_addInputAction->setShortcut(QKeySequence("Ctrl+1"));
-    connect(m_addInputAction, &QAction::triggered, this, &Window::createInputNode);
-    
-    m_addOutputAction = new QAction("Add Output", this);
-    m_addOutputAction->setToolTip("Add Output Node (Ctrl+2)");
-    m_addOutputAction->setShortcut(QKeySequence("Ctrl+2"));
-    connect(m_addOutputAction, &QAction::triggered, this, &Window::createOutputNode);
-    
-    m_addProcessorAction = new QAction("Add Processor", this);
-    m_addProcessorAction->setToolTip("Add Processor Node (Ctrl+3)");
-    m_addProcessorAction->setShortcut(QKeySequence("Ctrl+3"));
-    connect(m_addProcessorAction, &QAction::triggered, this, &Window::createProcessorNode);
+    // Legacy node creation actions removed - use NodePalette instead
+    // All node types are created through the template system (SOURCE, SINK, TRANSFORM, MERGE, SPLIT)
 }
 
 
@@ -4156,15 +3073,6 @@ void Window::keyPressEvent(QKeyEvent* event)
 {
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
-            case Qt::Key_1:
-                createInputNode();
-                break;
-            case Qt::Key_2:
-                createOutputNode();
-                break;
-            case Qt::Key_3:
-                createProcessorNode();
-                break;
             case Qt::Key_S:
                 if (event->modifiers() & Qt::ShiftModifier) {
                     // Ctrl+Shift+S = Save As
@@ -4309,7 +3217,7 @@ bool Window::loadGraph(const QString& filename)
     
     // Use GraphFactory to load from XML file
     qDebug() << "Starting GraphFactory XML load...";
-    if (m_factory->loadFromXmlFile(filename)) {
+    if (m_graph->loadXml(filename)) {
         qint64 elapsed = timer.elapsed();
         
         // Set current file for Ctrl+S functionality
@@ -4340,66 +3248,6 @@ bool Window::loadGraph(const QString& filename)
             QString("Failed to load graph from file.\n\nFile: %1")
             .arg(QFileInfo(filename).fileName()));
         return false;
-    }
-}
-
-void Window::createInputNode()
-{
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create input node using factory (XML-first approach)
-    Node* node = m_factory->createNode("IN", position, 0, 2);  // 0 inputs, 2 outputs
-    
-    if (node) {
-        qDebug() << "✓ Created input node at" << position;
-    } else {
-        qDebug() << "✗ Failed to create input node";
-    }
-}
-
-void Window::createOutputNode()
-{
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create output node using factory (XML-first approach)
-    Node* node = m_factory->createNode("OUT", position, 2, 0);  // 2 inputs, 0 outputs
-    
-    if (node) {
-        qDebug() << "✓ Created output node at" << position;
-    } else {
-        qDebug() << "✗ Failed to create output node";
-    }
-}
-
-void Window::createProcessorNode()
-{
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create processor node using factory (XML-first approach)
-    Node* node = m_factory->createNode("PROC", position, 2, 2);  // 2 inputs, 2 outputs
-    
-    if (node) {
-        qDebug() << "✓ Created processor node at" << position;
-    } else {
-        qDebug() << "✗ Failed to create processor node";
     }
 }
 
@@ -4589,14 +3437,9 @@ void Window::createViewMenu()
 void Window::createToolsMenu()
 {
     m_toolsMenu = menuBar()->addMenu("&Tools");
-    
-    // Node creation submenu
-    QMenu* createNodeMenu = m_toolsMenu->addMenu("&Create Node");
-    createNodeMenu->addAction(m_addInputAction);
-    createNodeMenu->addAction(m_addOutputAction);
-    createNodeMenu->addAction(m_addProcessorAction);
-    
-    m_toolsMenu->addSeparator();
+
+    // Legacy "Create Node" submenu removed - use NodePalette instead
+    // All node creation now goes through template system (drag from palette)
     
     QAction* validateAction = new QAction("&Validate Graph", this);
     validateAction->setStatusTip("Check graph for errors and inconsistencies");
@@ -4707,9 +3550,8 @@ void Window::setupDockWidgets()
     // Add dock widget to left side
     addDockWidget(Qt::LeftDockWidgetArea, m_nodePaletteDock);
     
-    // Connect palette signals
-    connect(m_nodePalette, &NodePaletteWidget::nodeCreationRequested, 
-            this, &Window::onNodeCreationRequested);
+    // Note: Node creation handled via drag-and-drop (View::nodeDropped signal)
+    // NodeCreationRequested signal not used - nodes created only through template system
     
 }
 
@@ -5007,19 +3849,7 @@ void Window::showEvent(QShowEvent* event)
     }
 }
 
-void Window::onNodeCreationRequested()
-{
-    // The signal includes the nodeTemplate, but we need to handle it via sender() for now
-    // due to header file forward declaration limitations
-    
-    // For double-click from palette, create node at center of view
-    QPointF centerPoint = m_view->mapToScene(m_view->rect().center());
-    
-    // We'll implement drag-and-drop separately - for now just handle the signal connection
-    
-    // Create a default input node for testing
-    createNodeFromPalette(centerPoint, "IN", "Input", 0, 2);
-}
+// onNodeCreationRequested() removed - nodes created only via drag-and-drop from palette
 
 
 
@@ -6509,7 +5339,6 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
 class Node;
 class Edge;
 class Scene;
-class GraphController;
 class GraphFactory;
 class QGraph;
 
@@ -6537,8 +5366,7 @@ public:
     // API registration
     void registerNodeAPI(Scene* scene);
     void registerGraphAPI();
-    void registerGraphController(Scene* scene, GraphFactory* factory);
-    void registerQGraph(QGraph* graph);  // New: Register QGraph with state tracking
+    void registerQGraph(QGraph* graph);  // Register QGraph with state tracking
     
     // Node scripting support
     QJSValue createNodeScript(const QString& nodeType, const QString& script);
@@ -6584,8 +5412,7 @@ private:
     
     QJSEngine* m_engine;
     Scene* m_scene;
-    GraphController* m_graphController;
-    QGraph* m_qgraph;  // New: QGraph instance with state tracking
+    QGraph* m_qgraph;  // QGraph instance with state tracking
     QString m_lastError;
     QMap<QString, QJSValue> m_scriptModules;
 };
@@ -6596,7 +5423,6 @@ private:
 #include "node.h"
 #include "edge.h"
 #include "scene.h"
-#include "graph_controller.h"
 #include "graph_factory.h"
 #include "qgraph.h"
 #include <QFile>
@@ -6608,7 +5434,6 @@ JavaScriptEngine::JavaScriptEngine(QObject* parent)
     : QObject(parent)
     , m_engine(new QJSEngine(this))
     , m_scene(nullptr)
-    , m_graphController(nullptr)
     , m_qgraph(nullptr)
 {
     setupGlobalAPI();
@@ -6837,41 +5662,6 @@ void JavaScriptEngine::registerGraphAPI()
     m_engine->globalObject().setProperty("Algorithms", algorithms);
     
     qDebug() << "JavaScriptEngine: Graph algorithms registered";
-}
-
-void JavaScriptEngine::registerGraphController(Scene* scene, GraphFactory* factory)
-{
-    m_scene = scene;
-    
-    // Create GraphController instance
-    m_graphController = new GraphController(scene, factory, this);
-    
-    // Register as global Graph object
-    QJSValue controllerValue = m_engine->newQObject(m_graphController);
-    m_engine->globalObject().setProperty("Graph", controllerValue);
-    
-    // Connect signals for debugging
-    connect(m_graphController, &GraphController::nodeCreated, [](const QString& uuid) {
-        qDebug() << "JavaScript: Node created:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::nodeDeleted, [](const QString& uuid) {
-        qDebug() << "JavaScript: Node deleted:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::edgeCreated, [](const QString& uuid) {
-        qDebug() << "JavaScript: Edge created:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::edgeDeleted, [](const QString& uuid) {
-        qDebug() << "JavaScript: Edge deleted:" << uuid;
-    });
-    
-    connect(m_graphController, &GraphController::error, [](const QString& message) {
-        qDebug() << "JavaScript Graph Error:" << message;
-    });
-    
-    qDebug() << "JavaScriptEngine: GraphController registered as 'Graph' global object";
 }
 
 void JavaScriptEngine::registerQGraph(QGraph* graph)
@@ -7764,326 +6554,18 @@ QString XmlAutosaveObserver::generateFullXml() const
 
 /// ===== FILE: main.cpp =====
 #include <QApplication>
-#include <QCommandLineParser>
-#include <QCommandLineOption>
-#include <QFileInfo>
-#include <QDebug>
-#include <QLoggingCategory>
-#include <QStandardPaths>
-#include <QDir>
-#include <QTextStream>
-#include <QDateTime>
-#include <QMutex>
-#include <QTimer>
-#include <QMessageBox>
-#include <QJSValue>
-#include <iostream>
-#include "window.h"
-#include "scene.h"
-#include "node.h"
-#include "edge.h"
-#include "graph_factory.h"
-#include "node_registry.h"
-#include "javascript_engine.h"
-
-void setupLogging()
-{
-    // Create logs directory if it doesn't exist
-    QDir logsDir("logs");
-    if (!logsDir.exists()) {
-        logsDir.mkpath(".");
-    }
-    
-    // Create timestamped log file
-    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
-    QString logFileName = QString("logs/NodeGraph_%1.log").arg(timestamp);
-    
-    // Redirect Qt debug output to file
-    static QFile debugFile(logFileName);
-    debugFile.open(QIODevice::WriteOnly | QIODevice::Append);
-    static QTextStream stream(&debugFile);
-    
-    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
-        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-        QString typeStr;
-        
-        switch (type) {
-        case QtDebugMsg:    typeStr = "DEBUG"; break;
-        case QtInfoMsg:     typeStr = "INFO "; break;
-        case QtWarningMsg:  typeStr = "WARN "; break;
-        case QtCriticalMsg: typeStr = "ERROR"; break;
-        case QtFatalMsg:    typeStr = "FATAL"; break;
-        }
-        
-        QString logEntry = QString("[%1] %2: %3").arg(timestamp, typeStr, msg);
-        
-        // Write to main log
-        stream << logEntry << Qt::endl;
-        stream.flush();
-        
-        // Write JavaScript-related messages to separate JS log
-        if (msg.contains("JavaScript", Qt::CaseInsensitive) || 
-            msg.contains("Script", Qt::CaseInsensitive) ||
-            msg.contains("QJSEngine", Qt::CaseInsensitive) ||
-            msg.contains("JS_ERROR", Qt::CaseInsensitive) ||
-            msg.contains("JS_EXECUTION", Qt::CaseInsensitive)) {
-            
-            static QFile jsLogFile(QString("logs/JavaScript_%1.log").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss")));
-            if (!jsLogFile.isOpen()) {
-                jsLogFile.open(QIODevice::WriteOnly | QIODevice::Append);
-            }
-            
-            if (jsLogFile.isOpen()) {
-                QTextStream jsStream(&jsLogFile);
-                jsStream << logEntry << Qt::endl;
-                jsStream.flush();
-            }
-        }
-    });
-    
-    qDebug() << "=== NodeGraph Application Started ===";
-    qDebug() << "Log file:" << logFileName;
-    qDebug() << "Timestamp:" << QDateTime::currentDateTime().toString();
-}
+#include "window.h"   // make sure this header exists and defines Window
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    
-    // Setup file logging
-    setupLogging();
-    
-    
-    // Set application metadata for Qt command line tools
-    QCoreApplication::setApplicationName("NodeGraph");
-    QCoreApplication::setApplicationVersion("1.0.0");
-    QCoreApplication::setOrganizationName("NodeGraph Project");
-    // setApplicationDisplayName not available in Qt 5.x on all platforms
-    
-    // Setup Qt5 command line parser
-    QCommandLineParser parser;
-    parser.setApplicationDescription("A self-serializing node graph editor with libxml2 backend");
-    parser.addHelpOption();
-    parser.addVersionOption();
-    
-    // Add file loading option
-    QCommandLineOption loadFileOption(QStringList() << "l" << "load",
-                                      "Load graph from XML file",
-                                      "file");
-    parser.addOption(loadFileOption);
 
-    // Add test option (runs default enumeration test)
-    QCommandLineOption testOption(QStringList() << "t" << "test",
-                                  "Run XML enumeration test on startup");
-    parser.addOption(testOption);
-
-    // Add script option (runs any JavaScript file)
-    QCommandLineOption scriptOption(QStringList() << "s" << "script",
-                                    "Run JavaScript test script on startup",
-                                    "script");
-    parser.addOption(scriptOption);
-
-    // Add positional argument for file
-    parser.addPositionalArgument("file", "XML file to load (optional)");
-    
-    // Process command line arguments
-    parser.process(app);
-    
-    // Command line parsing
-
-    // Create main window
+    // main() stays a pure bootstrapper — no XML, no factory, no I/O here.
     Window window;
-
-    // Handle file loading
-    QString filename;
-    if (parser.isSet(loadFileOption)) {
-        filename = parser.value(loadFileOption);
-    } else {
-        const QStringList positionalArgs = parser.positionalArguments();
-        if (!positionalArgs.isEmpty()) {
-            filename = positionalArgs.first();
-        }
-    }
-    
-    // Store information about file loading status for user notification
-    bool fileLoadAttempted = !filename.isEmpty();
-    QString originalFilename = filename; // Store original filename for user message
-    
-    xmlDocPtr xmlDoc = nullptr;
-    if (!filename.isEmpty()) {
-        
-        QFileInfo fileInfo(filename);
-        qDebug() << "File path analysis:";
-        qDebug() << "  - Absolute path:" << fileInfo.absoluteFilePath();
-        qDebug() << "  - File exists:" << fileInfo.exists();
-        qDebug() << "  - File readable:" << fileInfo.isReadable();
-        qDebug() << "  - File size:" << fileInfo.size() << "bytes";
-        qDebug() << "  - Directory:" << fileInfo.absoluteDir().absolutePath();
-        
-        if (fileInfo.exists() && fileInfo.isReadable()) {
-            qDebug() << "✓ File found and accessible, loading XML content...";
-            
-            // Load XML file using libxml2
-            xmlDoc = xmlParseFile(fileInfo.absoluteFilePath().toUtf8().constData());
-            if (!xmlDoc) {
-                qCritical() << "✗ Failed to parse XML file:" << filename;
-                qCritical() << "Check XML syntax and format";
-                qDebug() << "Continuing with empty graph...";
-                filename.clear(); // Clear filename so we create a default document
-            } else {
-                qDebug() << "✓ XML file parsed successfully";
-            }
-        } else {
-            qDebug() << "✗ File not found or not readable:" << filename;
-            qDebug() << "Searched in:" << QDir::currentPath();
-            qDebug() << "Full path attempted:" << fileInfo.absoluteFilePath();
-            qDebug() << "Continuing with empty graph...";
-            filename.clear(); // Clear filename so we create a default document
-        }
-    }
-    
-    // Create default XML document if no file was loaded or file was missing/invalid
-    if (!xmlDoc) {
-        // Create default XML document structure for XML-first architecture
-        qDebug() << "=== Creating XML Document Structure ===";
-        xmlDoc = xmlNewDoc(BAD_CAST "1.0");
-        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-        xmlDocSetRootElement(xmlDoc, root);
-        
-        xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
-        xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
-        
-        qDebug() << "✓ XML document created with root element";
-    }
-    
-    // Register all supported node types
-    qDebug() << "=== Registering Node Types ===";
-    
-    // Core node types
-    NodeRegistry::instance().registerNode("IN", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("IN"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("OUT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("OUT"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("PROC", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("PROC"); 
-        return node; 
-    });
-    
-    // Palette node types - each with proper type designation
-    NodeRegistry::instance().registerNode("SOURCE", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SOURCE"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("SINK", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SINK"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("TRANSFORM", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("TRANSFORM"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("MERGE", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("MERGE"); 
-        return node; 
-    });
-    NodeRegistry::instance().registerNode("SPLIT", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("SPLIT"); 
-        return node; 
-    });
-    
-    // Legacy compatibility for older tests
-    NodeRegistry::instance().registerNode("PROCESSOR", []() { 
-        Node* node = new Node(); 
-        node->setNodeType("PROCESSOR"); 
-        return node; 
-    });
-    
-    // Test the NodeRegistry to verify nodes are registered
-    qDebug() << "=== NodeGraph Application Starting ===";
-    qDebug() << "Registered node types:" << NodeRegistry::instance().getRegisteredTypes();
-
-    // Initialize GraphFactory with scene and XML document
-    Scene* scene = window.getScene();
-    if (!scene) {
-        qCritical() << "✗ Failed to get scene from window";
-        return -1;
-    }
-    
-    GraphFactory factory(scene, xmlDoc);
-    qDebug() << "GraphFactory initialized";
-    
-    if (!filename.isEmpty()) {
-        // Use GraphFactory's XML loading - single source of truth
-        if (!factory.loadFromXmlFile(filename)) {
-            qCritical() << "Failed to load XML file:" << filename;
-            return -1;
-        }
-        
-        qDebug() << "✓ Graph loaded successfully from file:" << filename;
-        
-    } else {
-        // Start with empty graph - no default test nodes
-        qDebug() << "=== Starting with Empty Graph ===";
-        qDebug() << "✓ No file specified - application will start with clean scene";
-        qDebug() << "  Users can create nodes manually or load XML files via Ctrl+L";
-    }
-    
-    qDebug() << "=== XML-First Architecture Test Complete ===";
-    
-    // Set current file if we loaded from command line
-    if (!filename.isEmpty()) {
-        window.setCurrentFile(filename);
-        qDebug() << "📁 Command line file loaded - Ctrl+S will save to:" << filename;
-    }
-    
-    // Cleanup XML document when done
-    // Note: GraphFactory holds reference, so clean up after window closes
-
-    // Set up auto-test script if requested (Window will run it on first show)
-    if (parser.isSet(scriptOption)) {
-        // User specified custom script
-        window.setAutoTestScript(parser.value(scriptOption));
-    } else if (parser.isSet(testOption)) {
-        // Default test script
-        window.setAutoTestScript("scripts/test_xml_load_enumeration.js");
-    }
-
     window.show();
 
-    // Show user-friendly message about file loading status
-    if (fileLoadAttempted && originalFilename != filename) {
-        // File was attempted but failed to load (filename was cleared)
-        QTimer::singleShot(500, [&window, originalFilename]() {
-            QMessageBox::information(&window, "File Not Found",
-                QString("The specified file could not be found or loaded:\n\n%1\n\nStarting with an empty graph instead.\n\nYou can create a new graph or open an existing file using File → Open.")
-                .arg(originalFilename));
-        });
-    }
-
-    int result = app.exec();
-    
-    // Final status before exit
-    qDebug() << "=== NodeGraph Application Ending ===";
-    
-    // Cleanup XML document
-    if (xmlDoc) {
-        xmlFreeDoc(xmlDoc);
-        qDebug() << "✓ XML document cleaned up";
-    }
-    
-    return result;
+    return app.exec();
 }
+
 
 
