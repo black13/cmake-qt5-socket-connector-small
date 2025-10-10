@@ -1,0 +1,128 @@
+================================================================================
+COVERAGE ANALYSIS SUMMARY
+================================================================================
+Date: 2025-10-09
+Build: WSL Ubuntu with Clang 14.0.0 + Qt 5.15.16
+
+--------------------------------------------------------------------------------
+OVERALL STATISTICS
+--------------------------------------------------------------------------------
+Total Files Analyzed: 14 (.cpp files only, excluding autogen/moc/deps)
+
+Coverage Distribution:
+  ❌ ZERO Coverage (0%):        1 file  [CRITICAL - DELETE CANDIDATE]
+  🔴 LOW Coverage (<30%):       3 files [HIGH PRIORITY]
+  🟡 MEDIUM Coverage (30-70%):  10 files
+  🟢 HIGH Coverage (≥70%):      0 files
+
+--------------------------------------------------------------------------------
+CRITICAL ISSUES
+--------------------------------------------------------------------------------
+
+1. ZERO COVERAGE - DELETE CANDIDATE:
+   ❌ ghost_edge.cpp (0% - 26 lines, 4 functions)
+      → Completely unused code, proven dead by coverage analysis
+      → Recommendation: REMOVE THIS FILE
+
+--------------------------------------------------------------------------------
+HIGH PRIORITY TARGETS (Low Coverage <30%)
+--------------------------------------------------------------------------------
+
+2. scene.cpp (15.79% coverage) ⚠️ LARGEST IMPACT
+   Lines:     48/304 covered (256 missed)
+   Functions: 7/22 covered (15 missed)
+   Regions:   16/160 covered (144 missed)
+   → Major GUI component with minimal test coverage
+   → Largest missed line count
+
+3. node_templates.cpp (19.01% coverage)
+   Lines:     23/121 covered (98 missed)
+   Functions: 3/12 covered (9 missed)
+   Regions:   7/42 covered (35 missed)
+   → Template system poorly exercised
+
+4. qgraph.cpp (22.12% coverage) ⚠️ LARGEST MISSED COUNT
+   Lines:     98/443 covered (345 missed)
+   Functions: 7/30 covered (23 missed)
+   Regions:   56/224 covered (168 missed)
+   → Facade/main loader class - 345 lines missed!
+   → Despite recent refactoring, still has huge gaps
+
+--------------------------------------------------------------------------------
+MEDIUM COVERAGE FILES (30-70%)
+--------------------------------------------------------------------------------
+
+5. graph_factory.cpp (31.40%)
+   Missing: 59 lines, 3 functions
+
+6. view.cpp (36.67%)
+   Missing: 76 lines, 6 functions
+
+7. socket.cpp (38.56%)
+   Missing: 94 lines, 7 functions
+
+8. graph_observer.cpp (39.81%)
+   Missing: 62 lines, 5 functions
+
+9. window.cpp (50.43%) ⚠️ LARGE FILE
+   Missing: 291 lines, 18 functions
+   → Biggest absolute gap after qgraph.cpp
+
+10. javascript_engine.cpp (54.66%)
+    Missing: 209 lines, 23 functions
+    → Many JS API functions not tested
+
+11. edge.cpp (60.00%)
+    Missing: 148 lines, 7 functions
+    → Getting decent coverage
+
+12. node_palette_widget.cpp (63.92%)
+    Missing: 114 lines, 9 functions
+    → GUI widget with good coverage
+
+13. xml_autosave_observer.cpp (65.52%)
+    Missing: 50 lines, 8 functions
+    → Best observer coverage
+
+14. node.cpp (68.57%) ✓ BEST COVERAGE
+    Missing: 110 lines, 4 functions
+    → Core class with strongest coverage
+
+--------------------------------------------------------------------------------
+ACTION ITEMS (Prioritized)
+--------------------------------------------------------------------------------
+
+IMMEDIATE:
+  1. DELETE ghost_edge.cpp (proven dead code - 0% coverage)
+  2. Add scene interaction tests (256 lines missed)
+  3. Add QGraph facade tests (345 lines missed - biggest gap)
+
+HIGH PRIORITY:
+  4. Test node_templates.cpp thoroughly (98 lines missed)
+  5. Add window.cpp UI tests (291 lines missed)
+  6. Test JavaScript engine APIs (209 lines missed)
+
+MEDIUM PRIORITY:
+  7. Expand edge.cpp tests (148 lines) to reach 80%+
+  8. Add socket tests (94 lines)
+  9. Test view.cpp interactions (76 lines)
+  10. Cover graph_factory edge cases (59 lines)
+
+--------------------------------------------------------------------------------
+COVERAGE TREND TARGETS
+--------------------------------------------------------------------------------
+
+Current Overall: ~44% lines, ~37% regions, ~43% functions
+Target Goal:     >80% lines, >70% regions, >75% functions
+
+Biggest ROI (Return on Investment):
+  1. qgraph.cpp:    +345 lines if fully covered (+7.8% overall)
+  2. window.cpp:    +291 lines if fully covered (+6.6% overall)
+  3. scene.cpp:     +256 lines if fully covered (+5.8% overall)
+  4. javascript.cpp: +209 lines if fully covered (+4.7% overall)
+
+These 4 files alone account for 1,101 missed lines (24.9% of total codebase).
+
+================================================================================
+END OF COVERAGE SUMMARY
+================================================================================

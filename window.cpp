@@ -96,6 +96,18 @@ Window::Window(QWidget* parent)
     
     // Enable keyboard shortcuts
     setFocusPolicy(Qt::StrongFocus);
+
+    // Parse command-line for --test-script= argument
+    // Script execution is deferred to showEvent() to ensure all objects are constructed
+    QStringList args = QCoreApplication::arguments();
+    for (const QString& arg : args) {
+        if (arg.startsWith("--test-script=")) {
+            QString scriptPath = arg.mid(14);
+            setAutoTestScript(scriptPath);
+            qDebug() << "Window: Test script set from command line:" << scriptPath;
+            break;
+        }
+    }
 }
 
 Window::~Window()

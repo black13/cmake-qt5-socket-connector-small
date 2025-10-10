@@ -8,7 +8,7 @@ BIN_NAME="NodeGraph"
 RUNS_DIR="coverage_runs"
 REPORT_DIR="coverage_html"
 PROFILE_DATA="coverage.profdata"
-TEST_SCRIPT="./scripts/test_edge_cases.js"
+TEST_SCRIPT="./test_qgraph_api.js"
 EXTRA_RUN_ARGS=()   # e.g., ("--load" "./graphs/smoke.xml")
 
 # ========= CLEAN =========
@@ -58,7 +58,7 @@ echo "Launching GUI runs to collect coverage…"
 LLVM_PROFILE_FILE="$RUNS_DIR/smoke_%p_%m.profraw" "$BIN"
 
 if [[ -f "$TEST_SCRIPT" ]]; then
-  LLVM_PROFILE_FILE="$RUNS_DIR/script_%p_%m.profraw" "$BIN" --script "$TEST_SCRIPT" "${EXTRA_RUN_ARGS[@]}"
+  LLVM_PROFILE_FILE="$RUNS_DIR/script_%p_%m.profraw" "$BIN" --test-script="$TEST_SCRIPT" "${EXTRA_RUN_ARGS[@]}"
 fi
 
 # Example: drive additional scenarios (uncomment/adjust)

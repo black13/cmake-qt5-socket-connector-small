@@ -70,16 +70,10 @@
 - **Branch:** Create `feat/improve-test-coverage` from `fix/clean-main`
 
 #### 1.3 Test Infrastructure Setup
-- Create `tests/` directory structure:
-  ```
-  tests/
-    ├── unit/           # Unit tests for core classes
-    ├── integration/    # Integration tests
-    ├── fixtures/       # Test XML files
-    └── scripts/        # Test runner scripts
-  ```
-- Create test harness using Qt Test framework
-- Set up test main() runner
+- **CRITICAL:** No separate test executables - only the main NodeGraph application exists
+- Create JavaScript test scripts in `test_scripts/` directory for API testing
+- Add command-line test mode to main.cpp (--run-tests flag)
+- Create test XML fixtures in root directory
 
 ---
 
