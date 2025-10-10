@@ -8,7 +8,8 @@
 class GhostEdge : public QGraphicsItem {
 public:
     explicit GhostEdge(QGraphicsItem* parent = nullptr);
-    
+    ~GhostEdge();
+
     void setPath(const QPainterPath& path);
     QPainterPath path() const { return m_path; }
     
