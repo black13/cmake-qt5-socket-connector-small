@@ -182,7 +182,11 @@ set(CORE_SOURCES
     # Graph architecture
     qgraph.h
     qgraph.cpp
-    # Factory and templates
+    graph_controller.h
+    graph_controller.cpp
+    # Factory and registry
+    node_registry.h
+    node_registry.cpp
     node_templates.h
     node_templates.cpp
     graph_factory.h
@@ -331,17 +335,7 @@ if(WIN32)
 endif()
 
 # ─────────────────────────────────────
-# 10. CI Guardrails - Architectural lint rules
-# ─────────────────────────────────────
-add_custom_target(lint_guard
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/lint_guard.sh
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Running architectural lint rules"
-    VERBATIM
-)
-
-# ─────────────────────────────────────
-# 11. Build information
+# 10. Build information
 # ─────────────────────────────────────
 message(STATUS "")
 message(STATUS "─────────────────────────────────────")

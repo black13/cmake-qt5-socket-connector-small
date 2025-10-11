@@ -5,7 +5,7 @@ REM
 REM  Usage: build.bat [debug|release|both] [clean]
 REM  • build.bat         - builds debug (default, preserves libxml2 cache)
 REM  • build.bat debug   - builds debug for VS debugging (cached)
-REM  • build.bat release - builds release for testing (cached)  
+REM  • build.bat release - builds release for testing (cached)
 REM  • build.bat both    - builds both configurations (cached)
 REM  • build.bat debug clean   - full clean debug build (rebuilds libxml2)
 REM  • build.bat release clean - full clean release build (rebuilds libxml2)
@@ -26,11 +26,11 @@ if "%BUILD_TYPE%"=="" set BUILD_TYPE=debug
 if /i "%BUILD_TYPE%"=="both" goto BUILD_BOTH
 
 if /i "%BUILD_TYPE%"=="release" (
-    set QT5_PATH=E:\Qt\5.15.16\Release_x64
+    set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_release
     set BUILD_DIR=build_Release
     echo === Using Qt5 RELEASE libraries ===
 ) else (
-    set QT5_PATH=E:\Qt\5.15.16\Debug_x64
+    set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_debug
     set BUILD_DIR=build_Debug
     echo === Using Qt5 DEBUG libraries ===
 )
@@ -84,7 +84,7 @@ if errorlevel 1 (
     echo.
     echo Troubleshooting:
     echo 1. Make sure you're in a "Developer Command Prompt for VS 2022"
-    echo 2. Verify Qt5 is installed at E:\Qt\5.15.16\
+    echo 2. Verify Qt5 is installed at E:\Qt\5.15.2\msvc2022_64_debug or release
     echo 3. Check that cmake is in your PATH
     echo.
     pause
@@ -114,7 +114,7 @@ echo ✓ Solution file: %BUILD_DIR%\NodeGraph.sln
 goto END
 
 :BUILD_DEBUG
-echo === Building Debug (MSBuild, /m) ===  
+echo === Building Debug (MSBuild, /m) ===
 if /i "%CLEAN_BUILD%"=="clean" (
     cmake --build %BUILD_DIR% --config Debug --clean-first -- /m
 ) else (
@@ -145,12 +145,12 @@ if /i "%CLEAN_BUILD%"=="clean" (
         echo Debug build directory exists - libxml2 cache preserved
     )
     if exist build_Release (
-        echo Release build directory exists - libxml2 cache preserved  
+        echo Release build directory exists - libxml2 cache preserved
     )
 )
 
 :: Debug first
-set QT5_PATH=E:\Qt\5.15.16\Debug_x64
+set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_debug
 set BUILD_DIR=build_Debug
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -169,7 +169,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 if errorlevel 1 goto BUILD_ERROR
 
 :: Release second
-set QT5_PATH=E:\Qt\5.15.16\Release_x64
+set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_release
 set BUILD_DIR=build_Release
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -259,6 +259,7 @@ if exist "build_Debug" (
         echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
         echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
+        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt\5.15.2\msvc2022_64_debug\bin;%%PATH%%^</LocalDebuggerEnvironment^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>
@@ -276,6 +277,7 @@ if exist "build_Release" (
         echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
         echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
+        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt\5.15.2\msvc2022_64_release\bin;%%PATH%%^</LocalDebuggerEnvironment^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>
@@ -297,7 +299,7 @@ echo    3. Or drag and drop XML files onto NodeGraph.exe
 echo.
 echo 🎯 Testing Strategy for Simple Fix:
 echo    • tests_tiny.xml (10 nodes) - Quick functionality test
-echo    • tests_medium.xml (500 nodes) - Moderate stress test  
+echo    • tests_medium.xml (500 nodes) - Moderate stress test
 echo    • tests_stress.xml (5000 nodes) - Full ownership fix validation
 echo.
 goto :EOF
