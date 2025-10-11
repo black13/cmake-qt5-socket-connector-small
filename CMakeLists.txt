@@ -182,11 +182,7 @@ set(CORE_SOURCES
     # Graph architecture
     qgraph.h
     qgraph.cpp
-    graph_controller.h
-    graph_controller.cpp
-    # Factory and registry
-    node_registry.h
-    node_registry.cpp
+    # Factory and templates
     node_templates.h
     node_templates.cpp
     graph_factory.h
