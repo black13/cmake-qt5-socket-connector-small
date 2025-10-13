@@ -26,11 +26,11 @@ if "%BUILD_TYPE%"=="" set BUILD_TYPE=debug
 if /i "%BUILD_TYPE%"=="both" goto BUILD_BOTH
 
 if /i "%BUILD_TYPE%"=="release" (
-    set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_release
+    set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
     set BUILD_DIR=build_Release
     echo === Using Qt5 RELEASE libraries ===
 ) else (
-    set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_debug
+    set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64
     set BUILD_DIR=build_Debug
     echo === Using Qt5 DEBUG libraries ===
 )
@@ -84,7 +84,7 @@ if errorlevel 1 (
     echo.
     echo Troubleshooting:
     echo 1. Make sure you're in a "Developer Command Prompt for VS 2022"
-    echo 2. Verify Qt5 is installed at E:\Qt\5.15.2\msvc2022_64_debug or release
+    echo 2. Verify Qt5 is installed at E:\Qt-5.15.17-msvc142-x64-Debug or Release
     echo 3. Check that cmake is in your PATH
     echo.
     pause
@@ -150,7 +150,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 )
 
 :: Debug first
-set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_debug
+set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64
 set BUILD_DIR=build_Debug
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -169,7 +169,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 if errorlevel 1 goto BUILD_ERROR
 
 :: Release second
-set QT5_PATH=E:\Qt\5.15.2\msvc2022_64_release
+set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
 set BUILD_DIR=build_Release
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -259,7 +259,7 @@ if exist "build_Debug" (
         echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
         echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
-        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt\5.15.2\msvc2022_64_debug\bin;%%PATH%%^</LocalDebuggerEnvironment^>
+        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64\bin;%%PATH%%^</LocalDebuggerEnvironment^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>
@@ -277,7 +277,7 @@ if exist "build_Release" (
         echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
         echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
-        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt\5.15.2\msvc2022_64_release\bin;%%PATH%%^</LocalDebuggerEnvironment^>
+        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64\bin;%%PATH%%^</LocalDebuggerEnvironment^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>

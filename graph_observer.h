@@ -20,18 +20,18 @@ public:
     virtual ~GraphObserver() = default;
 
     // Node lifecycle events
-    virtual void onNodeAdded(const Node& node) {}
-    virtual void onNodeRemoved(const QUuid& nodeId) {}
-    virtual void onNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos) {}
-    
-    // Edge lifecycle events  
-    virtual void onEdgeAdded(const Edge& edge) {}
-    virtual void onEdgeRemoved(const QUuid& edgeId) {}
-    
+    virtual void onNodeAdded(const Node&) {}
+    virtual void onNodeRemoved(const QUuid&) {}
+    virtual void onNodeMoved(const QUuid&, QPointF, QPointF) {}
+
+    // Edge lifecycle events
+    virtual void onEdgeAdded(const Edge&) {}
+    virtual void onEdgeRemoved(const QUuid&) {}
+
     // Graph-level events
     virtual void onGraphCleared() {}
-    virtual void onGraphLoaded(const QString& filename) {}
-    virtual void onGraphSaved(const QString& filename) {}
+    virtual void onGraphLoaded(const QString&) {}
+    virtual void onGraphSaved(const QString&) {}
 };
 
 /**

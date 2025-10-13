@@ -1,274 +1,161 @@
-#!/bin/bash
-
-# NodeGraph Linux Build Script for WSL
-# Modern CMake build with robust configuration
-
-set -e  # Exit on any error
+#!/usr/bin/env bash
+set -euo pipefail
 
 echo "🚀 NodeGraph Linux Build Script"
 echo "================================"
 
-# Parse build type and clean arguments
+# ---------------------------
+# Defaults
+# ---------------------------
 BUILD_TYPE="Debug"
 CLEAN_BUILD=false
-
-# Parse all arguments
-for arg in "$@"; do
-    case $arg in
-        release|Release)
-            BUILD_TYPE="Release"
-            ;;
-        debug|Debug)
-            BUILD_TYPE="Debug"
-            ;;
-        clean)
-            CLEAN_BUILD=true
-            ;;
-        *)
-            echo "Usage: $0 [debug|release] [clean]"
-            echo "Examples:"
-            echo "  $0 debug       # Debug build (incremental)"
-            echo "  $0 release     # Release build (incremental)"
-            echo "  $0 debug clean # Debug build (clean)"
-            echo "  $0 clean debug # Debug build (clean)"
-            echo "Default: debug (incremental)"
-            exit 1
-            ;;
-    esac
-done
-
-echo "Build Type: $BUILD_TYPE"
-if [ "$CLEAN_BUILD" = true ]; then
-    echo "Clean Build: Yes"
-else
-    echo "Clean Build: No (incremental)"
-fi
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if we're in WSL
-if grep -qi microsoft /proc/version; then
-    print_status "Running in WSL environment"
-else
-    print_warning "Not detected as WSL - continuing anyway"
-fi
-
-# 1. Check and install dependencies
-print_status "Checking dependencies..."
-
-# Using FetchContent for libxml2 - no system dependencies required
-print_success "Using FetchContent for libxml2 (no system dependencies needed)"
-
-# Check build tools
-for tool in cmake gcc g++ make; do
-    if ! command -v $tool &> /dev/null; then
-        print_error "$tool not found. Please install build-essential."
-        exit 1
-    fi
-done
-
-print_success "Build tools available"
-
-# 2. Check Qt5 installation
-print_status "Checking Qt5 installation..."
-
-# Auto-detect Qt installations in /usr/local/qt-*
-QT_INSTALLS=($(find /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
-
-# Check for system-installed Qt5 via qmake
-if command -v qmake &> /dev/null; then
-    SYSTEM_QT_VERSION=$(qmake -version | grep "Qt version" | cut -d' ' -f4)
-    if [[ "$SYSTEM_QT_VERSION" == 5.* ]]; then
-        print_success "Found system-installed Qt5 version: $SYSTEM_QT_VERSION"
-        QT_PATH=""  # Empty means use system Qt
-    fi
-fi
-
-if [ ${#QT_INSTALLS[@]} -eq 0 ] && [ -z "$SYSTEM_QT_VERSION" ]; then
-    print_error "No Qt installations found"
-    print_error "Please install Qt5 development packages or install to /usr/local/qt-VERSION"
-    exit 1
-fi
-
-if [ ${#QT_INSTALLS[@]} -gt 0 ]; then
-    print_status "Found Qt installations in /usr/local:"
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        echo "  - $qt_dir"
-    done
-fi
-
-# Select best Qt installation based on build type
-QT_PATH=""
-
-# First try to find debug/release specific builds in /usr/local
-if [ "$BUILD_TYPE" = "Debug" ]; then
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 Debug build: $QT_PATH"
-            break
-        fi
-    done
-else
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [[ "$qt_dir" == *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 Release build: $QT_PATH"
-            break
-        fi
-    done
-fi
-
-# Fallback to first available Qt installation in /usr/local
-if [ -z "$QT_PATH" ] && [ ${#QT_INSTALLS[@]} -gt 0 ]; then
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 installation: $QT_PATH"
-            break
-        fi
-    done
-fi
-
-# Use system Qt if no custom installation found
-if [ -z "$QT_PATH" ] && [ -n "$SYSTEM_QT_VERSION" ]; then
-    print_success "Using system-installed Qt5 (via package manager)"
-    QT_PATH=""  # Empty path will use system Qt
-fi
-
-# Final check - only error if we have no Qt at all
-if [ -z "$QT_PATH" ] && [ -z "$SYSTEM_QT_VERSION" ]; then
-    print_error "No valid Qt5 installation found"
-    print_error "Please install Qt5 development packages: sudo apt install qtbase5-dev qtdeclarative5-dev"
-    exit 1
-fi
-
-# 3. Set up build environment
-print_status "Setting up build environment..."
-
-# Set Qt5 path for CMake only if using custom Qt installation
-if [ -n "$QT_PATH" ]; then
-    export CMAKE_PREFIX_PATH="$QT_PATH:$CMAKE_PREFIX_PATH"
-    export PKG_CONFIG_PATH="$QT_PATH/lib/pkgconfig:$PKG_CONFIG_PATH"
-    print_status "Using custom Qt path: $QT_PATH"
-else
-    print_status "Using system Qt5 installation"
-fi
-
-# Create build directory with smart cache preservation
+ENABLE_COVERAGE=false
 BUILD_DIR="build_linux"
-CACHE_DIR=".cmake-cache"
 
-if [ -d "$BUILD_DIR" ] && [ "$CLEAN_BUILD" = true ]; then
-    print_warning "Clean build requested - removing existing build directory..."
-    rm -rf "$BUILD_DIR"
-elif [ -d "$BUILD_DIR" ]; then
-    print_status "Preserving existing build directory for incremental build"
-fi
+# ---------------------------
+# Usage
+# ---------------------------
+usage() {
+  cat <<EOF
+Usage: ./build.sh [debug|release] [clean] [coverage]
 
-# Preserve cache directory even during clean builds
-if [ -d "$CACHE_DIR" ]; then
-    print_status "Preserving libxml2 cache directory: $CACHE_DIR"
-else
-    print_status "Cache directory will be created: $CACHE_DIR"
-fi
+Examples:
+  ./build.sh debug                 # Debug build (incremental)
+  ./build.sh release               # Release build (incremental)
+  ./build.sh debug clean           # Debug build (clean)
+  ./build.sh release clean         # Release build (clean)
+  ./build.sh debug coverage        # Debug build with coverage (HTML + JSON)
+  ./build.sh release coverage      # Release build with coverage (HTML + JSON)
 
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
+Environment:
+  QT_PATH=/path/to/Qt (optional; passed to CMake as -DCMAKE_PREFIX_PATH)
 
-print_success "Build directory ready: $BUILD_DIR"
-
-# 4. Configure with CMake
-print_status "Configuring project with CMake..."
-
-if [ -n "$QT_PATH" ]; then
-    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          -DCMAKE_PREFIX_PATH="$QT_PATH" \
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          .. || {
-        print_error "CMake configuration failed!"
-        exit 1
-    }
-else
-    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          .. || {
-        print_error "CMake configuration failed!"
-        exit 1
-    }
-fi
-
-print_success "CMake configuration completed"
-
-# 5. Build the project
-print_status "Building NodeGraph..."
-
-# Use modern CMake build command with all available cores
-CORES=$(nproc)
-print_status "Building with $CORES cores..."
-
-cmake --build . --config $BUILD_TYPE --parallel $CORES || {
-    print_error "Build failed!"
-    exit 1
+Notes:
+  - 'coverage' enables -DENABLE_COVERAGE=ON and runs the 'coverage_report' target.
+  - Requires clang/llvm-profdata/llvm-cov when coverage is ON.
+EOF
 }
 
-print_success "Build completed successfully!"
-
-# 6. Check if X11 is available for GUI
-print_status "Checking X11 environment..."
-
-if [ -z "$DISPLAY" ]; then
-    print_warning "DISPLAY not set. You'll need X11 server on Windows."
-    echo "To run the GUI application:"
-    echo "1. Install VcXsrv or X410 on Windows"
-    echo "2. Start X server with display :0"
-    echo "3. Run: export DISPLAY=:0"
-    echo "4. Then run: ./NodeGraph"
-else
-    print_success "DISPLAY set to: $DISPLAY"
+# ---------------------------
+# Parse args (order-independent)
+# ---------------------------
+if [ "$#" -gt 0 ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      debug|Debug)     BUILD_TYPE="Debug" ;;
+      release|Release) BUILD_TYPE="Release" ;;
+      clean|Clean)     CLEAN_BUILD=true ;;
+      coverage|Coverage) ENABLE_COVERAGE=true ;;
+      -h|--help) usage; exit 0 ;;
+      *) echo "Unknown argument: $arg"; usage; exit 1 ;;
+    esac
+  done
 fi
 
-# 7. Show build results
-print_status "Build Summary"
-echo "=============="
-echo "Executable: $(pwd)/NodeGraph"
-echo "Build type: $BUILD_TYPE"
-echo "Qt5 version: $(qmake -version | grep Qt | cut -d' ' -f4)"
-echo "libxml2 source: FetchContent (built from source)"
+echo "Build Type     : $BUILD_TYPE"
+echo "Clean Build    : $([ "$CLEAN_BUILD" = true ] && echo Yes || echo No)"
+echo "Coverage       : $([ "$ENABLE_COVERAGE" = true ] && echo ON || echo OFF)"
+echo "Build Directory: $BUILD_DIR"
 echo ""
 
-if [ -f "NodeGraph" ]; then
-    print_success "NodeGraph executable created successfully!"
-    echo ""
-    print_status "To test the application:"
-    echo "cd $(pwd)"
-    echo "export DISPLAY=:0  # if using X11 server"
-    echo "./NodeGraph"
-else
-    print_error "NodeGraph executable not found!"
-    exit 1
+# ---------------------------
+# Helpers
+# ---------------------------
+print_status()  { echo -e "\033[1;34m[STATUS]\033[0m $*"; }
+print_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $*"; }
+print_warning() { echo -e "\033[1;33m[WARNING]\033[0m $*"; }
+print_error()   { echo -e "\033[1;31m[ERROR]\033[0m $*"; }
+
+# Normalize line endings of this file in case it was edited on Windows
+sed -i 's/\r$//' "$0" 2>/dev/null || true
+
+# ---------------------------
+# Prepare build dir
+# ---------------------------
+if [ "$CLEAN_BUILD" = true ] && [ -d "$BUILD_DIR" ]; then
+  print_status "Cleaning build directory: $BUILD_DIR"
+  rm -rf "$BUILD_DIR"
+fi
+mkdir -p "$BUILD_DIR"
+print_success "Build directory ready: $BUILD_DIR"
+cd "$BUILD_DIR"
+
+# ---------------------------
+# Configure with CMake
+# ---------------------------
+print_status "Configuring project with CMake..."
+EXTRA_OPTS=(
+  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+)
+
+# Qt prefix (optional)
+if [ -n "${QT_PATH:-}" ]; then
+  EXTRA_OPTS+=(-DCMAKE_PREFIX_PATH="$QT_PATH")
 fi
 
-print_success "🎉 Build script completed successfully!"
+# Coverage toggle
+if [ "$ENABLE_COVERAGE" = true ]; then
+  EXTRA_OPTS+=(-DENABLE_COVERAGE=ON)
+else
+  EXTRA_OPTS+=(-DENABLE_COVERAGE=OFF)
+fi
+
+cmake "${EXTRA_OPTS[@]}" .. || { print_error "CMake configuration failed!"; exit 1; }
+print_success "CMake configuration completed"
+
+# ---------------------------
+# Build
+# ---------------------------
+print_status "Building..."
+cmake --build . --config "$BUILD_TYPE"
+print_success "Build completed successfully!"
+
+# ---------------------------
+# Coverage (optional)
+# ---------------------------
+if [ "$ENABLE_COVERAGE" = true ]; then
+  print_status "Preparing LLVM coverage artifacts..."
+
+  if ! command -v clang++ >/dev/null 2>&1; then
+    print_warning "clang++ not found. JSON/HTML coverage requires Clang/LLVM toolchain."
+  fi
+  if ! command -v llvm-profdata >/dev/null 2>&1 || ! command -v llvm-cov >/dev/null 2>&1; then
+    print_warning "llvm-profdata/llvm-cov missing. coverage_report target will fail unless these tools are installed."
+  fi
+
+  PROFILE_PREFIX="$(pwd)/default"
+  rm -f "${PROFILE_PREFIX}"*.profraw "${PROFILE_PREFIX}.profdata" coverage.json 2>/dev/null || true
+  rm -rf coverage_html 2>/dev/null || true
+
+  export LLVM_PROFILE_FILE="${PROFILE_PREFIX}.%p.profraw"
+  print_status "Running tests with LLVM_PROFILE_FILE=${LLVM_PROFILE_FILE}"
+  if command -v ctest >/dev/null 2>&1; then
+    if ! ctest --output-on-failure; then
+      print_error "CTest failed while gathering coverage data"
+      exit 1
+    fi
+  else
+    print_warning "ctest not available; run your test suite manually to produce .profraw files."
+  fi
+  unset LLVM_PROFILE_FILE
+
+  shopt -s nullglob
+  profraw_files=("${PROFILE_PREFIX}".*.profraw)
+  shopt -u nullglob
+
+  if [ "${#profraw_files[@]}" -eq 0 ]; then
+    print_warning "No coverage data (*.profraw) generated. Run your instrumented binaries/tests and rerun 'cmake --build . --target coverage_report'."
+  else
+    print_status "Merging profiles and generating coverage report..."
+    if ! cmake --build . --config "$BUILD_TYPE" --target coverage_report; then
+      print_error "Coverage report failed!"
+      exit 1
+    fi
+    print_success "Coverage reports generated:"
+    echo "  HTML : $(pwd)/coverage_html/index.html"
+    echo "  JSON : $(pwd)/coverage.json"
+  fi
+fi
+
+print_success "🎉 Build script finished"

@@ -76,6 +76,7 @@ void XmlAutosaveObserver::saveNow()
 
 void XmlAutosaveObserver::onNodeAdded(const Node& node)
 {
+    (void)node;  // Parameter required by interface but not used
     // Node added - minimal logging
     scheduleAutosave();
 }
@@ -96,6 +97,7 @@ void XmlAutosaveObserver::onNodeMoved(const QUuid& nodeId, QPointF oldPos, QPoin
 
 void XmlAutosaveObserver::onEdgeAdded(const Edge& edge)
 {
+    (void)edge;  // Parameter required by interface but not used
     // Edge added - minimal logging
     scheduleAutosave();
 }

@@ -253,13 +253,11 @@ void Scene::prepareForShutdown()
     
     qDebug() << "PHASE1: Shutdown preparation -" << m_edges.size() << "edges," << m_nodes.size() << "nodes";
     m_shutdownInProgress = true;
-    
-    // Step 1: Clean edge-socket connections BEFORE any destruction
-    for (Edge* edge : m_edges.values()) {
-        // Note: Socket connection cleanup disabled - methods not available in current implementation
-    }
-    
-    qDebug() << "PHASE1: ✓ Socket connections cleared safely";
+
+    // Note: Socket connection cleanup not needed - handled by removeEdgeInternal()
+    // Edges clean up their socket connections when deleted (see removeEdgeInternal line 157-165)
+
+    qDebug() << "PHASE1: ✓ Shutdown prepared";
 }
 
 // ============================================================================
