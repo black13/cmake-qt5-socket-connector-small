@@ -65,10 +65,8 @@ Window::Window(QWidget* parent)
 
     // Initialize JavaScript engine with API bindings
     if (m_jsEngine) {
-        m_jsEngine->registerNodeAPI(m_scene);
-        m_jsEngine->registerGraphAPI();
         m_jsEngine->registerQGraph(m_graph);
-        qDebug() << "Window: JavaScript engine initialized and APIs registered";
+        qDebug() << "Window: JavaScript engine initialized with QGraph API";
     }
 
     // Initialize autosave observer for automatic XML saving
