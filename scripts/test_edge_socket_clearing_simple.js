@@ -6,19 +6,19 @@
  * Tests that reconnection works after edge deletion, which proves sockets were cleared.
  */
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Edge Deletion Socket Clearing Test (Simplified)");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 
 var testsPassed = 0;
 var testsFailed = 0;
 
 function assert(condition, message) {
     if (condition) {
-        console.log("✅ " + message);
+        console.log("[OK] " + message);
         testsPassed++;
     } else {
-        console.log("❌ FAIL: " + message);
+        console.log("[FAIL] FAIL: " + message);
         testsFailed++;
     }
 }
@@ -85,17 +85,17 @@ assert(stats.edges === 0, "Edge cascade-deleted with node");
 Graph.deleteNode(node2);
 
 // Summary
-console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("\n----------------------------------------------------");
 console.log("Test Summary");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Tests Passed: " + testsPassed);
 console.log("Tests Failed: " + testsFailed);
 
 if (testsFailed === 0) {
-    console.log("✅ ALL TESTS PASSED - Socket clearing works correctly!");
+    console.log("[OK] ALL TESTS PASSED - Socket clearing works correctly!");
     console.log("Action A1 verified: Edge deletion properly clears endpoint sockets");
 } else {
-    console.log("❌ SOME TESTS FAILED - Review edge deletion implementation");
+    console.log("[FAIL] SOME TESTS FAILED - Review edge deletion implementation");
 }
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");

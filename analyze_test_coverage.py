@@ -354,7 +354,7 @@ class CodeCoverageAnalyzer:
             tested = report['tested_methods']
             total = report['total_methods']
 
-            status = "✓" if coverage >= 80 else "⚠" if coverage >= 50 else "✗"
+            status = "[OK]" if coverage >= 80 else "WARNING" if coverage >= 50 else "[FAIL]"
             print(f"{status} {class_name:30s} {tested:3d}/{total:3d} ({coverage:5.1f}%)")
 
         print()
@@ -369,7 +369,7 @@ class CodeCoverageAnalyzer:
                 print(f"  Untested methods ({report['untested_methods']}):")
 
                 for method in report['untested_list'][:5]:  # Show first 5
-                    print(f"    • {method['name']}() - line {method['line']}")
+                    print(f"    * {method['name']}() - line {method['line']}")
 
                 if report['untested_methods'] > 5:
                     print(f"    ... and {report['untested_methods'] - 5} more")

@@ -9,9 +9,9 @@
  * - Nonsensical operations
  */
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Edge Case Testing - Inexperienced User Scenarios");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 
 var testsPassed = 0;
 var testsFailed = 0;
@@ -21,14 +21,14 @@ function testCase(description, fn) {
         console.log("\n[Test] " + description);
         var result = fn();
         if (result !== false) {
-            console.log("  ✅ Handled gracefully");
+            console.log("  [OK] Handled gracefully");
             testsPassed++;
         } else {
-            console.log("  ❌ Test failed");
+            console.log("  [FAIL] Test failed");
             testsFailed++;
         }
     } catch (e) {
-        console.log("  ❌ CRASH: " + e);
+        console.log("  [FAIL] CRASH: " + e);
         testsFailed++;
     }
 }
@@ -226,18 +226,18 @@ testCase("Get XML string of empty graph", function() {
 });
 
 // Summary
-console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("\n----------------------------------------------------");
 console.log("Edge Case Test Summary");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Tests Passed: " + testsPassed);
 console.log("Tests Failed: " + testsFailed);
 
 if (testsFailed === 0) {
-    console.log("✅ ALL EDGE CASES HANDLED GRACEFULLY!");
+    console.log("[OK] ALL EDGE CASES HANDLED GRACEFULLY!");
     console.log("System is robust against inexperienced user mistakes");
 } else {
-    console.log("❌ SOME EDGE CASES FAILED");
+    console.log("[FAIL] SOME EDGE CASES FAILED");
     console.log("Review error handling for defensive programming");
 }
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");

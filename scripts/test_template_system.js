@@ -8,30 +8,30 @@
  * - TRANSFORM: 1 input, 1 output
  */
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Template System Verification Test");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 
 // Test 1: Create nodes of different types
 console.log("\n[Test 1] Creating nodes with template system...");
 
 var sourceId = Graph.createNode("SOURCE", 100, 100);
-console.log("✅ Created SOURCE node:", sourceId);
+console.log("[OK] Created SOURCE node:", sourceId);
 
 var sinkId = Graph.createNode("SINK", 300, 100);
-console.log("✅ Created SINK node:", sinkId);
+console.log("[OK] Created SINK node:", sinkId);
 
 var transformId = Graph.createNode("TRANSFORM", 200, 200);
-console.log("✅ Created TRANSFORM node:", transformId);
+console.log("[OK] Created TRANSFORM node:", transformId);
 
 // Test 2: Verify connection works (proves sockets exist)
 console.log("\n[Test 2] Testing connections (proves sockets exist)...");
 
 var edge1 = Graph.connect(sourceId, 0, sinkId, 0);
 if (edge1 !== "") {
-    console.log("✅ Connected SOURCE→SINK successfully");
+    console.log("[OK] Connected SOURCE->SINK successfully");
 } else {
-    console.log("❌ FAILED: Could not connect SOURCE→SINK (sockets missing?)");
+    console.log("[FAIL] FAILED: Could not connect SOURCE->SINK (sockets missing?)");
 }
 
 // Test 3: Check graph stats
@@ -43,19 +43,19 @@ console.log("  Nodes:", stats.nodes, "(expected: 3)");
 console.log("  Edges:", stats.edges, "(expected: 1)");
 
 if (stats.nodes === 3) {
-    console.log("✅ Node count correct");
+    console.log("[OK] Node count correct");
 } else {
-    console.log("❌ FAILED: Expected 3 nodes, got", stats.nodes);
+    console.log("[FAIL] FAILED: Expected 3 nodes, got", stats.nodes);
 }
 
 if (stats.edges === 1) {
-    console.log("✅ Edge count correct");
+    console.log("[OK] Edge count correct");
 } else {
-    console.log("❌ FAILED: Expected 1 edge, got", stats.edges);
+    console.log("[FAIL] FAILED: Expected 1 edge, got", stats.edges);
 }
 
 // Summary
-console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-console.log("✅ Template system working!");
+console.log("\n----------------------------------------------------");
+console.log("[OK] Template system working!");
 console.log("Nodes created with proper socket counts from templates");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");

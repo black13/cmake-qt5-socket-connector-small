@@ -16,9 +16,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔍 Forbidden Pattern Check (Anti-Backsliding)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "------------------------------------------------------"
+echo "[SEARCH] Forbidden Pattern Check (Anti-Backsliding)"
+echo "------------------------------------------------------"
 echo ""
 
 FAIL=0
@@ -27,7 +27,7 @@ FAIL=0
 # Check 1: R"( in .cpp files (embedded JavaScript)
 # ==============================================================================
 
-echo "📋 Check 1: Embedded JavaScript strings (R\"(...) pattern)"
+echo "[CLIPBOARD] Check 1: Embedded JavaScript strings (R\"(...) pattern)"
 echo "   Rule: JavaScript should be in external .js files, not embedded in C++"
 echo ""
 
@@ -35,7 +35,7 @@ echo ""
 EMBEDDED_JS=$(grep -n 'R"(' *.cpp 2>/dev/null | grep -v javascript_engine.cpp | grep -v '//' || true)
 
 if [ -n "$EMBEDDED_JS" ]; then
-    echo -e "${RED}❌ FAIL: Found embedded JavaScript strings in application code${NC}"
+    echo -e "${RED}[FAIL] FAIL: Found embedded JavaScript strings in application code${NC}"
     echo ""
     echo "Violations:"
     echo "$EMBEDDED_JS"
@@ -45,7 +45,7 @@ if [ -n "$EMBEDDED_JS" ]; then
     echo ""
     FAIL=1
 else
-    echo -e "${GREEN}✅ PASS: No embedded JavaScript strings found${NC}"
+    echo -e "${GREEN}[OK] PASS: No embedded JavaScript strings found${NC}"
     echo ""
 fi
 
@@ -53,7 +53,7 @@ fi
 # Check 2: qgraphicsitem_cast in application code
 # ==============================================================================
 
-echo "📋 Check 2: Casting in application code (qgraphicsitem_cast pattern)"
+echo "[CLIPBOARD] Check 2: Casting in application code (qgraphicsitem_cast pattern)"
 echo "   Rule: Use metadata keys (Gik::KindKey) instead of casting"
 echo ""
 
@@ -77,7 +77,7 @@ ALLOWED_FILES=(
 ALL_CASTS=$(grep -n 'qgraphicsitem_cast' *.cpp 2>/dev/null || true)
 
 if [ -z "$ALL_CASTS" ]; then
-    echo -e "${GREEN}✅ PASS: No casting found${NC}"
+    echo -e "${GREEN}[OK] PASS: No casting found${NC}"
     echo ""
 else
     # Filter out allowed casts
@@ -110,7 +110,7 @@ else
     done <<< "$ALL_CASTS"
 
     if [ -n "$FORBIDDEN_CASTS" ]; then
-        echo -e "${RED}❌ FAIL: Found forbidden casts in application code${NC}"
+        echo -e "${RED}[FAIL] FAIL: Found forbidden casts in application code${NC}"
         echo ""
         echo "Violations:"
         echo -e "$FORBIDDEN_CASTS"
@@ -121,7 +121,7 @@ else
         echo ""
         FAIL=1
     else
-        echo -e "${GREEN}✅ PASS: All casts are in allowed library code (Socket access)${NC}"
+        echo -e "${GREEN}[OK] PASS: All casts are in allowed library code (Socket access)${NC}"
         echo ""
     fi
 fi
@@ -130,18 +130,18 @@ fi
 # Summary
 # ==============================================================================
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "------------------------------------------------------"
 
 if [ $FAIL -eq 0 ]; then
-    echo -e "${GREEN}✅ ALL CHECKS PASSED${NC}"
+    echo -e "${GREEN}[OK] ALL CHECKS PASSED${NC}"
     echo "   No anti-patterns detected"
     echo "   Code follows cast-free architecture"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "------------------------------------------------------"
     exit 0
 else
-    echo -e "${RED}❌ CHECKS FAILED${NC}"
+    echo -e "${RED}[FAIL] CHECKS FAILED${NC}"
     echo "   Anti-patterns detected - see violations above"
     echo "   Review ANALYSIS_JS_EMBEDDING_HISTORY.md for context"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "------------------------------------------------------"
     exit 1
 fi

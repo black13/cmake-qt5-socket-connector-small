@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "🚀 NodeGraph Linux Build Script"
+echo "[LAUNCH] NodeGraph Linux Build Script"
 echo "================================"
 
 # ---------------------------
@@ -158,4 +158,4 @@ if [ "$ENABLE_COVERAGE" = true ]; then
   fi
 fi
 
-print_success "🎉 Build script finished"
+print_success "[CELEBRATE] Build script finished"

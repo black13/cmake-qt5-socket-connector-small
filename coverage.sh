@@ -26,9 +26,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 function print_header() {
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}-----------------------------------------------${NC}"
     echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}-----------------------------------------------${NC}"
 }
 
 function print_info() {
@@ -209,7 +209,7 @@ Usage:
     $0 [command]
 
 Commands:
-    (no args)    - Full workflow: build → test → report
+    (no args)    - Full workflow: build -> test -> report
     build        - Build project with coverage instrumentation
     test         - Run tests to generate coverage data
     merge        - Merge .profraw files into .profdata

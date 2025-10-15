@@ -10,7 +10,7 @@ var node1 = graph.createNode("TRANSFORM", 100, 100);
 var node2 = graph.createNode("TRANSFORM", 100, 100);  // Same position
 if (node1 && node2) {
     var edge1 = graph.connectNodes(node1, 0, node2, 0);
-    print("✓ Created edge with zero-length path (same position)");
+    print("[OK] Created edge with zero-length path (same position)");
     print("  Node1: " + node1 + " at (100, 100)");
     print("  Node2: " + node2 + " at (100, 100)");
 }
@@ -21,7 +21,7 @@ var node3 = graph.createNode("SOURCE", -5000, -5000);
 var node4 = graph.createNode("SINK", 5000, 5000);
 if (node3 && node4) {
     var edge2 = graph.connectNodes(node3, 0, node4, 0);
-    print("✓ Created edge with extreme distance");
+    print("[OK] Created edge with extreme distance");
     print("  Node3: " + node3 + " at (-5000, -5000)");
     print("  Node4: " + node4 + " at (5000, 5000)");
     print("  Distance: ~14142 units");
@@ -33,7 +33,7 @@ var node5 = graph.createNode("TRANSFORM", 200, 200);
 var node6 = graph.createNode("TRANSFORM", 200.5, 200.5);
 if (node5 && node6) {
     var edge3 = graph.connectNodes(node5, 0, node6, 0);
-    print("✓ Created edge with sub-pixel distance");
+    print("[OK] Created edge with sub-pixel distance");
     print("  Node5: " + node5 + " at (200, 200)");
     print("  Node6: " + node6 + " at (200.5, 200.5)");
 }
@@ -44,7 +44,7 @@ var node7 = graph.createNode("SOURCE", 300, 100);
 var node8 = graph.createNode("SINK", 300, 500);
 if (node7 && node8) {
     var edge4 = graph.connectNodes(node7, 0, node8, 0);
-    print("✓ Created vertical edge (dx=0)");
+    print("[OK] Created vertical edge (dx=0)");
     print("  Node7: " + node7 + " at (300, 100)");
     print("  Node8: " + node8 + " at (300, 500)");
 }
@@ -55,7 +55,7 @@ var node9 = graph.createNode("SOURCE", 100, 600);
 var node10 = graph.createNode("SINK", 800, 600);
 if (node9 && node10) {
     var edge5 = graph.connectNodes(node9, 0, node10, 0);
-    print("✓ Created horizontal edge (dy=0)");
+    print("[OK] Created horizontal edge (dy=0)");
     print("  Node9: " + node9 + " at (100, 600)");
     print("  Node10: " + node10 + " at (800, 600)");
 }
@@ -66,7 +66,7 @@ var node11 = graph.createNode("SOURCE", 900, 100);
 var node12 = graph.createNode("SINK", 100, 300);
 if (node11 && node12) {
     var edge6 = graph.connectNodes(node11, 0, node12, 0);
-    print("✓ Created backward S-curve edge (dx<0)");
+    print("[OK] Created backward S-curve edge (dx<0)");
     print("  Node11: " + node11 + " at (900, 100)");
     print("  Node12: " + node12 + " at (100, 300)");
 }
@@ -85,7 +85,7 @@ for (var i = 0; i < 8; i++) {
         targets.push(target);
     }
 }
-print("✓ Created radial pattern with 8 edges from hub");
+print("[OK] Created radial pattern with 8 edges from hub");
 print("  Hub: " + hub + " at (500, 500)");
 
 // Test 8: Chain with varying distances
@@ -105,17 +105,17 @@ for (var i = 0; i < positions.length; i++) {
         graph.connectNodes(chainNodes[i-1], 0, chainNodes[i], 0);
     }
 }
-print("✓ Created chain with varying edge lengths");
-print("  Lengths: normal → short → long → very short → medium");
+print("[OK] Created chain with varying edge lengths");
+print("  Lengths: normal -> short -> long -> very short -> medium");
 
 print("\n=== Test Summary ===");
 print("All edge curve guard tests completed");
 print("Guards tested:");
-print("  ✓ Zero-length edge protection (kMinEdgeLength)");
-print("  ✓ NaN/Inf validation (qIsFinite checks)");
-print("  ✓ Control offset bounds (kMinControlOffset, kMaxControlOffset)");
-print("  ✓ Control point validation");
-print("  ✓ Degenerate curve fallback to straight line");
+print("  [OK] Zero-length edge protection (kMinEdgeLength)");
+print("  [OK] NaN/Inf validation (qIsFinite checks)");
+print("  [OK] Control offset bounds (kMinControlOffset, kMaxControlOffset)");
+print("  [OK] Control point validation");
+print("  [OK] Degenerate curve fallback to straight line");
 print("\nExpected behavior:");
 print("  - No crashes from invalid curve parameters");
 print("  - All edges render smoothly");

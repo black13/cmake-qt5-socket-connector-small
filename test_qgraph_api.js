@@ -16,10 +16,10 @@ var testsFailed = 0;
 
 function assertTrue(testName, condition, message) {
     if (condition) {
-        console.log("✓ PASS: " + testName);
+        console.log("[OK] PASS: " + testName);
         testsPassed++;
     } else {
-        console.log("✗ FAIL: " + testName);
+        console.log("[FAIL] FAIL: " + testName);
         if (message) {
             console.log("  Reason: " + message);
         }
@@ -33,10 +33,10 @@ function assertFalse(testName, condition, message) {
 
 function assertEquals(testName, actual, expected, message) {
     if (actual === expected) {
-        console.log("✓ PASS: " + testName);
+        console.log("[OK] PASS: " + testName);
         testsPassed++;
     } else {
-        console.log("✗ FAIL: " + testName);
+        console.log("[FAIL] FAIL: " + testName);
         console.log("  Expected: " + expected + ", Got: " + actual);
         if (message) {
             console.log("  " + message);
@@ -336,9 +336,9 @@ console.log("  TOTAL:  " + (testsPassed + testsFailed));
 console.log("========================================");
 
 if (testsFailed === 0) {
-    console.log("\n✓ All tests PASSED!");
+    console.log("\n[OK] All tests PASSED!");
 } else {
-    console.log("\n✗ Some tests FAILED");
+    console.log("\n[FAIL] Some tests FAILED");
 }
 
 console.log("\nQGraph API test complete.");

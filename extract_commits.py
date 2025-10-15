@@ -134,7 +134,7 @@ def main():
             # Extract files
             file_count = extract_commit_to_directory(full_hash, commit_dir)
 
-            print(f"  ✓ Extracted {file_count} files to {commit_dir}")
+            print(f"  [OK] Extracted {file_count} files to {commit_dir}")
 
             # Write to index
             idx.write(f"| `{short_hash}` | {date} | {message} | `{short_hash}/` |\n")
@@ -149,7 +149,7 @@ def main():
                 info.write(f"\nFiles extracted: {file_count}\n")
 
     print("\n" + "=" * 80)
-    print(f"✓ Extraction complete!")
+    print(f"[OK] Extraction complete!")
     print(f"  Total commits: {len(commits)}")
     print(f"  Location: {COMMITS_DIR}/")
     print(f"  Index file: {index_path}")

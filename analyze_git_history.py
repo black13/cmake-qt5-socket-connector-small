@@ -32,7 +32,7 @@ class GitHistoryAnalyzer:
         """Search commit messages and diffs for specific terms"""
         results = []
 
-        print(f"\n🔍 Searching last {max_commits} commits for: {', '.join(search_terms)}")
+        print(f"\n[SEARCH] Searching last {max_commits} commits for: {', '.join(search_terms)}")
         print("=" * 80)
 
         for i, commit in enumerate(self.repo.iter_commits('HEAD', max_count=max_commits)):
@@ -63,7 +63,7 @@ class GitHistoryAnalyzer:
                     'diff_matches': diff_matches
                 })
 
-        print(f"\n✅ Found {len(results)} matching commits")
+        print(f"\n[OK] Found {len(results)} matching commits")
         return results
 
     def analyze_js_embedding(self, commit):
@@ -113,7 +113,7 @@ class GitHistoryAnalyzer:
 
     def print_results(self, results):
         """Print analysis results in readable format"""
-        print("\n📊 ANALYSIS RESULTS")
+        print("\n[STATS] ANALYSIS RESULTS")
         print("=" * 80)
 
         for i, result in enumerate(results[:20], 1):  # Show top 20
@@ -140,7 +140,7 @@ class GitHistoryAnalyzer:
 
     def analyze_failures(self, results):
         """Analyze potential failure patterns"""
-        print("\n⚠️  POTENTIAL FAILURE PATTERNS")
+        print("\nWARNING  POTENTIAL FAILURE PATTERNS")
         print("=" * 80)
 
         failure_indicators = {
@@ -172,7 +172,7 @@ class GitHistoryAnalyzer:
 
     def extract_js_code_examples(self, results):
         """Extract actual JavaScript code examples from history"""
-        print("\n💡 JAVASCRIPT CODE EXAMPLES FROM HISTORY")
+        print("\n[IDEA] JAVASCRIPT CODE EXAMPLES FROM HISTORY")
         print("=" * 80)
 
         examples = []
@@ -228,7 +228,7 @@ class GitHistoryAnalyzer:
 
 
 def main():
-    print("🔬 Git History Analyzer - JavaScript Embedding Analysis")
+    print("[LAB] Git History Analyzer - JavaScript Embedding Analysis")
     print("=" * 80)
 
     try:
@@ -254,7 +254,7 @@ def main():
     analyzer.extract_js_code_examples(results)
 
     print("\n" + "=" * 80)
-    print("✅ Analysis complete!")
+    print("[OK] Analysis complete!")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ REM =============================================================
 
 :: -------- 1: goto repo root and parse arguments
 cd /d "%~dp0"
+set "QT5_DEBUG_PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64"
+set "QT5_RELEASE_PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64"
 set BUILD_TYPE=%1
 set CLEAN_BUILD=%2
 if "%BUILD_TYPE%"=="" set BUILD_TYPE=debug
@@ -26,11 +28,11 @@ if "%BUILD_TYPE%"=="" set BUILD_TYPE=debug
 if /i "%BUILD_TYPE%"=="both" goto BUILD_BOTH
 
 if /i "%BUILD_TYPE%"=="release" (
-    set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
+    set "QT5_PATH=%QT5_RELEASE_PATH%"
     set BUILD_DIR=build_Release
     echo === Using Qt5 RELEASE libraries ===
 ) else (
-    set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64
+    set "QT5_PATH=%QT5_DEBUG_PATH%"
     set BUILD_DIR=build_Debug
     echo === Using Qt5 DEBUG libraries ===
 )
@@ -150,7 +152,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 )
 
 :: Debug first
-set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64
+set "QT5_PATH=%QT5_DEBUG_PATH%"
 set BUILD_DIR=build_Debug
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -169,7 +171,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 if errorlevel 1 goto BUILD_ERROR
 
 :: Release second
-set QT5_PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
+set "QT5_PATH=%QT5_RELEASE_PATH%"
 set BUILD_DIR=build_Release
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -259,7 +261,7 @@ if exist "build_Debug" (
         echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
         echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
-        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64\bin;%%PATH%%^</LocalDebuggerEnvironment^>
+        echo     ^<LocalDebuggerEnvironment^>PATH=%QT5_DEBUG_PATH%\bin;%%PATH%%^</LocalDebuggerEnvironment^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>
@@ -277,7 +279,7 @@ if exist "build_Release" (
         echo     ^<LocalDebuggerCommand^>^$(ProjectDir^)^$(OutDir^)NodeGraph.exe^</LocalDebuggerCommand^>
         echo     ^<LocalDebuggerCommandArguments^>../../%DEFAULT_XML%^</LocalDebuggerCommandArguments^>
         echo     ^<LocalDebuggerWorkingDirectory^>^$(ProjectDir^)^</LocalDebuggerWorkingDirectory^>
-        echo     ^<LocalDebuggerEnvironment^>PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64\bin;%%PATH%%^</LocalDebuggerEnvironment^>
+        echo     ^<LocalDebuggerEnvironment^>PATH=%QT5_RELEASE_PATH%\bin;%%PATH%%^</LocalDebuggerEnvironment^>
         echo     ^<DebuggerFlavor^>WindowsLocalDebugger^</DebuggerFlavor^>
         echo   ^</PropertyGroup^>
         echo ^</Project^>

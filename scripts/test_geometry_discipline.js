@@ -20,23 +20,23 @@ var nodes = [];
 
 // Small node: 1 input, 1 output
 var n1 = Graph.createNode("SOURCE", -300, 0, 0, 1);
-console.log("✓ Created SOURCE (0 in, 1 out) - small node");
+console.log("[OK] Created SOURCE (0 in, 1 out) - small node");
 
 // Medium node: 2 inputs, 2 outputs
 var n2 = Graph.createNode("TRANSFORM", -100, -100, 2, 2);
-console.log("✓ Created TRANSFORM (2 in, 2 out) - medium node");
+console.log("[OK] Created TRANSFORM (2 in, 2 out) - medium node");
 
 // Large node: 5 inputs, 5 outputs
 var n3 = Graph.createNode("MERGE", 100, 0, 5, 5);
-console.log("✓ Created MERGE (5 in, 5 out) - large node");
+console.log("[OK] Created MERGE (5 in, 5 out) - large node");
 
 // Very large node: 10 inputs, 10 outputs
 var n4 = Graph.createNode("SPLIT", -100, 150, 10, 10);
-console.log("✓ Created SPLIT (10 in, 10 out) - very large node");
+console.log("[OK] Created SPLIT (10 in, 10 out) - very large node");
 
 // Tiny node: 1 input, 0 outputs (edge case)
 var n5 = Graph.createNode("SINK", 300, 0, 1, 0);
-console.log("✓ Created SINK (1 in, 0 out) - tiny node");
+console.log("[OK] Created SINK (1 in, 0 out) - tiny node");
 
 nodes = [n1, n2, n3, n4, n5];
 
@@ -52,28 +52,28 @@ console.log("(Tests: Edge::buildPath() prepareGeometryChange() ordering)");
 
 var edges = [];
 
-// Connect n1 → n2 (socket 0 → 0)
+// Connect n1 -> n2 (socket 0 -> 0)
 var e1 = Graph.connect(n1, 0, n2, 0);
-console.log("✓ Connected SOURCE[0] → TRANSFORM[0]");
+console.log("[OK] Connected SOURCE[0] -> TRANSFORM[0]");
 
-// Connect n1 → n2 again (socket 0 → 1) - tests multiple edges
+// Connect n1 -> n2 again (socket 0 -> 1) - tests multiple edges
 var e2 = Graph.connect(n1, 0, n2, 1);
-console.log("✓ Connected SOURCE[0] → TRANSFORM[1]");
+console.log("[OK] Connected SOURCE[0] -> TRANSFORM[1]");
 
-// Connect n2 → n3 (multiple connections)
+// Connect n2 -> n3 (multiple connections)
 var e3 = Graph.connect(n2, 0, n3, 0);
 var e4 = Graph.connect(n2, 1, n3, 1);
-console.log("✓ Connected TRANSFORM[0,1] → MERGE[0,1]");
+console.log("[OK] Connected TRANSFORM[0,1] -> MERGE[0,1]");
 
-// Connect n4 → n3 (many sockets to many sockets)
+// Connect n4 -> n3 (many sockets to many sockets)
 var e5 = Graph.connect(n4, 0, n3, 2);
 var e6 = Graph.connect(n4, 1, n3, 3);
 var e7 = Graph.connect(n4, 2, n3, 4);
-console.log("✓ Connected SPLIT[0,1,2] → MERGE[2,3,4]");
+console.log("[OK] Connected SPLIT[0,1,2] -> MERGE[2,3,4]");
 
-// Connect n3 → n5 (final sink)
+// Connect n3 -> n5 (final sink)
 var e8 = Graph.connect(n3, 0, n5, 0);
-console.log("✓ Connected MERGE[0] → SINK[0]");
+console.log("[OK] Connected MERGE[0] -> SINK[0]");
 
 edges = [e1, e2, e3, e4, e5, e6, e7, e8];
 
@@ -118,7 +118,7 @@ var totalSockets = stats.socketCount;
 for (var i = 0; i < edges.length; i++) {
     var edgeInfo = Graph.getEdgeInfo(edges[i]);
     console.log("  Edge " + edgeInfo.id.substring(0, 8) + ": " +
-                edgeInfo.fromNode.substring(0, 8) + "[" + edgeInfo.fromIndex + "] → " +
+                edgeInfo.fromNode.substring(0, 8) + "[" + edgeInfo.fromIndex + "] -> " +
                 edgeInfo.toNode.substring(0, 8) + "[" + edgeInfo.toIndex + "]");
     connectedSockets += 2; // Each edge connects 2 sockets
 }
@@ -134,9 +134,9 @@ console.log("");
 
 // Test 5: Summary
 console.log("=== Test Summary ===");
-console.log("✓ Node resize operations: " + nodes.length + " (varying socket counts)");
-console.log("✓ Edge path creations: " + edges.length + " (varying geometries)");
-console.log("✓ Total geometry mutations: " + (nodes.length + edges.length * 2));
+console.log("[OK] Node resize operations: " + nodes.length + " (varying socket counts)");
+console.log("[OK] Edge path creations: " + edges.length + " (varying geometries)");
+console.log("[OK] Total geometry mutations: " + (nodes.length + edges.length * 2));
 console.log("");
 console.log("All geometry changes used proper prepareGeometryChange() ordering.");
 console.log("If you see this message, no crashes occurred!");

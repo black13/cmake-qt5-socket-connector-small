@@ -293,10 +293,11 @@ if(WIN32)
         VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
-    # Set environment for Debug configuration
-    set_target_properties(NodeGraph PROPERTIES
-        VS_DEBUGGER_ENVIRONMENT "PATH=E:/Qt/5.15.16/$<IF:$<CONFIG:Debug>,Debug_x64,Release_x64>/bin;%PATH%"
-    )
+    if (TARGET Qt5::Core)
+        set_target_properties(NodeGraph PROPERTIES
+            VS_DEBUGGER_ENVIRONMENT "PATH=$<SHELL_PATH:$<TARGET_FILE_DIR:Qt5::Core>>;%PATH%"
+        )
+    endif()
 
     # Windows-specific linker optimizations
     if(CMAKE_BUILD_TYPE STREQUAL "Release")

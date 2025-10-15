@@ -9,9 +9,9 @@
  * Demonstrates handling of larger graphs.
  */
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Example: Stress Test");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 
 // Clear graph
 Graph.clear();
@@ -87,12 +87,12 @@ console.log("=".repeat(50));
 
 // Validation
 if (stats.nodes === createdNodes && stats.edges === createdEdges) {
-    console.log("✅ All nodes and edges created successfully!");
+    console.log("[OK] All nodes and edges created successfully!");
 } else {
-    console.error("❌ Mismatch in node/edge counts!");
+    console.error("[FAIL] Mismatch in node/edge counts!");
 }
 
 Graph.saveXml("stress_test.xml");
-console.log("\n✅ Graph saved to stress_test.xml");
+console.log("\n[OK] Graph saved to stress_test.xml");
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");

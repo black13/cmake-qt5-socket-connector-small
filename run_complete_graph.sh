@@ -49,7 +49,7 @@ echo ""
 
 # Check for graph XML file
 if [ -f "complete_graph.xml" ]; then
-    echo "✓ Graph saved: complete_graph.xml"
+    echo "[OK] Graph saved: complete_graph.xml"
     echo ""
     echo "Preview of saved graph:"
     echo "----------------------------------------"
@@ -65,7 +65,7 @@ if [ -f "complete_graph.xml" ]; then
     echo "  Nodes: $NODE_COUNT"
     echo "  Edges: $EDGE_COUNT"
 else
-    echo "⚠ complete_graph.xml not found"
+    echo "WARNING complete_graph.xml not found"
 fi
 
 echo ""
@@ -75,17 +75,17 @@ if [ -d "logs" ]; then
     LATEST_JS_LOG=$(ls -t logs/JavaScript_*.log 2>/dev/null | head -1)
 
     if [ -n "$LATEST_JS_LOG" ]; then
-        echo "✓ JavaScript log: $(basename $LATEST_JS_LOG)"
+        echo "[OK] JavaScript log: $(basename $LATEST_JS_LOG)"
         echo ""
         echo "Script execution log (last 40 lines):"
         echo "----------------------------------------"
         tail -n 40 "$LATEST_JS_LOG"
         echo "----------------------------------------"
     else
-        echo "⚠ No JavaScript log found"
+        echo "WARNING No JavaScript log found"
     fi
 else
-    echo "⚠ logs/ directory not found"
+    echo "WARNING logs/ directory not found"
 fi
 
 echo ""

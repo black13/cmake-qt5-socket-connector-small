@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # NodeGraph Dependencies Installer for WSL Ubuntu
-echo "🔧 Installing NodeGraph dependencies..."
+echo "[TOOLS] Installing NodeGraph dependencies..."
 
 # Update package list
 echo "Updating package list..."
@@ -25,6 +25,6 @@ sudo apt install -y \
     libxcb-xinput0 \
     libxcb-xfixes0
 
-echo "✅ Dependencies installed successfully!"
+echo "[OK] Dependencies installed successfully!"
 echo ""
 echo "Now you can run: ./build.sh"

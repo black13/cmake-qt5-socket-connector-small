@@ -3,18 +3,18 @@
  *
  * Creates a 3x3 grid of nodes with horizontal connections:
  *
- * S → T → K
- * S → T → K
- * S → T → K
+ * S -> T -> K
+ * S -> T -> K
+ * S -> T -> K
  *
  * Where: S=SOURCE, T=TRANSFORM, K=SINK
  *
  * Demonstrates programmatic graph creation with loops.
  */
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 console.log("Example: Grid Pattern");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");
 
 // Clear graph
 Graph.clear();
@@ -84,6 +84,6 @@ console.log("  Edges:", stats.edges, `(expected: ${edgeCount})`);
 console.log("  Density:", (stats.edges / stats.nodes).toFixed(2), "edges per node");
 
 Graph.saveXml("grid_pattern.xml");
-console.log("\n✅ Graph saved to grid_pattern.xml");
+console.log("\n[OK] Graph saved to grid_pattern.xml");
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("----------------------------------------------------");

@@ -110,7 +110,7 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
     # Report file size
     import os
     file_size = os.path.getsize(filename) / 1024
-    print(f"✓ Created {filename}: {num_nodes} nodes, {edges_created} edges ({file_size:.1f} KB)")
+    print(f"[OK] Created {filename}: {num_nodes} nodes, {edges_created} edges ({file_size:.1f} KB)")
 
 def main():
     """Generate all test files"""
@@ -129,8 +129,8 @@ def main():
     for num_nodes, filename in test_sizes:
         generate_graph(num_nodes, filename)
     
-    print(f"\n✅ Generated {len(test_sizes)} test files")
-    print("\n📖 Usage:")
+    print(f"\n[OK] Generated {len(test_sizes)} test files")
+    print("\n[MANUAL] Usage:")
     print("   ./NodeGraph                    # Default nodes + autosave")
     print("   ./NodeGraph tests_tiny.xml     # Load tiny test file") 
     print("   ./NodeGraph tests_small.xml    # Load small test file")

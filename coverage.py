@@ -127,14 +127,14 @@ def main():
         if not profraws:
             print("ERROR: No .profraw files found. Did the runs execute under coverage?", file=sys.stderr)
             sys.exit(4)
-        print("\nMerging profiles…")
+        print("\nMerging profiles...")
         merge_cmd = [llvm_profdata, "merge", "-sparse"] + [str(p) for p in profraws] + ["-o", str(profdata)]
         run(merge_cmd)
 
         print("\nCoverage summary:")
         run([llvm_cov, "report", str(bin_path), f"-instr-profile={profdata}", "-use-color"])
 
-        print("\nGenerating HTML…")
+        print("\nGenerating HTML...")
         if html_dir.exists():
             shutil.rmtree(html_dir)
         show_cmd = [

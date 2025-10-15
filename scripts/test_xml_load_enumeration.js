@@ -15,10 +15,10 @@ try {
 
     let stats = Graph.getStats();
     if (stats.nodes !== 0 || stats.edges !== 0) {
-        console.log("❌ FAILED: Graph not cleared. Nodes: " + stats.nodes + ", Edges: " + stats.edges);
+        console.log("[FAIL] FAILED: Graph not cleared. Nodes: " + stats.nodes + ", Edges: " + stats.edges);
         "FAILED";
     }
-    console.log("✓ Graph cleared");
+    console.log("[OK] Graph cleared");
     console.log("");
 
     // Step 2: Load XML file
@@ -27,7 +27,7 @@ try {
 
     // Small delay to allow loading (synchronous operation should complete immediately)
     stats = Graph.getStats();
-    console.log("✓ XML loaded");
+    console.log("[OK] XML loaded");
     console.log("");
 
     // Step 3: Verify graph statistics
@@ -37,16 +37,16 @@ try {
     console.log("");
 
     if (stats.nodes !== 4) {
-        console.log("❌ FAILED: Expected 4 nodes, got " + stats.nodes);
+        console.log("[FAIL] FAILED: Expected 4 nodes, got " + stats.nodes);
         "FAILED";
     }
 
     if (stats.edges !== 3) {
-        console.log("❌ FAILED: Expected 3 edges, got " + stats.edges);
+        console.log("[FAIL] FAILED: Expected 3 edges, got " + stats.edges);
         "FAILED";
     }
 
-    console.log("✓ Graph statistics correct (4 nodes, 3 edges)");
+    console.log("[OK] Graph statistics correct (4 nodes, 3 edges)");
     console.log("");
 
     // Step 4: Enumerate nodes
@@ -54,7 +54,7 @@ try {
     let nodes = Graph.getNodes();
 
     if (!nodes || nodes.length === 0) {
-        console.log("❌ FAILED: getNodes() returned empty or null");
+        console.log("[FAIL] FAILED: getNodes() returned empty or null");
         "FAILED";
     }
 
@@ -77,7 +77,7 @@ try {
         console.log("");
     }
 
-    console.log("✓ All nodes enumerated");
+    console.log("[OK] All nodes enumerated");
     console.log("");
 
     // Step 5: Enumerate edges
@@ -85,7 +85,7 @@ try {
     let edges = Graph.getEdges();
 
     if (!edges || edges.length === 0) {
-        console.log("❌ FAILED: getEdges() returned empty or null");
+        console.log("[FAIL] FAILED: getEdges() returned empty or null");
         "FAILED";
     }
 
@@ -103,7 +103,7 @@ try {
         console.log("");
     }
 
-    console.log("✓ All edges enumerated");
+    console.log("[OK] All edges enumerated");
     console.log("");
 
     // Step 6: Basic integrity validation
@@ -123,40 +123,40 @@ try {
 
         // Check if fromNode exists
         if (!nodeIds[edge.fromNode]) {
-            console.log("  ❌ Edge " + edge.id + " references non-existent fromNode: " + edge.fromNode);
+            console.log("  [FAIL] Edge " + edge.id + " references non-existent fromNode: " + edge.fromNode);
             orphanedEdges++;
         }
 
         // Check if toNode exists
         if (!nodeIds[edge.toNode]) {
-            console.log("  ❌ Edge " + edge.id + " references non-existent toNode: " + edge.toNode);
+            console.log("  [FAIL] Edge " + edge.id + " references non-existent toNode: " + edge.toNode);
             orphanedEdges++;
         }
 
         // Check socket indices are non-negative
         if (edge.fromSocket < 0 || edge.toSocket < 0) {
-            console.log("  ❌ Edge " + edge.id + " has invalid socket index");
+            console.log("  [FAIL] Edge " + edge.id + " has invalid socket index");
             invalidSockets++;
         }
     }
 
     if (orphanedEdges > 0) {
-        console.log("  ❌ Found " + orphanedEdges + " orphaned edge(s)");
+        console.log("  [FAIL] Found " + orphanedEdges + " orphaned edge(s)");
     } else {
-        console.log("  ✓ All edges reference valid nodes");
+        console.log("  [OK] All edges reference valid nodes");
     }
 
     if (invalidSockets > 0) {
-        console.log("  ❌ Found " + invalidSockets + " invalid socket index(es)");
+        console.log("  [FAIL] Found " + invalidSockets + " invalid socket index(es)");
     } else {
-        console.log("  ✓ All socket indices are valid");
+        console.log("  [OK] All socket indices are valid");
     }
 
     console.log("");
 
     // Final result
     if (orphanedEdges === 0 && invalidSockets === 0 && nodes.length === 4 && edges.length === 3) {
-        console.log("✅ TEST PASSED");
+        console.log("[OK] TEST PASSED");
         console.log("   - XML loaded successfully");
         console.log("   - 4 nodes enumerated");
         console.log("   - 3 edges enumerated");
@@ -164,14 +164,14 @@ try {
         console.log("   - JavaScript system is healthy");
         "PASSED";
     } else {
-        console.log("❌ TEST FAILED");
+        console.log("[FAIL] TEST FAILED");
         console.log("   - Issues found during validation");
         "FAILED";
     }
 
 } catch (e) {
     console.log("");
-    console.log("❌ EXCEPTION: " + e.toString());
+    console.log("[FAIL] EXCEPTION: " + e.toString());
     console.log("   JavaScript system encountered an error");
     "EXCEPTION";
 }

@@ -52,7 +52,7 @@ export QT_X11_NO_MITSHM=1
 # export LIBGL_ALWAYS_INDIRECT=1
 
 echo "DISPLAY=${DISPLAY:-<unset>} (ensure your Windows X server is running)"
-echo "Launching GUI runs to collect coverage…"
+echo "Launching GUI runs to collect coverage..."
 
 # ========= RUNS (GENERATE *.profraw) =========
 LLVM_PROFILE_FILE="$RUNS_DIR/smoke_%p_%m.profraw" "$BIN"
