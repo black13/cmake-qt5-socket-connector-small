@@ -26,11 +26,11 @@ REM -------- 2: Set Qt5 paths and build directories based on build type
 if /i "%BUILD_TYPE%"=="both" goto BUILD_BOTH
 
 if /i "%BUILD_TYPE%"=="release" (
-    set QT5_PATH=C:\Qt\5.15.2-release
+    set QT5_PATH=D:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
     set BUILD_DIR=build_Release
     echo === Using Qt5 RELEASE libraries ===
 ) else (
-    set QT5_PATH=C:\Qt\5.15.2-debug
+    set QT5_PATH=D:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64
     set BUILD_DIR=build_Debug
     echo === Using Qt5 DEBUG libraries ===
 )
@@ -84,7 +84,7 @@ if errorlevel 1 (
     echo.
     echo Troubleshooting:
     echo 1. Make sure you're in a "Developer Command Prompt for VS 2022"
-    echo 2. Verify Qt5 is installed at C:\Qt\5.15.2-debug and C:\Qt\5.15.2-release
+    echo 2. Verify Qt5 is installed at D:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64 and D:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
     echo 3. Check that cmake is in your PATH
     echo 4. Edit this script to match your Qt installation path
     echo.
@@ -151,7 +151,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 )
 
 REM Debug first
-set QT5_PATH=C:\Qt\5.15.2-debug
+set QT5_PATH=D:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64
 set BUILD_DIR=build_Debug
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%
@@ -170,7 +170,7 @@ if /i "%CLEAN_BUILD%"=="clean" (
 if errorlevel 1 goto BUILD_ERROR
 
 REM Release second
-set QT5_PATH=C:\Qt\5.15.2-release
+set QT5_PATH=D:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64
 set BUILD_DIR=build_Release
 set CMAKE_PREFIX_PATH=%QT5_PATH%\lib\cmake
 set PATH=%QT5_PATH%\bin;%PATH%

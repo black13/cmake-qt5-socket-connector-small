@@ -34,11 +34,10 @@ endif()
 # ─────────────────────────────────────
 if(WIN32)
     list(APPEND CMAKE_PREFIX_PATH
-        "E:/Qt/5.15.16/Release_x64"
-        "E:/Qt/5.15.16/Debug_x64"
+        "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64"
+        "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64"
         "C:/Qt/5.15.2/msvc2019_64"
         "C:/Qt/5.15.2/msvc2019"
-        "C:/Qt/5.12.12/msvc2017_64"
     )
 else()
     # Linux/WSL: Auto-detect Qt installations in /usr/local/qt-*
@@ -344,9 +343,9 @@ if(WIN32)
         
         # Separate Debug and Release Qt paths
         VS_DEBUGGER_ENVIRONMENT_DEBUG
-            "PATH=E:/Qt/5.15.16/Debug_x64/bin;%PATH%"
+            "PATH=D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/bin;%PATH%"
         VS_DEBUGGER_ENVIRONMENT_RELEASE
-            "PATH=E:/Qt/5.15.16/Release_x64/bin;%PATH%"
+            "PATH=D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/bin;%PATH%"
             
         # No command arguments - removed test_working_graph.xml
         VS_DEBUGGER_WORKING_DIRECTORY
