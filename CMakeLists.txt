@@ -101,17 +101,16 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Set Qt paths based on build type
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(QT5_PATH "E:/Qt/5.15.16/Debug_x64")
-else()
-    set(QT5_PATH "E:/Qt/5.15.16/Release_x64")
-endif()
-
 # Preferred Qt installation paths (Windows)
-if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH "${QT5_PATH}/lib/cmake")
-    set(QT_QMAKE_EXECUTABLE "${QT5_PATH}/bin/qmake.exe")
+# CMAKE_PREFIX_PATH is set by build.bat or build.sh
+# If not set, provide fallback defaults
+if(WIN32 AND NOT CMAKE_PREFIX_PATH)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(CMAKE_PREFIX_PATH "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/lib/cmake")
+    else()
+        set(CMAKE_PREFIX_PATH "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/lib/cmake")
+    endif()
+    message(STATUS "Using fallback CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 endif()
 
 # Find Qt components with REQUIRED for early failure
@@ -312,6 +311,9 @@ if(WIN32)
     )
 endif()
 
+# Set NodeGraph as the startup project in Visual Studio
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT NodeGraph)
+
 # ─────────────────────────────────────
 # 9. Install rules
 # ─────────────────────────────────────
@@ -321,11 +323,14 @@ if(WIN32)
     )
 
     # Install Qt DLLs (simplified approach)
+    # Use Qt5::Core target to get the bin directory
+    get_target_property(QT_CORE_LOCATION Qt5::Core LOCATION)
+    get_filename_component(QT_BIN_DIR "${QT_CORE_LOCATION}" DIRECTORY)
     install(CODE "
         file(INSTALL
-            \"${QT5_PATH}/bin/Qt5Core.dll\"
-            \"${QT5_PATH}/bin/Qt5Widgets.dll\"
-            \"${QT5_PATH}/bin/Qt5Gui.dll\"
+            \"${QT_BIN_DIR}/Qt5Core.dll\"
+            \"${QT_BIN_DIR}/Qt5Widgets.dll\"
+            \"${QT_BIN_DIR}/Qt5Gui.dll\"
             DESTINATION \"${CMAKE_INSTALL_PREFIX}/bin\"
         )
     ")
@@ -339,7 +344,7 @@ message(STATUS "─────────────────────�
 message(STATUS "Build Configuration:")
 message(STATUS "  Project:          ${PROJECT_NAME} ${PROJECT_VERSION}")
 message(STATUS "  Build Type:       ${CMAKE_BUILD_TYPE}")
-message(STATUS "  Qt Path:          ${QT5_PATH}")
+message(STATUS "  Qt Prefix Path:   ${CMAKE_PREFIX_PATH}")
 message(STATUS "  C++ Standard:     C++${CMAKE_CXX_STANDARD}")
 message(STATUS "  Qt Version:       ${Qt5_VERSION}")
 message(STATUS "  libxml2 Source:   FetchContent")

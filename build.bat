@@ -18,8 +18,8 @@ REM =============================================================
 
 :: -------- 1: goto repo root and parse arguments
 cd /d "%~dp0"
-set "QT5_DEBUG_PATH=E:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64"
-set "QT5_RELEASE_PATH=E:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64"
+set "QT5_DEBUG_PATH=D:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64"
+set "QT5_RELEASE_PATH=D:\Qt-5.15.17-msvc142-x64-Release\msvc2019_64"
 set BUILD_TYPE=%1
 set CLEAN_BUILD=%2
 if "%BUILD_TYPE%"=="" set BUILD_TYPE=debug
@@ -86,7 +86,7 @@ if errorlevel 1 (
     echo.
     echo Troubleshooting:
     echo 1. Make sure you're in a "Developer Command Prompt for VS 2022"
-    echo 2. Verify Qt5 is installed at E:\Qt-5.15.17-msvc142-x64-Debug or Release
+    echo 2. Verify Qt5 is installed at D:\Qt-5.15.17-msvc142-x64-Debug or Release
     echo 3. Check that cmake is in your PATH
     echo.
     pause
