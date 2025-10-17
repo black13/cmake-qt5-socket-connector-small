@@ -331,5 +331,249 @@ The JavaScript integration is now stable and the shutdown crash issues have been
 
 ---
 
+## 2025-10-17 - Zero qgraphicsitem_cast Refactor Initiated
+
+### Session Context
+Computer was rebuilt, requiring Qt path migration from E:/C: drives to D: drive. During path updates, conducted comprehensive architectural audit and discovered critical violation: 17 instances of `qgraphicsitem_cast` throughout codebase.
+
+### Actions Completed
+
+#### 1. Qt Path Migration ✅
+**Commit**: `08da43f` - "chore: Update Qt paths from E:/C: drives to D: drive"
+- Updated `build.bat`: Qt paths to `D:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64` and Release variant
+- Updated `CMakeLists.txt`: CMAKE_PREFIX_PATH and VS_DEBUGGER_ENVIRONMENT paths
+- Updated troubleshooting messages to reflect new paths
+- **Status**: Pushed to origin/main, verified build succeeds
+
+#### 2. Obsolete Code Removal ✅
+Removed files NOT in CMakeLists.txt build:
+- `javascript_console.cpp` - Obsolete JS console experiment (not part of current architecture)
+- `javascript_console.h` - Obsolete JS console header
+- `graph_controller.cpp` - Replaced by GraphFactory + NodeTypeTemplates
+
+**Rationale**:
+- Current JS integration: `script_host.cpp` + conditional `graph_script_api.cpp` (ENABLE_JS=ON)
+- Current graph management: `GraphFactory` (XML) + `NodeTypeTemplates` (node types)
+- Files were maintenance debt from previous architectures
+
+#### 3. Translation Unit Documentation ✅
+- Updated `concat.sh` to match CMakeLists.txt exactly
+- Script now lists all 35 source files in translation unit order
+- Generated `concatenated_code.txt`: 9,376 lines, 328KB
+- Only application code (no Python scripts, no .md documentation)
+
+#### 4. Architectural Analysis and Planning ✅
+Created comprehensive planning documents:
+- `plan.md` - Incremental task roadmap with git branch strategy
+- `plan_response.md` - Detailed analysis of architectural questions
+- Both documents reviewed and agreed upon
+
+### Critical Finding: qgraphicsitem_cast Violations
+
+#### Discovery: 17 Architectural Mistakes
+| File | Violations | Purpose |
+|------|-----------|----------|
+| scene.cpp | 11 | Delete handling, serialization, ghost edge |
+| node.cpp | 2 | Socket child iteration with casting |
+| window.cpp | 2 | Selection type counting |
+| socket.cpp | 1 | Parent node access via cast |
+| graph_factory.cpp | 1 | Socket iteration during serialization |
+| **TOTAL** | **17** | **All must be eliminated** |
+
+#### Why Every qgraphicsitem_cast is Wrong
+
+**Architectural Principle**: Objects should maintain typed relationships directly, not rely on scene graph traversal + type checking.
+
+**Example Violation (scene.cpp:454-458)**:
+```cpp
+// ❌ GOD OBJECT BEHAVIOR - Scene deciding what to do with each type
+void Scene::keyPressEvent(QKeyEvent* event) {
+    for (QGraphicsItem* item : selectedItems()) {
+        if (auto* node = qgraphicsitem_cast<Node*>(item)) {
+            nodesToDelete.append(node);  // Scene managing node lifecycle
+        } else if (auto* edge = qgraphicsitem_cast<Edge*>(item)) {
+            edgesToDelete.append(edge);  // Scene managing edge lifecycle
+        }
+    }
+}
+```
+
+**Correct Architecture**:
+```cpp
+// ✅ OBJECT MANAGES OWN LIFECYCLE
+void Node::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Delete) {
+        deleteLater();  // Node decides its own fate
+    }
+}
+
+// Scene does NOTHING - Qt routes events naturally
+```
+
+This is LESS code, SIMPLER architecture. Scene gets simpler, not more complex.
+
+### 7-Phase Elimination Plan
+
+**Goal**: ZERO qgraphicsitem_cast in entire codebase
+
+**Phase 1: Socket Parent Linkage**
+- Branch: `refactor/zero-cast-phase1-socket-parent`
+- Add `Node* m_parentNode` member to Socket
+- Eliminates: 1 cast (socket.cpp:42)
+- Result: Socket directly returns typed parent, no casting
+
+**Phase 2: Node Socket Collections**
+- Branch: `refactor/zero-cast-phase2-node-collections`
+- Add `QList<Socket*> m_inputSockets/m_outputSockets` to Node
+- Eliminates: 2 casts (node.cpp:188, 426)
+- Result: Typed socket iteration, no childItems() casting
+
+**Phase 3: Scene Typed Collections** 🔑 CRITICAL
+- Branch: `refactor/zero-cast-phase3-scene-collections`
+- Add `QList<Node*> m_nodes` and `QList<Edge*> m_edges` to Scene
+- Eliminates: 4 casts (scene.cpp:538, 641; window.cpp:895, 897)
+- **Rationale**: Without typed collections, scene->items() returns mixed QGraphicsItem* requiring casts EVERYWHERE
+
+**Why Typed Collections Are Not God Objects**:
+```cpp
+// WITHOUT typed collections - FORCED to cast
+for (QGraphicsItem* item : scene->items()) {  // Mixed: nodes, edges, sockets
+    if (Node* n = qgraphicsitem_cast<Node*>(item)) {  // ❌ Required
+        serialize(n);
+    }
+}
+
+// WITH typed collections - NO casting
+for (Node* node : scene->nodes()) {  // ✅ Already typed
+    serialize(node);
+}
+```
+
+Scene is a **typed container**, not a decision-maker. It organizes items by type so NO other code needs to cast.
+
+**Phase 4: Delete-Key Overhaul** 🔥 HIGHEST PRIORITY
+- Branch: `refactor/zero-cast-phase4-delete-key`
+- Move delete handling to Node::keyPressEvent and Edge::keyPressEvent
+- REMOVE Scene centralized deletion loop (lines 435-480)
+- Eliminates: 3 casts (scene.cpp:454-458)
+- **Implements RULES.md**: Objects handle their own lifecycle
+
+**Phase 5: Ghost-Edge Polish**
+- Branch: `refactor/zero-cast-phase5-ghost-edge`
+- Complete TODO items in socket.cpp:183, 204
+- Implement left-click drag (right-click already works)
+- Reduces: scene.cpp ghost edge casts
+
+**Phase 6: Window Cleanup**
+- Branch: `refactor/zero-cast-phase6-window`
+- Use Scene::nodes()/edges() from Phase 3
+- Eliminates: Remaining window.cpp casts
+
+**Phase 7: Factory Cleanup**
+- Branch: `refactor/zero-cast-phase7-factory`
+- Use Node::inputSockets()/outputSockets() from Phase 2
+- Eliminates: 1 cast (graph_factory.cpp:708)
+- **MILESTONE**: ZERO qgraphicsitem_cast achieved 🎉
+
+### Git Workflow Strategy
+
+**Approach**: One branch per phase, always keep main buildable
+
+**Branch Naming**: `refactor/zero-cast-phaseN` where N=1-7
+
+**Per-Phase Workflow**:
+1. Create feature branch from main
+2. Implement changes
+3. Build & run verification (REQUIRED)
+4. Commit with descriptive message
+5. Push to remote
+6. Merge to main (--no-ff)
+7. Push main to remote
+
+**Operational Rules**:
+- ✅ Build/run before and after every change
+- ✅ Never leave app in broken state
+- ✅ Commit and push after EVERY verified phase
+- ✅ Main branch ALWAYS buildable and runnable
+
+### Critical Architectural Clarification
+
+**Question**: "Are typed collections creating god objects?"
+
+**Answer**: NO - They PREVENT god objects by eliminating the need for type checking.
+
+**The Alternative IS qgraphicsitem_cast Hell**:
+Without parallel typed collections, EVERY iteration requires casting:
+- Serialization needs to find nodes → cast
+- Statistics need to count types → cast
+- Rendering needs to find edges → cast
+- Everything needs to determine type → cast
+
+**Typed Collections Eliminate ALL These Casts**:
+Scene maintains `QList<Node*>` and `QList<Edge*>` so:
+- `scene->nodes()` returns typed list → NO casting needed anywhere
+- `scene->edges()` returns typed list → NO casting needed anywhere
+
+Scene is NOT making decisions ABOUT nodes - it's just organizing them by type as a service to all other code.
+
+### Template System Status
+
+**Confirmed**: NodeTypeTemplates architecture is CORRECT
+- No changes to node creation workflow
+- Template system remains data-driven
+- `NodeTypeTemplates::hasNodeType()` works correctly
+- This refactor does NOT touch node creation logic
+
+### Next Actions
+
+**Task 1: Baseline Checkpoint** ⏳ READY TO COMMIT
+
+Files ready to commit:
+- `concat.sh` - Updated translation unit order
+- `plan.md` - Architectural roadmap with git strategy
+- `plan_response.md` - Detailed architectural analysis
+- `log.md` - This session log (appended)
+- Stage deletions: `javascript_console.*`, `graph_controller.cpp`
+
+**Git commands**:
+```bash
+git add concat.sh plan.md plan_response.md log.md
+git add -u  # Stage deletions
+git commit -m "chore: Remove obsolete files and update documentation
+
+- Remove javascript_console.cpp/h (obsolete JS console)
+- Remove graph_controller.cpp (replaced by GraphFactory)
+- Update concat.sh to match CMakeLists.txt translation unit
+- Add plan.md and plan_response.md (7-phase refactor roadmap)
+- Update log.md with qgraphicsitem_cast elimination plan
+
+Preparing for systematic elimination of 17 qgraphicsitem_cast
+violations across codebase. All removed files were not in build.
+"
+git push origin main
+```
+
+After baseline checkpoint, proceed to Phase 1 (Socket parent linkage).
+
+### Session Status
+
+**Current Branch**: main
+**Build Status**: ✅ Application builds and runs (verified with Qt 5.15.17)
+**Test Status**: ✅ Manual testing confirms functionality
+**Casts Remaining**: 17 (target: 0)
+**Architecture Violations**: Centralized delete in Scene (target: per-item delete)
+
+### Key Insights
+
+1. **Typed Collections Are Essential**: Without them, every scene iteration requires qgraphicsitem_cast
+2. **Simpler, Not More Complex**: Moving delete to items REMOVES Scene complexity, doesn't add it
+3. **Template System Untouched**: Node creation workflow remains data-driven and correct
+4. **Incremental Safety**: Each phase builds on previous, application always runnable
+5. **Git Discipline**: Commit/push after every verified phase prevents lost work
+
+**Timeline Estimate**: 7 phases × 2 hours = ~14 hours of focused work to zero-cast architecture
+
+---
+
 ## Next Entry
 [Add subsequent development log entries here]
