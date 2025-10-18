@@ -8,6 +8,7 @@
 #include <QElapsedTimer>
 #include <QtMath>
 #include <QKeyEvent>
+#include <QLineF>
 #include <cmath>
 
 // Static flag for clearing state
@@ -284,6 +285,7 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     
     addItem(m_ghostEdge);
     m_ghostEdgeActive = true;
+    m_ghostCurrentPos = startPos;
     
     // Set source socket to connecting state
     fromSocket->setConnectionState(Socket::Connecting);
@@ -299,6 +301,8 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
     if (!m_ghostEdge || !m_ghostFromSocket) {
         return;
     }
+
+    m_ghostCurrentPos = currentPos;
     
     QPointF start = m_ghostFromSocket->scenePos();
     QPainterPath path;
@@ -361,24 +365,62 @@ void Scene::finishGhostEdge(Socket* toSocket)
         return;
     }
 
-    if (m_ghostFromSocket && toSocket) {
+    Socket* resolvedTarget = toSocket;
+
+    if (!resolvedTarget || resolvedTarget->getRole() != Socket::Input) {
+        // Magnet to nearest input socket within 24px
+        constexpr qreal magnetRadius = 24.0;
+        qreal bestDistance = magnetRadius;
+        Socket* bestSocket = nullptr;
+
+        for (Node* node : m_nodes.values()) {
+            for (QGraphicsItem* child : node->childItems()) {
+                if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
+                    if (socket == m_ghostFromSocket) {
+                        continue;
+                    }
+                    if (socket->getRole() != Socket::Input) {
+                        continue;
+                    }
+                    qreal distance = QLineF(socket->scenePos(), m_ghostCurrentPos).length();
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestSocket = socket;
+                    }
+                }
+            }
+        }
+
+        if (bestSocket) {
+            qDebug() << "GHOST: Magnet snapped to input socket"
+                     << bestSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
+                     << "index" << bestSocket->getIndex();
+            resolvedTarget = bestSocket;
+        }
+    }
+
+    if (m_ghostFromSocket && resolvedTarget) {
+        qDebug() << "GHOST: Attempting connection from role"
+                 << (m_ghostFromSocket->getRole() == Socket::Output ? "Output" : "Input")
+                 << "to role"
+                 << (resolvedTarget->getRole() == Socket::Output ? "Output" : "Input");
         // Validate connection roles
         if (m_ghostFromSocket->getRole() == Socket::Output && 
-            toSocket->getRole() == Socket::Input) {
+            resolvedTarget->getRole() == Socket::Input) {
 
             // Mirror the one-edge-per-socket rule for immediate feedback
-            if (m_ghostFromSocket->isConnected() || toSocket->isConnected()) {
+            if (m_ghostFromSocket->isConnected() || resolvedTarget->isConnected()) {
                 qWarning() << "Scene::finishGhostEdge: socket already connected; rejecting";
                 cancelGhostEdge();
                 return;
             }
             
             if (m_graphFactory) {
-                Q_ASSERT(m_ghostFromSocket && toSocket); // Ghost edge requires both sockets
+                Q_ASSERT(m_ghostFromSocket && resolvedTarget); // Ghost edge requires both sockets
                 // Use factory for consistent edge creation
-                Edge* newEdge = m_graphFactory->connectSockets(m_ghostFromSocket, toSocket);
+                Edge* newEdge = m_graphFactory->connectSockets(m_ghostFromSocket, resolvedTarget);
                 if (newEdge) {
-                    qDebug() << "GHOST: Created edge via factory" << m_ghostFromSocket->getIndex() << "->" << toSocket->getIndex();
+                    qDebug() << "GHOST: Created edge via factory" << m_ghostFromSocket->getIndex() << "->" << resolvedTarget->getIndex();
                 } else {
                     qWarning() << "GHOST: Factory failed to create edge";
                 }
