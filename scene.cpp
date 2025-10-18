@@ -361,17 +361,17 @@ void Scene::finishGhostEdge(Socket* toSocket)
         return;
     }
 
-    // NEW: mirror the one-edge-per-socket rule here as user feedback
-    if (m_ghostFromSocket->isConnected() || toSocket->isConnected()) {
-        qWarning() << "Scene::finishGhostEdge: socket already connected; rejecting";
-        cancelGhostEdge();
-        return;
-    }
-
     if (m_ghostFromSocket && toSocket) {
         // Validate connection roles
         if (m_ghostFromSocket->getRole() == Socket::Output && 
             toSocket->getRole() == Socket::Input) {
+
+            // Mirror the one-edge-per-socket rule for immediate feedback
+            if (m_ghostFromSocket->isConnected() || toSocket->isConnected()) {
+                qWarning() << "Scene::finishGhostEdge: socket already connected; rejecting";
+                cancelGhostEdge();
+                return;
+            }
             
             if (m_graphFactory) {
                 Q_ASSERT(m_ghostFromSocket && toSocket); // Ghost edge requires both sockets
