@@ -190,6 +190,8 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
         }
     }
     m_sockets.clear();  // Clear cache to prevent dangling pointers
+    m_inputSockets.clear();
+    m_outputSockets.clear();
     
     // Calculate dynamic node size based on socket count
     calculateNodeSize(inputCount, outputCount);
@@ -345,6 +347,19 @@ void Node::registerSocket(Socket* socket, int index)
     
     // Append socket to maintain contiguous array
     m_sockets.append(socket);
+
+    // Track sockets by role for typed access
+    switch (socket->getRole()) {
+    case Socket::Input:
+        m_inputSockets.append(socket);
+        break;
+    case Socket::Output:
+        m_outputSockets.append(socket);
+        break;
+    default:
+        qWarning() << "Node::registerSocket() - unknown socket role";
+        break;
+    }
     
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "socket" << index 
              << (socket->getRole() == Socket::Input ? "IN" : "OUT");

@@ -24,6 +24,7 @@ Scene::Scene(QObject* parent)
     , m_ghostEdge(nullptr)
     , m_ghostFromSocket(nullptr)
     , m_ghostEdgeActive(false)
+    , m_ghostCurrentPos()
     , m_shutdownInProgress(false)
     , m_graphFactory(nullptr)
     // JavaScript engine initialization removed
@@ -348,12 +349,11 @@ void Scene::resetAllSocketStates()
 {
     // Reset all sockets to normal state when not being targeted
     for (Node* node : m_nodes.values()) {
-        for (QGraphicsItem* child : node->childItems()) {
-            if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-                if (socket != m_ghostFromSocket) {
-                    socket->updateConnectionState(); // Reset to connected/disconnected
-                }
+        for (Socket* socket : node->getAllSockets()) {
+            if (!socket || socket == m_ghostFromSocket) {
+                continue;
             }
+            socket->updateConnectionState(); // Reset to connected/disconnected
         }
     }
 }
@@ -374,19 +374,14 @@ void Scene::finishGhostEdge(Socket* toSocket)
         Socket* bestSocket = nullptr;
 
         for (Node* node : m_nodes.values()) {
-            for (QGraphicsItem* child : node->childItems()) {
-                if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-                    if (socket == m_ghostFromSocket) {
-                        continue;
-                    }
-                    if (socket->getRole() != Socket::Input) {
-                        continue;
-                    }
-                    qreal distance = QLineF(socket->scenePos(), m_ghostCurrentPos).length();
-                    if (distance < bestDistance) {
-                        bestDistance = distance;
-                        bestSocket = socket;
-                    }
+            for (Socket* socket : node->getInputSockets()) {
+                if (!socket || socket == m_ghostFromSocket) {
+                    continue;
+                }
+                qreal distance = QLineF(socket->scenePos(), m_ghostCurrentPos).length();
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestSocket = socket;
                 }
             }
         }
@@ -420,7 +415,13 @@ void Scene::finishGhostEdge(Socket* toSocket)
                 // Use factory for consistent edge creation
                 Edge* newEdge = m_graphFactory->connectSockets(m_ghostFromSocket, resolvedTarget);
                 if (newEdge) {
-                    qDebug() << "GHOST: Created edge via factory" << m_ghostFromSocket->getIndex() << "->" << resolvedTarget->getIndex();
+                    qDebug() << "GHOST: Created edge via factory"
+                             << m_ghostFromSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
+                             << ":" << m_ghostFromSocket->getIndex()
+                             << "->"
+                             << resolvedTarget->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
+                             << ":" << resolvedTarget->getIndex()
+                             << "edge" << newEdge->getId().toString(QUuid::WithoutBraces).left(8);
                 } else {
                     qWarning() << "GHOST: Factory failed to create edge";
                 }
