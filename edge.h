@@ -97,6 +97,9 @@ public:
     [[nodiscard]] int getFromSocketIndex() const { return m_fromSocketIndex; }
     [[nodiscard]] int getToSocketIndex() const { return m_toSocketIndex; }
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+
 private:
     QUuid m_id;
     QString m_fromNodeId;     // Store node IDs from XML (for serialization)

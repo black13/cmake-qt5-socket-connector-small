@@ -134,4 +134,7 @@ private:
     
     // Visual styling helpers
     void paintSockets(QPainter* painter) const;
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
 };

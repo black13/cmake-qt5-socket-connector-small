@@ -477,59 +477,7 @@ void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 
 void Scene::keyPressEvent(QKeyEvent* event)
 {
-    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        // Centralized deletion - handles multi-selection properly
-        QList<QGraphicsItem*> selected = selectedItems();
-        if (selected.isEmpty()) {
-            QGraphicsScene::keyPressEvent(event);
-            return;
-        }
-        
-        qDebug() << "=== SCENE CENTRALIZED DELETION START ===";
-        qDebug() << "Deleting" << selected.size() << "selected items";
-        
-        // Separate items by type for proper deletion order
-        QList<Node*> nodesToDelete;
-        QList<Edge*> edgesToDelete;
-        QList<Socket*> socketsToDelete;
-        
-        for (QGraphicsItem* item : selected) {
-            if (auto* node = qgraphicsitem_cast<Node*>(item)) {
-                nodesToDelete.append(node);
-            } else if (auto* edge = qgraphicsitem_cast<Edge*>(item)) {
-                edgesToDelete.append(edge);
-            } else if (auto* socket = qgraphicsitem_cast<Socket*>(item)) {
-                socketsToDelete.append(socket);
-            }
-        }
-        
-        // Delete edges first (they reference nodes/sockets)
-        for (Edge* edge : edgesToDelete) {
-            qDebug() << "Scene deleting edge" << edge->getId().toString(QUuid::WithoutBraces).left(8);
-            deleteEdge(edge->getId());
-        }
-        
-        // Delete nodes (this will handle their sockets automatically)
-        for (Node* node : nodesToDelete) {
-            qDebug() << "Scene deleting node" << node->getId().toString(QUuid::WithoutBraces).left(8);
-            deleteNode(node->getId());
-        }
-        
-        // Note: Sockets are typically deleted with their parent nodes
-        // Individual socket deletion is unusual but supported
-        for (Socket* socket : socketsToDelete) {
-            qDebug() << "Scene deleting individual socket" << socket->getRole() << socket->getIndex();
-            // Disconnect any connected edges first
-            if (socket->isConnected()) {
-                deleteEdge(socket->getConnectedEdge()->getId());
-            }
-        }
-        
-        qDebug() << "=== SCENE CENTRALIZED DELETION COMPLETE ===";
-        event->accept();
-    } else {
-        QGraphicsScene::keyPressEvent(event);
-    }
+    QGraphicsScene::keyPressEvent(event);
 }
 
 // ============================================================================

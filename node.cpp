@@ -370,6 +370,20 @@ void Node::setChangeCallback(void (*callback)(Node*))
     m_changeCallback = callback;
 }
 
+void Node::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
+            qDebug() << "Node::keyPressEvent delete"
+                     << m_id.toString(QUuid::WithoutBraces).left(8);
+            typedScene->deleteNode(m_id);
+            event->accept();
+            return;
+        }
+    }
+    QGraphicsItem::keyPressEvent(event);
+}
+
 // ============================================================================
 // Edge Management - O(degree) Performance Optimization
 // ============================================================================

@@ -43,6 +43,26 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
+    qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+             << "start cleanup";
+
+    if (m_fromSocket) {
+        qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "disconnecting fromSocket"
+                 << m_fromSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
+                 << "idx" << m_fromSocket->getIndex();
+        m_fromSocket->setConnectedEdge(nullptr);
+        m_fromSocket = nullptr;
+    }
+    if (m_toSocket) {
+        qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "disconnecting toSocket"
+                 << m_toSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
+                 << "idx" << m_toSocket->getIndex();
+        m_toSocket->setConnectedEdge(nullptr);
+        m_toSocket = nullptr;
+    }
+
     // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
     if (m_fromNode) {
         m_fromNode->unregisterEdge(this);
@@ -205,13 +225,32 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged) {
         // Take keyboard focus when selected for delete key handling
         if (value.toBool()) {
+            qDebug() << "Edge selected"
+                     << m_id.toString(QUuid::WithoutBraces).left(8);
             setFocus(Qt::MouseFocusReason);
+        } else {
+            qDebug() << "Edge deselected"
+                     << m_id.toString(QUuid::WithoutBraces).left(8);
         }
         
         // Trigger visual update when selection changes
         update();
     }
     return QGraphicsItem::itemChange(change, value);
+}
+
+void Edge::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
+            qDebug() << "Edge::keyPressEvent delete"
+                     << m_id.toString(QUuid::WithoutBraces).left(8);
+            typedScene->deleteEdge(m_id);
+            event->accept();
+            return;
+        }
+    }
+    QGraphicsItem::keyPressEvent(event);
 }
 
 void Edge::mousePressEvent(QGraphicsSceneMouseEvent *event)
@@ -639,3 +678,4 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
 }
 
 // Note: Delete key handling moved to Scene::keyPressEvent() for centralized multi-selection support
+
