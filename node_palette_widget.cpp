@@ -465,7 +465,11 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     
     // Execute the drag
     Qt::DropAction dropAction = drag->exec(Qt::CopyAction);
-    
+
+    // IMPORTANT: Clear button pressed state after drag completes
+    // Without this, the button stays highlighted/pressed after drag
+    setDown(false);
+
     if (dropAction == Qt::CopyAction) {
         qDebug() << "NodeButton: Drag completed for" << m_nodeTemplate.name;
     } else {

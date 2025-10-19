@@ -104,6 +104,7 @@ private:
     GhostEdge* m_ghostEdge;
     Socket* m_ghostFromSocket;
     bool m_ghostEdgeActive;
+    QPointF m_ghostCurrentPos;
     
     // Helper method for ghost edge styling
     QPen ghostPen() const;

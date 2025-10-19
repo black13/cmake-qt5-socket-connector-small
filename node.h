@@ -71,6 +71,9 @@ public:
     [[nodiscard]] int getSocketCount() const;
     void setNodeType(const QString& type);
     [[nodiscard]] QString getNodeType() const { return m_nodeType; }
+    [[nodiscard]] const QVector<Socket*>& getInputSockets() const { return m_inputSockets; }
+    [[nodiscard]] const QVector<Socket*>& getOutputSockets() const { return m_outputSockets; }
+    [[nodiscard]] const QVector<Socket*>& getAllSockets() const { return m_sockets; }
     
     // Socket registration for performance cache
     void registerSocket(Socket* socket, int index);
@@ -108,6 +111,8 @@ private:
     
     // Socket cache for O(1) lookups - critical performance fix
     QVector<Socket*> m_sockets;  // Indexed by socket index for O(1) access
+    QVector<Socket*> m_inputSockets;
+    QVector<Socket*> m_outputSockets;
     
     // Edge adjacency set for O(degree) edge updates - performance optimization
     QSet<Edge*> m_incidentEdges;  // Edges touching this node (cleaned up by Edge destructor)

@@ -58,56 +58,45 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
         xml_lines.append(node_line)
     
     # Generate edges between nodes with socket usage tracking
-    num_edges = min(num_nodes * 2, num_nodes - 1)  # Reasonable number of edges
+    output_sockets = []
+    input_sockets = []
+    for node in nodes:
+        for i in range(node['inputs']):
+            input_sockets.append((node, i))
+        for o in range(node['outputs']):
+            socket_index = node['inputs'] + o
+            output_sockets.append((node, socket_index))
+
+    random.shuffle(output_sockets)
+    random.shuffle(input_sockets)
+
     edges_created = 0
-    
-    # Track used sockets to prevent duplicates: "nodeId:socketIndex" -> True
-    used_sockets = set()
-    
-    for _ in range(num_edges * 10):  # More attempts to find valid connections
-        if edges_created >= num_edges:
-            break
-            
-        # Find nodes with compatible sockets
-        from_nodes = [n for n in nodes if n['outputs'] > 0]  # has outputs
-        to_nodes = [n for n in nodes if n['inputs'] > 0]     # has inputs
-        
-        if not from_nodes or not to_nodes:
-            break
-            
-        from_node = random.choice(from_nodes)
-        to_node = random.choice(to_nodes)
-        
-        # No self-loops
+    pair_count = min(len(output_sockets), len(input_sockets))
+
+    for idx in range(pair_count):
+        from_node, from_socket_idx = output_sockets[idx]
+        to_node, to_socket_idx = input_sockets[idx]
+
         if from_node['id'] == to_node['id']:
-            continue
-            
-        # SOCKET INDEXING: follows C++ Node::createSocketsFromXml()
-        # Input sockets: indices 0, 1, 2, ..., (inputCount-1) 
-        # Output sockets: indices inputCount, inputCount+1, ..., (inputCount+outputCount-1)
-        
-        # fromSocket must be an OUTPUT socket (from fromNode)
-        output_start_idx = from_node['inputs']  # outputs start after inputs
-        from_socket_idx = random.randint(output_start_idx, output_start_idx + from_node['outputs'] - 1)
-        
-        # toSocket must be an INPUT socket (from toNode) 
-        to_socket_idx = random.randint(0, to_node['inputs'] - 1)
-        
-        # Create socket keys to check for duplicates
-        from_socket_key = f"{from_node['id']}:{from_socket_idx}"
-        to_socket_key = f"{to_node['id']}:{to_socket_idx}"
-        
-        # Check if either socket is already used
-        if from_socket_key in used_sockets or to_socket_key in used_sockets:
-            continue  # Skip this combination, try another
-        
-        # Mark sockets as used
-        used_sockets.add(from_socket_key)
-        used_sockets.add(to_socket_key)
-        
-        # Create valid edge
+            swapped = False
+            for alt_idx in range(idx + 1, len(input_sockets)):
+                candidate_node, candidate_socket_idx = input_sockets[alt_idx]
+                if candidate_node['id'] != from_node['id']:
+                    input_sockets[idx], input_sockets[alt_idx] = (
+                        input_sockets[alt_idx],
+                        input_sockets[idx],
+                    )
+                    to_node, to_socket_idx = candidate_node, candidate_socket_idx
+                    swapped = True
+                    break
+            if not swapped:
+                continue
+
         edge_id = "{" + str(uuid.uuid4()) + "}"
-        edge_line = f'  <edge id="{edge_id}" fromNode="{from_node["id"]}" toNode="{to_node["id"]}" fromSocketIndex="{from_socket_idx}" toSocketIndex="{to_socket_idx}"/>'
+        edge_line = (
+            f'  <edge id="{edge_id}" fromNode="{from_node["id"]}" toNode="{to_node["id"]}" '
+            f'fromSocketIndex="{from_socket_idx}" toSocketIndex="{to_socket_idx}"/>'
+        )
         xml_lines.append(edge_line)
         edges_created += 1
     
@@ -123,7 +112,7 @@ def generate_graph(num_nodes, filename, layout_type="grid"):
     # Report file size
     import os
     file_size = os.path.getsize(filename) / 1024
-    print(f"✓ Created {filename}: {num_nodes} nodes, {edges_created} edges ({file_size:.1f} KB)")
+    print(f"Created {filename}: {num_nodes} nodes, {edges_created} edges ({file_size:.1f} KB)")
 
 def main():
     """Generate all test files"""
@@ -132,11 +121,11 @@ def main():
     
     # Generate files of increasing sizes
     test_sizes = [
-        (10, "tests_tiny.xml"),     # Very small for quick testing
-        (100, "tests_small.xml"),   # Small test
-        (500, "tests_medium.xml"),  # Medium test  
-        (1000, "tests_large.xml"),  # Large test
-        (5000, "tests_stress.xml")  # Stress test
+        (6, "tests_tiny.xml"),
+        (16, "tests_small.xml"),
+        (40, "tests_medium.xml"),
+        (80, "tests_large.xml"),
+        (160, "tests_stress.xml"),
     ]
     
     for num_nodes, filename in test_sizes:
