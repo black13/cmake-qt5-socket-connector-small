@@ -47,19 +47,25 @@ Edge::~Edge()
              << "start cleanup";
 
     if (m_fromSocket) {
-        qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                 << "disconnecting fromSocket"
-                 << m_fromSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
-                 << "idx" << m_fromSocket->getIndex();
-        m_fromSocket->setConnectedEdge(nullptr);
+        if (!Scene::isClearing()) {
+            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                     << "disconnecting fromSocket idx" << m_fromSocket->getIndex();
+            m_fromSocket->setConnectedEdge(nullptr);
+        } else {
+            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                     << "skip fromSocket disconnect (scene clearing)";
+        }
         m_fromSocket = nullptr;
     }
     if (m_toSocket) {
-        qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                 << "disconnecting toSocket"
-                 << m_toSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
-                 << "idx" << m_toSocket->getIndex();
-        m_toSocket->setConnectedEdge(nullptr);
+        if (!Scene::isClearing()) {
+            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                     << "disconnecting toSocket idx" << m_toSocket->getIndex();
+            m_toSocket->setConnectedEdge(nullptr);
+        } else {
+            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                     << "skip toSocket disconnect (scene clearing)";
+        }
         m_toSocket = nullptr;
     }
 
