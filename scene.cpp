@@ -79,16 +79,6 @@ void Scene::addEdge(Edge* edge)
     // Clean design: edges manage their own socket connections via resolveConnections()
 }
 
-void Scene::addSocket(Socket* socket)
-{
-    if (!socket) {
-        return;
-    }
-    
-    // Clean design: sockets are managed by their parent nodes, not scene
-    // Socket is automatically added to scene as child of parent node
-}
-
 void Scene::removeNode(const QUuid& nodeId)
 {
     Node* node = m_nodes.value(nodeId, nullptr);
@@ -127,8 +117,7 @@ void Scene::removeEdge(const QUuid& edgeId)
         return;
     }
     
-    // Clean design: edges manage their own socket disconnection via direct pointers
-    // Socket cleanup handled automatically when edge is destroyed
+    edge->detachSockets();
     
     // Remove from scene and registry
     removeItem(edge);
@@ -197,6 +186,8 @@ void Scene::deleteEdge(const QUuid& edgeId)
     }
     
     qDebug() << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
+
+    edge->detachSockets();
     
     // Remove from collection and scene
     m_edges.remove(edgeId);
@@ -223,14 +214,10 @@ void Scene::clearGraph()
     
     qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
     
-    // SIMPLE FIX: Clear registries FIRST to prevent dangling pointers
-    // This prevents hash lookups during Qt's destruction sequence
     qDebug() << "SIMPLE_FIX: Clearing hash registries first";
     m_nodes.clear();
     m_edges.clear();
-    m_sockets.clear();  // Clear deprecated socket registry too
     
-    // Then clear Qt graphics scene (safe now - no hash references)
     qDebug() << "SIMPLE_FIX: Clearing Qt scene items";
     QGraphicsScene::clear();
     
@@ -256,13 +243,7 @@ void Scene::prepareForShutdown()
     
     qDebug() << "PHASE1: Shutdown preparation -" << m_edges.size() << "edges," << m_nodes.size() << "nodes";
     m_shutdownInProgress = true;
-    
-    // Step 1: Clean edge-socket connections BEFORE any destruction
-    for (Edge* edge : m_edges.values()) {
-        // Note: Socket connection cleanup disabled - methods not available in current implementation
-    }
-    
-    qDebug() << "PHASE1: Socket connections cleared safely";
+    clearGraph();
 }
 
 // ============================================================================

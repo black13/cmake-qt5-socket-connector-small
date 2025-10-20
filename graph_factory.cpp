@@ -769,11 +769,6 @@ Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int inde
         return nullptr;
     }
     
-    // Add to typed scene collection if available
-    if (Scene* typedScene = static_cast<Scene*>(m_scene)) {
-        typedScene->addSocket(socket);
-    }
-    
     qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
              << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
     

@@ -43,7 +43,6 @@ public:
     // Typed item management - QElectroTech style
     void addNode(Node* node);
     void addEdge(Edge* edge);
-    void addSocket(Socket* socket);  // Deprecated - sockets managed by nodes
     
     void removeNode(const QUuid& nodeId);
     void removeEdge(const QUuid& edgeId);
@@ -98,7 +97,6 @@ private:
     // QElectroTech-style typed collections with UUID keys
     QHash<QUuid, Node*> m_nodes;
     QHash<QUuid, Edge*> m_edges;
-    QHash<QUuid, Socket*> m_sockets;  // Deprecated - kept for compatibility
     
     // Ghost edge for visual feedback during right-click connection creation
     GhostEdge* m_ghostEdge;

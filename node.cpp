@@ -201,26 +201,12 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     
     // Create input sockets (indexes 0, 1, 2, ...)
     for (int i = 0; i < inputCount; ++i) {
-        Socket* inputSocket = new Socket(Socket::Input, this, socketIndex++);
-        // Register socket with scene if node has observer (GraphFactory)
-        if (hasObserver()) {
-            Scene* scene = static_cast<Scene*>(this->scene());
-            if (scene) {
-                scene->addSocket(inputSocket);
-            }
-        }
+        new Socket(Socket::Input, this, socketIndex++);
     }
-    
+
     // Create output sockets (continuing index sequence)
     for (int i = 0; i < outputCount; ++i) {
-        Socket* outputSocket = new Socket(Socket::Output, this, socketIndex++);
-        // Register socket with scene if node has observer (GraphFactory)
-        if (hasObserver()) {
-            Scene* scene = static_cast<Scene*>(this->scene());
-            if (scene) {
-                scene->addSocket(outputSocket);
-            }
-        }
+        new Socket(Socket::Output, this, socketIndex++);
     }
     
     // Phase 2: Position all sockets with complete information

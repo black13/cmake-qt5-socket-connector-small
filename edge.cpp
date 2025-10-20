@@ -46,30 +46,13 @@ Edge::~Edge()
     qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
              << "start cleanup";
 
-    if (m_fromSocket) {
-        if (!Scene::isClearing()) {
-            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                     << "disconnecting fromSocket idx" << m_fromSocket->getIndex();
-            m_fromSocket->setConnectedEdge(nullptr);
-        } else {
-            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                     << "skip fromSocket disconnect (scene clearing)";
-        }
+    if (!Scene::isClearing()) {
+        detachSockets();
+    } else {
         m_fromSocket = nullptr;
-    }
-    if (m_toSocket) {
-        if (!Scene::isClearing()) {
-            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                     << "disconnecting toSocket idx" << m_toSocket->getIndex();
-            m_toSocket->setConnectedEdge(nullptr);
-        } else {
-            qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
-                     << "skip toSocket disconnect (scene clearing)";
-        }
         m_toSocket = nullptr;
     }
 
-    // SAFETY: Only touch nodes that are still valid (not nulled by invalidateNode)
     if (m_fromNode) {
         m_fromNode->unregisterEdge(this);
     }
@@ -225,6 +208,23 @@ QPainterPath Edge::shape() const
 }
 
 // Removed manual setSelected - using Qt's selection system
+
+void Edge::detachSockets()
+{
+    if (m_fromSocket) {
+        qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "detachSockets: clearing fromSocket index" << m_fromSocket->getIndex();
+        m_fromSocket->setConnectedEdge(nullptr);
+        m_fromSocket = nullptr;
+    }
+
+    if (m_toSocket) {
+        qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+                 << "detachSockets: clearing toSocket index" << m_toSocket->getIndex();
+        m_toSocket->setConnectedEdge(nullptr);
+        m_toSocket = nullptr;
+    }
+}
 
 QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
 {

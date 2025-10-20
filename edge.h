@@ -97,6 +97,8 @@ public:
     [[nodiscard]] int getFromSocketIndex() const { return m_fromSocketIndex; }
     [[nodiscard]] int getToSocketIndex() const { return m_toSocketIndex; }
 
+    void detachSockets();
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
 
