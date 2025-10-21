@@ -1,36 +1,72 @@
 # NodeGraph Specification v1.0
 
+**Last Updated:** October 2025
+
 ## Graph Model Definition
 
 ### Core Elements
 
 | Element | Mandatory Attributes | Optional Attributes | Invariants |
 |---------|---------------------|-------------------|------------|
-| **Graph** | `version="1.0"` | `label`, metadata | Only one per XML file |
-| **Node** | `id` (UUID, unique)<br>`type` (string)<br>`inputs` (int ≥ 0)<br>`outputs` (int ≥ 0)<br>`x,y` (coordinates) | Arbitrary key-value pairs | `inputs ≥ 1 ∨ outputs ≥ 1` |
-| **Socket** | Implicit (index 0…inputs-1 / outputs-1) | Metadata in future | Index stable for node lifetime |
-| **Edge** | `id` (UUID)<br>`fromNode` (UUID)<br>`fromSocketIndex` (int)<br>`toNode` (UUID)<br>`toSocketIndex` (int) | `label`, `weight`, etc. | Connects output → input<br>Self-loops allowed<br>Multi-edges allowed |
+| **Graph** | `version="1.0"` | none | Only one per XML file |
+| **Node** | `id` (UUID, unique)<br>`type` (string)<br>`inputs` (int ≥ 0)<br>`outputs` (int ≥ 0)<br>`x,y` (coordinates) | none | `inputs ≥ 1 ∨ outputs ≥ 1` |
+| **Socket** | Implicit (index 0…inputs-1 / outputs-1) | none | Index stable for node lifetime |
+| **Edge** | `id` (UUID)<br>`fromNode` (UUID)<br>`fromSocketIndex` (int)<br>`toNode` (UUID)<br>`toSocketIndex` (int) | none | Connects output → input<br>Self-loops allowed<br>Multi-edges allowed |
+
+### Graph Management
+
+The **Scene** class serves as the graph manager and implements the `GraphSubject` interface:
+- Maintains `QHash<QUuid, Node*> m_nodes` for O(1) node lookup
+- Maintains `QHash<QUuid, Edge*> m_edges` for O(1) edge lookup
+- Notifies observers of all graph mutations
+- Manages QGraphicsScene for visual representation
 
 ### Canonical Operations & Invariants
 
 | Operation | Post-conditions |
 |-----------|----------------|
-| `addNode(n)` | `graph.nodes` gains `n`; observers get `onNodeAdded(n)` |
+| `addNode(n)` | Scene gains node; observers get `onNodeAdded(n)` |
 | `removeNode(id)` | All incident edges removed first; observers receive `onEdgeRemoved`, then `onNodeRemoved` |
-| `addEdge(e)` | Both nodes exist; `fromSocketIndex < outputs`, `toSocketIndex < inputs`; observers get `onEdgeAdded(e)` |
-| `moveNode(id, x, y)` | Geometry changes but topology intact; observers get `onNodeMoved(id, oldPos, newPos)` |
+| `addEdge(e)` | Both nodes exist; socket indices valid; observers get `onEdgeAdded(e)` |
+| Node movement | Geometry changes via QGraphicsItem; observers get `onNodeMoved(id, oldPos, newPos)` |
+| `clearGraph()` | All edges removed, then all nodes; observers get `onGraphCleared()` |
 
 ## Observer Pattern Architecture
 
 ### Core Interfaces
 
 ```cpp
+// Observer interface
+class GraphObserver {
+public:
+    virtual ~GraphObserver() = default;
+
+    // Node lifecycle events
+    virtual void onNodeAdded(const Node& node) {}
+    virtual void onNodeRemoved(const QUuid& nodeId) {}
+    virtual void onNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos) {}
+
+    // Edge lifecycle events
+    virtual void onEdgeAdded(const Edge& edge) {}
+    virtual void onEdgeRemoved(const QUuid& edgeId) {}
+
+    // Graph-level events
+    virtual void onGraphCleared() {}
+    virtual void onGraphLoaded(const QString& filename) {}
+    virtual void onGraphSaved(const QString& filename) {}
+};
+
 // Subject interface
 class GraphSubject {
 public:
     void attach(GraphObserver* observer);
     void detach(GraphObserver* observer);
-    
+
+    // Batch mode for bulk operations (prevents observer storm)
+    static void beginBatch();
+    static void endBatch();
+    static bool isInBatch();
+
 protected:
     void notifyNodeAdded(const Node& node);
     void notifyNodeRemoved(const QUuid& nodeId);
@@ -41,76 +77,62 @@ protected:
     void notifyGraphLoaded(const QString& filename);
     void notifyGraphSaved(const QString& filename);
 };
-
-// Observer interface
-class GraphObserver {
-public:
-    virtual ~GraphObserver() = default;
-    virtual void onNodeAdded(const Node& node) {}
-    virtual void onNodeRemoved(const QUuid& nodeId) {}
-    virtual void onNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF newPos) {}
-    virtual void onEdgeAdded(const Edge& edge) {}
-    virtual void onEdgeRemoved(const QUuid& edgeId) {}
-    virtual void onGraphCleared() {}
-    virtual void onGraphLoaded(const QString& filename) {}
-    virtual void onGraphSaved(const QString& filename) {}
-};
 ```
 
 ### Observer Types & Purposes
 
-| Observer | Purpose |
-|----------|---------|
-| **XmlAutosaveObserver** | Listens to every mutation, writes incremental updates or full export |
-| **ValidationObserver** | Updates "errors/warnings" overlay when graph becomes cyclic, sockets mismatch, etc. |
-| **CommandHistoryObserver** | Records operations for undo/redo stack |
-| **RuntimeExecutionObserver** | Maps node IDs to live runtime objects, triggers re-compute when inputs change |
+| Observer | Purpose | Status |
+|----------|---------|--------|
+| **XmlAutosaveObserver** | Listens to every mutation, writes autosave.xml | ✅ Implemented |
+| **ValidationObserver** | Updates errors/warnings overlay | ❌ Not implemented |
+| **CommandHistoryObserver** | Records operations for undo/redo | ❌ Not implemented |
+| **RuntimeExecutionObserver** | Maps node IDs to runtime objects | ❌ Not implemented |
 
 ## XML Format Standard
 
-### Basic Structure
+### Actual Format (Current Implementation)
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <graph version="1.0">
-  <metadata>
-    <generator>NodeGraph v1.0</generator>
-    <timestamp>1625097600</timestamp>
-    <node_count>3</node_count>
-    <edge_count>2</edge_count>
-  </metadata>
-  
-  <nodes>
-    <node id="{uuid1}" type="IN" x="100" y="100" inputs="0" outputs="2"/>
-    <node id="{uuid2}" type="PROC" x="300" y="100" inputs="2" outputs="2"/>
-    <node id="{uuid3}" type="OUT" x="500" y="100" inputs="2" outputs="0"/>
-  </nodes>
-  
-  <connections>
-    <connection id="{edge-uuid1}" 
-                from="{uuid1}" from-socket="0"
-                to="{uuid2}" to-socket="0"/>
-    <connection id="{edge-uuid2}"
-                from="{uuid2}" from-socket="1" 
-                to="{uuid3}" to-socket="0"/>
-  </connections>
+  <node id="{uuid1}" type="SOURCE" x="100" y="100" inputs="1" outputs="1"/>
+  <node id="{uuid2}" type="TRANSFORM" x="300" y="100" inputs="1" outputs="1"/>
+  <node id="{uuid3}" type="SINK" x="500" y="100" inputs="1" outputs="1"/>
+
+  <edge id="{edge-uuid1}"
+        fromNode="{uuid1}" fromSocketIndex="0"
+        toNode="{uuid2}" toSocketIndex="0"/>
+  <edge id="{edge-uuid2}"
+        fromNode="{uuid2}" fromSocketIndex="0"
+        toNode="{uuid3}" toSocketIndex="0"/>
 </graph>
 ```
 
-### Node Types
+**Key Points:**
+- Flat structure: `<node>` and `<edge>` elements directly under `<graph>`
+- No `<nodes>` or `<connections>` wrapper elements
+- No metadata section (can be added later if needed)
+- All attributes inline, no nested elements
 
-| Type | Description | Typical Socket Config |
-|------|-------------|---------------------|
-| `IN` | Input/Source node | `inputs="0" outputs="1+"` |
-| `OUT` | Output/Sink node | `inputs="1+" outputs="0"` |
-| `PROC` | Processor node | `inputs="1+" outputs="1+"` |
-| `HUB` | Hub/Fanout node | `inputs="1" outputs="3+"` |
-| `LEAF` | Leaf node | `inputs="1" outputs="1"` |
+### Node Types (From Templates)
+
+Node types are defined in `node_type_templates.xml`. Common types include:
+
+| Type | Description | Typical Use |
+|------|-------------|-------------|
+| `SOURCE` | Input/Source node | Data generators, file readers |
+| `SINK` | Output/Sink node | Data consumers, file writers |
+| `TRANSFORM` | Processor node | Data transformation |
+| `SPLIT` | Fanout node | Duplicate data to multiple outputs |
+| `MERGE` | Join node | Combine multiple inputs |
+
+**Note:** Socket counts are per-instance configuration, not type-specific.
 
 ## Implementation Guidelines
 
 ### Socket Index Management
-- Sockets are identified by `(nodeId, socketIndex)` pairs
-- Input sockets: indices `0` to `inputs-1`  
+- Sockets are identified by `(nodeId, socketIndex, direction)` tuples
+- Input sockets: indices `0` to `inputs-1`
 - Output sockets: indices `0` to `outputs-1`
 - Indices must be stable for node lifetime
 - Socket recreation requires edge cleanup first
@@ -118,51 +140,91 @@ public:
 ### Edge Validation Rules
 1. `fromNode` and `toNode` must exist in graph
 2. `fromSocketIndex` must be `< fromNode.outputs`
-3. `toSocketIndex` must be `< toNode.inputs`  
+3. `toSocketIndex` must be `< toNode.inputs`
 4. Self-loops are allowed: `fromNode == toNode`
 5. Multi-edges are allowed: multiple edges between same socket pair
+6. Edges connect output sockets to input sockets (direction enforced)
 
 ### Data Integrity Guarantees
-1. **XML-First**: All objects created through XML parsing
+1. **XML-First**: All objects created through `GraphFactory::createFromXml()`
 2. **Observer Consistency**: All mutations trigger appropriate notifications
 3. **Reference Integrity**: Edges automatically deleted when nodes removed
 4. **UUID Uniqueness**: All IDs globally unique within graph
 5. **Socket Stability**: Socket indices never change during node lifetime
+6. **Typed Collections**: `QHash<QUuid, Node*>` and `QHash<QUuid, Edge*>` - no casting needed
 
-## Test Generator Usage
+### Self-Serialization Pattern
 
-Generate test graphs using the unified generator:
+All graph objects implement XML self-serialization:
 
-```bash
-# Basic graphs
-python nodegraph_gen.py basic simple --output test_simple.xml
-python nodegraph_gen.py basic grid --rows 3 --cols 4
-python nodegraph_gen.py basic circle --nodes 6
+```cpp
+class Node {
+    void writeToXml(xmlTextWriterPtr writer) const;
+    static Node* createFromXml(xmlNodePtr xmlNode, Scene* scene);
+};
 
-# Topology graphs  
-python nodegraph_gen.py topology chain --nodes 5
-python nodegraph_gen.py topology star --nodes 7
-
-# NetworkX graphs (if available)
-python nodegraph_gen.py networkx erdos-renyi --nodes 10 --probability 0.3
-python nodegraph_gen.py networkx barabasi-albert --nodes 15 --m 3
-
-# Help and options
-python nodegraph_gen.py --help
+class Edge {
+    void writeToXml(xmlTextWriterPtr writer) const;
+    static Edge* createFromXml(xmlNodePtr xmlNode, Scene* scene);
+};
 ```
+
+This ensures XML format consistency and simplifies persistence.
+
+## Architecture Principles
+
+### No Type Casting
+- Scene maintains typed collections (`QHash<QUuid, Node*>`, not `QGraphicsItem*`)
+- No `qgraphicsitem_cast<>` or `dynamic_cast<>` needed
+- Type safety enforced at collection level
+
+### Object Lifecycle Management
+- Nodes and edges are **NOT** QObject-derived (avoid zombie reference issues)
+- QGraphicsScene owns items via Qt's parent-child system
+- UUID-based lookup for graph topology queries
+- Qt scene graph handles rendering and interaction
+
+### Observer Pattern Benefits
+- Decouples graph logic from persistence (autosave)
+- Enables future undo/redo without core changes
+- Allows runtime execution layer without graph pollution
+- Prevents callback spaghetti through well-defined events
 
 ## Files in Source Root
 
-All components live in single directory:
-- **C++ Sources**: `*.h`, `*.cpp` 
-- **XML Fixtures**: `*.xml` (generated test graphs)
-- **Generator**: `nodegraph_gen.py` (unified graph generator)
-- **Documentation**: `GRAPH_SPECIFICATION.md` (this file)
+Current implementation files:
+- **Core**: `node.{h,cpp}`, `socket.{h,cpp}`, `edge.{h,cpp}`
+- **Graph Management**: `scene.{h,cpp}`, `graph_factory.{h,cpp}`
+- **Observers**: `graph_observer.{h,cpp}`, `xml_autosave_observer.{h,cpp}`
+- **UI**: `window.{h,cpp}`, `view.{h,cpp}`, `node_palette_widget.{h,cpp}`
+- **Templates**: `node_templates.{h,cpp}`
+- **Build**: `CMakelists.txt`, `build.sh`, `build.bat`
+- **Spec**: `GRAPH_SPECIFICATION.md` (this file)
 
-## German Summary (Kurz & Knapp)
+## Known Limitations
 
-**Graph-Definition**: Ein Node hat ID, Typ, mindestens einen Ein- oder Ausgang, Koordinaten. Ein Edge verbindet genau einen Ausgang (Index) mit einem Eingang (Index). Mehrfachkanten und Selbstschleifen erlaubt.
+1. **No Undo/Redo**: Observer framework exists but CommandHistoryObserver not implemented
+2. **No Validation Layer**: No cycle detection or type checking observers
+3. **No Runtime Execution**: No node execution/computation framework yet
+4. **No Metadata**: XML format doesn't preserve creation time, version info, etc.
+5. **No Socket Metadata**: Sockets are just indices, no names/types/descriptions
 
-**Observer-Schicht**: GraphSubject verwaltet Observer-Liste und ruft bei jeder Änderung entsprechende `notify*()` Methoden. Beispiele: XmlAutosaveObserver, ValidationObserver, UndoStackObserver.
+## Future Considerations
 
-**Datenintegrität**: XML-First, Observer-Konsistenz, referentielle Integrität, UUID-Eindeutigkeit, Socket-Stabilität.
+### Graph Interface Design (In Flux)
+The public API for graph manipulation is currently being redesigned to support:
+- Potential JavaScript scripting integration
+- Node/edge behavior customization via scripts
+- External graph algorithms and analysis tools
+
+**Status:** Interface design in active development. Current `Scene` methods may change.
+
+### Scripting Layer
+JavaScript integration files exist (`graph_script_api.*`, `script_host.*`) but are:
+- Not compiled into current build (JS engine disabled)
+- Kept as reference implementations
+- May be reactivated when graph interface stabilizes
+
+---
+
+*This specification reflects the current implementation as of October 2025. The graph interface design is actively evolving.*

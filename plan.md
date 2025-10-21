@@ -224,3 +224,4 @@ git push origin v1.0-zero-cast
 - Always build/run (or execute the relevant test suite) before and after every change set.
 - Never leave the app in a broken state at the end of a task.
 - Commit and push to the remote after every verified phase so no progress is lost.
+Session saved: work committed to branch fix/shutdown-safety (07bc34f) for safe restart.
