@@ -78,22 +78,9 @@ else()
 endif()
 
 # ─────────────────────────────────────
-# 5.  Build-time feature flags
-# ─────────────────────────────────────
-option(ENABLE_JS "Enable in-app JavaScript engine" OFF)
-
-# ─────────────────────────────────────
-# 6.  Find Qt5 modules  
+# 5.  Find Qt5 modules
 # ─────────────────────────────────────
 set(QT5_COMPONENTS Core Widgets Gui Test)
-
-if(ENABLE_JS)
-    list(APPEND QT5_COMPONENTS Qml)
-    add_definitions(-DENABLE_JS=1)
-    message(STATUS "JavaScript engine: ENABLED")
-else()
-    message(STATUS "JavaScript engine: DISABLED")
-endif()
 
 find_package(Qt5 REQUIRED COMPONENTS ${QT5_COMPONENTS})
 
@@ -227,29 +214,16 @@ set(CORE_SOURCES
     node_palette_widget.h
     node_palette_widget.cpp
     
-    # JavaScript integration (conditional)
-    script_api_stub.h
-    script_host.h
-    script_host.cpp
-    
     # Observer pattern implementation
     graph_observer.h
     graph_observer.cpp
     xml_autosave_observer.h
     xml_autosave_observer.cpp
-    
+
     # Live XML synchronization (not implemented yet)
     # xml_live_sync.h
     # xml_live_sync.cpp
 )
-
-# Add JavaScript-specific files only when enabled
-if(ENABLE_JS)
-    list(APPEND CORE_SOURCES
-        graph_script_api.h
-        graph_script_api.cpp
-    )
-endif()
 
 # Main application sources (only main.cpp + resources)
 set(MAIN_SOURCES
@@ -316,18 +290,14 @@ target_link_libraries(NodeGraph NodeGraphCore)
 
 message(STATUS "Testing DISABLED - GraphController validation via menu system only")
 
-# Always use FetchContent libxml2 - Core library (shared by both main and test)
+# Core library linking
 set(CORE_LIBRARIES
     Qt5::Core
-    Qt5::Widgets 
+    Qt5::Widgets
     Qt5::Gui
     Qt5::Test
     LibXml2::LibXml2
 )
-
-if(ENABLE_JS)
-    list(APPEND CORE_LIBRARIES Qt5::Qml)
-endif()
 
 target_link_libraries(NodeGraphCore ${CORE_LIBRARIES})
 

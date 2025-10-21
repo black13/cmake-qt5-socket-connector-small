@@ -94,12 +94,12 @@ print_success "Build tools available"
 # 2. Check Qt5 installation
 print_status "Checking Qt5 installation..."
 
-# Auto-detect Qt installations in /usr/local/qt-*
-QT_INSTALLS=($(find /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
+# Auto-detect Qt installations in /opt/qt* (preferred) or /usr/local/qt-*
+QT_INSTALLS=($(find /opt /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
 
 if [ ${#QT_INSTALLS[@]} -eq 0 ]; then
-    print_error "No Qt installations found in /usr/local/qt-*"
-    print_error "Please install Qt5 to /usr/local/qt-VERSION or /usr/local/qt-VERSION-{debug,release}"
+    print_error "No Qt installations found in /opt/qt* or /usr/local/qt-*"
+    print_error "Please install Qt5 to /opt/qt-VERSION or /usr/local/qt-VERSION"
     exit 1
 fi
 
