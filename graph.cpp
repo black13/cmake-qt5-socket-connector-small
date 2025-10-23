@@ -371,9 +371,26 @@ bool Graph::loadFromFile(const QString& filePath)
 {
     qDebug() << "Graph::loadFromFile:" << filePath;
 
-    // TODO: Implement proper load via GraphFactory
-    emit graphLoaded();
-    return true;
+    if (!m_factory) {
+        qDebug() << "Graph::loadFromFile: No factory available";
+        emit errorOccurred("Cannot load: No factory available");
+        return false;
+    }
+
+    // Use batch mode for efficient loading
+    beginBatch();
+    bool ok = m_factory->loadFromXmlFile(filePath);
+    endBatch();
+
+    if (ok) {
+        qDebug() << "Graph::loadFromFile: Successfully loaded" << filePath;
+        emit graphLoaded();
+    } else {
+        qDebug() << "Graph::loadFromFile: Failed to load" << filePath;
+        emit errorOccurred(QString("Failed to load file: %1").arg(filePath));
+    }
+
+    return ok;
 }
 
 QString Graph::toXml() const

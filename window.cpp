@@ -301,10 +301,10 @@ bool Window::loadGraph(const QString& filename)
         m_autosaveObserver->setEnabled(false);
     }
 
-    GraphSubject::beginBatch();
-    m_scene->clearGraph();
+    // Graph facade handles batch mode and clearing internally
+    m_scene->clearGraph();  // TODO: Move to Branch 2 (facade-graph-clearing)
 
-    const bool ok = m_factory->loadFromXmlFile(filename);
+    const bool ok = m_graph->loadFromFile(filename);
     if (ok) {
         setCurrentFile(filename);
         updateStatusBar();
@@ -317,7 +317,7 @@ bool Window::loadGraph(const QString& filename)
             restoreJustLoadedFile();
         }
     }
-    GraphSubject::endBatch();
+    // Graph facade handles batch mode internally (removed endBatch)
 
     if (m_autosaveObserver) {
         m_autosaveObserver->saveNow();
@@ -1559,10 +1559,8 @@ void Window::restoreJustLoadedFile()
     if (m_autosaveObserver) {
         m_autosaveObserver->setEnabled(false);
     }
-    GraphSubject::beginBatch();
-    m_scene->clearGraph();
-    m_factory->loadFromXmlFile(path);
-    GraphSubject::endBatch();
+    // Graph facade handles clearing, batch mode internally
+    m_graph->loadFromFile(path);
     if (m_autosaveObserver) { m_autosaveObserver->saveNow(); m_autosaveObserver->setEnabled(true); }
     updateStatusBar();
 }
