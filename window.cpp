@@ -302,7 +302,7 @@ bool Window::loadGraph(const QString& filename)
     }
 
     // Graph facade handles batch mode and clearing internally
-    m_scene->clearGraph();  // TODO: Move to Branch 2 (facade-graph-clearing)
+    m_graph->clearGraph();
 
     const bool ok = m_graph->loadFromFile(filename);
     if (ok) {
@@ -927,7 +927,7 @@ void Window::newFile()
     }
 
     GraphSubject::beginBatch();
-    m_scene->clearGraph();                        // hard clear
+    m_graph->clearGraph();                        // hard clear
     setCurrentFile(QString());                    // forget current file
     updateStatusBar();
     GraphSubject::endBatch();
@@ -1073,7 +1073,7 @@ void Window::testTemplateNodeCreation()
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
     
     // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering
-    m_scene->clearGraph();
+    m_graph->clearGraph();
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene safely for testing";
     
     // Show collection state AFTER clearing  
@@ -1161,7 +1161,7 @@ void Window::testTemplateConnections()
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
     
     // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering  
-    m_scene->clearGraph();
+    m_graph->clearGraph();
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene safely for edge testing";
     
     // Show collection state AFTER clearing  
@@ -1289,7 +1289,7 @@ void Window::testConnectSourceToSink()
         return;
     }
     // Start from a clean scene
-    m_scene->clearGraph(); // safe, typed clear
+    m_graph->clearGraph(); // safe, typed clear
     // Create nodes
     Node* src = m_factory->createNode("SOURCE", QPointF(-150, 0));
     Node* snk = m_factory->createNode("SINK",   QPointF( 150, 0));
@@ -1338,7 +1338,7 @@ void Window::testClearGraphRemovesEverything()
     int beforeItems = m_scene->items().size();
 
     // Action
-    m_scene->clearGraph();  // your safe, typed clear
+    m_graph->clearGraph();  // your safe, typed clear
 
     // Assert
     int afterNodes = m_scene->getNodes().size();
@@ -1481,7 +1481,7 @@ void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
     GraphSubject::beginBatch();
 
     // Start from a clean slate (we'll restore the file if we were called from load)
-    m_scene->clearGraph();
+    m_graph->clearGraph();
 
     // Random drop: mix of SOURCE / TRANSFORM / SINK (adjust to your template names)
     static const QStringList types = { "SOURCE", "TRANSFORM", "SINK" };
@@ -1548,7 +1548,7 @@ void Window::restoreJustLoadedFile()
     if (path.isEmpty() || !QFileInfo::exists(path)) {
         // No file to restore — just clear to a blank scene
         GraphSubject::beginBatch();
-        m_scene->clearGraph();
+        m_graph->clearGraph();
         setCurrentFile(QString());
         GraphSubject::endBatch();
         updateStatusBar();
@@ -1581,12 +1581,12 @@ QImage Window::renderSceneImage(const QRectF& viewRect, const QSize& size) const
 void Window::restoreCurrentFile()
 {
     if (m_currentFile.isEmpty()) {
-        m_scene->clearGraph();                    // safe clear (typed registries first)
+        m_graph->clearGraph();                    // safe clear (typed registries first)
         updateStatusBar();
         return;
     }
     // Silently reload
-    m_scene->clearGraph();
+    m_graph->clearGraph();
     (void)loadGraph(m_currentFile);               // already sets title & status inside
 }
 
@@ -1602,7 +1602,7 @@ void Window::runVisualSmokeTest()
     const QString fileBefore = m_currentFile;
 
     // 2) start clean
-    m_scene->clearGraph();
+    m_graph->clearGraph();
 
     // 3) build a deterministic sample (no random needed)
     QList<Node*> nodes;
