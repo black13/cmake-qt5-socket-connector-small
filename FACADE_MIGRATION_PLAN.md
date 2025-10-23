@@ -271,7 +271,7 @@ main
 - [x] Plan created
 - [x] Branch 1: feature/facade-graph-loading ✅ (Merged commit: 4d55d48)
 - [x] Branch 2: feature/facade-graph-clearing ✅ (Merged commit: 770ac19)
-- [ ] Branch 3: feature/facade-query-operations
+- [x] Branch 3: feature/facade-query-operations ✅ (Merged commit: b5ec77d)
 - [ ] Branch 4: feature/facade-edge-creation
 - [ ] All branches merged to main
 - [ ] Documentation updated
@@ -291,6 +291,13 @@ main
   - Added Windows VS debugger PATH documentation (BUILD_INSTRUCTIONS.md, RULES.md)
   - Merged to main: 770ac19
 
-**Progress:** 50% complete (2 of 4 branches)
+- Branch 3: Query operations migrated to facade (27 locations changed)
+  - All `m_scene->getNodes().size()` and `m_scene->getEdges().size()` calls migrated
+  - Now using `m_graph->getGraphStats()` for consistent query interface
+  - Status bar updates and debug logging all use facade API
+  - Build successful, ready for live testing
+  - Merged to main: b5ec77d
 
-**Next Step:** Create and work on Branch 3: feature/facade-query-operations
+**Progress:** 75% complete (3 of 4 branches)
+
+**Next Step:** Create and work on Branch 4: feature/facade-edge-creation
