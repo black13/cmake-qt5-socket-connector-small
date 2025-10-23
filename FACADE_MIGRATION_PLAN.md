@@ -269,7 +269,7 @@ main
 ## Current Status
 
 - [x] Plan created
-- [ ] Branch 1: feature/facade-graph-loading
+- [x] Branch 1: feature/facade-graph-loading ✅ (Merged commit: 4d55d48)
 - [ ] Branch 2: feature/facade-graph-clearing
 - [ ] Branch 3: feature/facade-query-operations
 - [ ] Branch 4: feature/facade-edge-creation
@@ -278,4 +278,9 @@ main
 
 ---
 
-**Next Step:** Create and work on Branch 1: feature/facade-graph-loading
+**Completed:**
+- Branch 1: Graph loading migrated to facade (2 locations changed)
+- Graph::loadFromFile() implemented
+- Tested and verified with logs
+
+**Next Step:** Create and work on Branch 2: feature/facade-graph-clearing
