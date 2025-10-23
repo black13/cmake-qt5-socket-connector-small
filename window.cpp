@@ -265,8 +265,9 @@ bool Window::saveGraph(const QString& filename)
     if (result != -1) {
         QFileInfo fileInfo(filename);
         qint64 fileSize = fileInfo.size();
-        int nodeCount = m_scene->getNodes().size();
-        int edgeCount = m_scene->getEdges().size();
+        QVariantMap stats = m_graph->getGraphStats();
+        int nodeCount = stats["nodeCount"].toInt();
+        int edgeCount = stats["edgeCount"].toInt();
         
         qDebug() << "Manual save complete:";
         qDebug() << "   File:" << fileInfo.fileName();
@@ -841,8 +842,9 @@ void Window::updateStatusBar()
     }
     
     // Update graph statistics
-    int nodeCount = m_scene->getNodes().size();
-    int edgeCount = m_scene->getEdges().size();
+    QVariantMap stats = m_graph->getGraphStats();
+    int nodeCount = stats["nodeCount"].toInt();
+    int edgeCount = stats["edgeCount"].toInt();
     m_graphStatsLabel->setText(QString("Nodes: %1 | Edges: %2").arg(nodeCount).arg(edgeCount));
     
     // Update file info
@@ -1067,27 +1069,31 @@ void Window::closeEvent(QCloseEvent* event)
 void Window::testTemplateNodeCreation()
 {
     qDebug() << "\n" << __FUNCTION__ << "- TEMPLATE SYSTEM: Starting template system validation test";
-    
+
     // Show collection state BEFORE clearing
-    qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
+    QVariantMap statsBefore = m_graph->getGraphStats();
+    qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << statsBefore["nodeCount"].toInt() << "nodes," << statsBefore["edgeCount"].toInt() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
-    
+
     // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering
     m_graph->clearGraph();
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene safely for testing";
-    
-    // Show collection state AFTER clearing  
-    qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
+
+    // Show collection state AFTER clearing
+    QVariantMap statsAfter = m_graph->getGraphStats();
+    qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << statsAfter["nodeCount"].toInt() << "nodes," << statsAfter["edgeCount"].toInt() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Qt scene has" << m_scene->items().size() << "total items";
-    
+
     // CRASH VALIDATION: Check for stale pointer problem
-    if (m_scene->getNodes().size() > 0 && m_scene->items().size() == 0) {
-        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << m_scene->getNodes().size() << "node pointers but Qt scene is empty!";
+    int nodeCount = statsAfter["nodeCount"].toInt();
+    int edgeCount = statsAfter["edgeCount"].toInt();
+    if (nodeCount > 0 && m_scene->items().size() == 0) {
+        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << nodeCount << "node pointers but Qt scene is empty!";
         qWarning() << __FUNCTION__ << "- CRASH CAUSE: Autosave will try to access deleted Node objects";
         qWarning() << __FUNCTION__ << "- SOLUTION NEEDED: Scene::clear() should also clear hash maps, not just Qt items";
     }
-    if (m_scene->getEdges().size() > 0 && m_scene->items().size() == 0) {
-        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << m_scene->getEdges().size() << "edge pointers but Qt scene is empty!";
+    if (edgeCount > 0 && m_scene->items().size() == 0) {
+        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << edgeCount << "edge pointers but Qt scene is empty!";
         qWarning() << __FUNCTION__ << "- CRASH CAUSE: Autosave will try to access deleted Edge objects";
     }
     
@@ -1119,7 +1125,7 @@ void Window::testTemplateNodeCreation()
     bool invalidRejected = (invalidNode == nullptr);
     
     // Get final scene stats
-    int finalNodeCount = m_scene->getNodes().size();
+    int finalNodeCount = m_graph->getGraphStats()["nodeCount"].toInt();
     
     // Update status bar
     updateStatusBar();
@@ -1155,27 +1161,31 @@ void Window::testTemplateNodeCreation()
 void Window::testTemplateConnections()
 {
     qDebug() << "\n" << __FUNCTION__ << "- TEMPLATE SYSTEM: Starting edge connection test";
-    
+
     // Show collection state BEFORE clearing
-    qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
+    QVariantMap statsBefore = m_graph->getGraphStats();
+    qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << statsBefore["nodeCount"].toInt() << "nodes," << statsBefore["edgeCount"].toInt() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
-    
-    // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering  
+
+    // Clear existing graph for clean test - ISSUE 3: Use safe clear ordering
     m_graph->clearGraph();
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Cleared scene safely for edge testing";
-    
-    // Show collection state AFTER clearing  
-    qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << m_scene->getNodes().size() << "nodes," << m_scene->getEdges().size() << "edges";
+
+    // Show collection state AFTER clearing
+    QVariantMap statsAfter = m_graph->getGraphStats();
+    qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << statsAfter["nodeCount"].toInt() << "nodes," << statsAfter["edgeCount"].toInt() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Qt scene has" << m_scene->items().size() << "total items";
-    
-    // CRASH VALIDATION: Check for stale pointer problem  
-    if (m_scene->getNodes().size() > 0 && m_scene->items().size() == 0) {
-        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << m_scene->getNodes().size() << "node pointers but Qt scene is empty!";
+
+    // CRASH VALIDATION: Check for stale pointer problem
+    int nodeCount = statsAfter["nodeCount"].toInt();
+    int edgeCount = statsAfter["edgeCount"].toInt();
+    if (nodeCount > 0 && m_scene->items().size() == 0) {
+        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << nodeCount << "node pointers but Qt scene is empty!";
         qWarning() << __FUNCTION__ << "- CRASH CAUSE: Autosave will try to access deleted Node objects";
         qWarning() << __FUNCTION__ << "- SOLUTION NEEDED: Scene::clear() should also clear hash maps, not just Qt items";
     }
-    if (m_scene->getEdges().size() > 0 && m_scene->items().size() == 0) {
-        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << m_scene->getEdges().size() << "edge pointers but Qt scene is empty!";
+    if (edgeCount > 0 && m_scene->items().size() == 0) {
+        qWarning() << __FUNCTION__ << "- CRASH RISK DETECTED: Scene hash maps contain" << edgeCount << "edge pointers but Qt scene is empty!";
         qWarning() << __FUNCTION__ << "- CRASH CAUSE: Autosave will try to access deleted Edge objects";
     }
     
@@ -1247,8 +1257,9 @@ void Window::testTemplateConnections()
     bool invalidRejected = (invalidEdge == nullptr);
     
     // Get final scene stats
-    int finalNodeCount = m_scene->getNodes().size();
-    int finalEdgeCount = m_scene->getEdges().size();
+    QVariantMap finalStats = m_graph->getGraphStats();
+    int finalNodeCount = finalStats["nodeCount"].toInt();
+    int finalEdgeCount = finalStats["edgeCount"].toInt();
     
     // Update status bar
     updateStatusBar();
@@ -1333,16 +1344,18 @@ void Window::testClearGraphRemovesEverything()
             (void)m_factory->connectSockets(out0, in0);
         }
     }
-    int beforeNodes = m_scene->getNodes().size();
-    int beforeEdges = m_scene->getEdges().size();
+    QVariantMap beforeStats = m_graph->getGraphStats();
+    int beforeNodes = beforeStats["nodeCount"].toInt();
+    int beforeEdges = beforeStats["edgeCount"].toInt();
     int beforeItems = m_scene->items().size();
 
     // Action
     m_graph->clearGraph();  // your safe, typed clear
 
     // Assert
-    int afterNodes = m_scene->getNodes().size();
-    int afterEdges = m_scene->getEdges().size();
+    QVariantMap afterStats = m_graph->getGraphStats();
+    int afterNodes = afterStats["nodeCount"].toInt();
+    int afterEdges = afterStats["edgeCount"].toInt();
     bool itemsEmpty = m_scene->items().isEmpty();
     updateStatusBar();
     const bool pass = (afterNodes==0 && afterEdges==0 && itemsEmpty);
@@ -1375,8 +1388,9 @@ void Window::testNewFileResetsState()
     this->newFile(); // should clear scene, file, and update UI
 
     // Expectations: scene empty + currentFile empty
-    const int nodes = m_scene->getNodes().size();
-    const int edges = m_scene->getEdges().size();
+    QVariantMap stats = m_graph->getGraphStats();
+    const int nodes = stats["nodeCount"].toInt();
+    const int edges = stats["edgeCount"].toInt();
     const bool fileCleared = getCurrentFile().isEmpty();
     const bool pass = (nodes==0 && edges==0 && fileCleared);
     QMessageBox::information(this, "Smoke: New File resets",
@@ -1526,8 +1540,9 @@ void Window::runForceLayoutSmokeInternal(int nodeCount, bool connectSequential)
     m_scene->autoLayoutForceDirected(/*selectionOnly*/ false, /*iters*/ 350, /*cooling*/ 0.92);
 
     // Summarize
-    const int nodes = m_scene->getNodes().size();
-    const int edges = m_scene->getEdges().size();
+    QVariantMap stats = m_graph->getGraphStats();
+    const int nodes = stats["nodeCount"].toInt();
+    const int edges = stats["edgeCount"].toInt();
     QMessageBox::information(this, "Force-Layout Smoke Test",
         QString("Created %1 nodes and %2 edges.\n"
                 "Applied force-directed layout.\n"
