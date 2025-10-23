@@ -24,7 +24,7 @@
 - Testing: Loaded test_loading.xml successfully (3 nodes, 2 edges)
 - Commit: 4d55d48 (merged to main)
 
-**Branch 2: feature/facade-graph-clearing** 🚧 IN PROGRESS (WIP)
+**Branch 2: feature/facade-graph-clearing** ✅ COMPLETE (Merged)
 - Migrated ALL 11 locations of `m_scene->clearGraph()` to `m_graph->clearGraph()`
 - Locations changed:
   - Line 305: loadGraphFromFile()
@@ -36,15 +36,22 @@
   - Line 1551: onTestFileLoadSave()
   - Lines 1584, 1589: onExportToPngTest()
   - Line 1605: onExportToPngLinearChain()
-- Status: Code complete, built successfully, NEEDS TESTING
-- Commit: 96d290a (on branch, pushed to remote, NOT merged)
-- Next steps: Test clearing operations, verify logs, merge to main
+- Benefits:
+  - Graph facade emits graphCleared() signal for observers
+  - Consistent API across all clearing operations
+  - Easier to add validation/logging in one place
+- Additional work:
+  - Added comprehensive Windows VS debugger PATH documentation to BUILD_INSTRUCTIONS.md
+  - Added mandatory build system requirements to RULES.md
+  - Documented CMake VS_DEBUGGER_ENVIRONMENT configuration (lines 321-324)
+- Testing: Build successful, application runs cleanly
+- Commit: 770ac19 (merged to main)
 
 **Remaining Branches:**
 - Branch 3: feature/facade-query-operations (15 changes)
 - Branch 4: feature/facade-edge-creation (8 changes)
 
-**Progress:** 1.5 of 4 branches (37.5%)
+**Progress:** 2 of 4 branches (50%)
 
 ---
 

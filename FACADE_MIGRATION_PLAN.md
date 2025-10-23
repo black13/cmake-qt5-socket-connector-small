@@ -270,7 +270,7 @@ main
 
 - [x] Plan created
 - [x] Branch 1: feature/facade-graph-loading ✅ (Merged commit: 4d55d48)
-- [x] Branch 2: feature/facade-graph-clearing ✅ (Merged commit: TBD)
+- [x] Branch 2: feature/facade-graph-clearing ✅ (Merged commit: 770ac19)
 - [ ] Branch 3: feature/facade-query-operations
 - [ ] Branch 4: feature/facade-edge-creation
 - [ ] All branches merged to main
@@ -289,7 +289,7 @@ main
   - Graph::clearGraph() emits graphCleared() signal
   - Build successful, tested and verified
   - Added Windows VS debugger PATH documentation (BUILD_INSTRUCTIONS.md, RULES.md)
-  - Ready to merge to main
+  - Merged to main: 770ac19
 
 **Progress:** 50% complete (2 of 4 branches)
 
