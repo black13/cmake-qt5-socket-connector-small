@@ -117,6 +117,62 @@ All use same pattern as 3.1
 - Run all test functions
 - Verify debug logging output
 
+**Verification Logging Strategy:**
+To verify the facade migration works correctly, add temporary logging to confirm:
+1. Facade API is being called (not Scene directly)
+2. Values returned match expected counts
+3. Performance is acceptable (single API call vs multiple)
+
+**Test Points (27 locations):**
+
+1. **Status Bar Updates** (2 locations - lines 268, 845)
+   - Log: `"[FACADE-TEST] getGraphStats() returned: nodes=X, edges=Y"`
+   - Verify: Status bar shows "Nodes: X | Edges: Y"
+   - Action: Create/delete nodes, watch status bar update
+
+2. **testTemplateNodeCreation()** (8 locations)
+   - Log before: `"[FACADE-TEST] Before clear: nodes=X, edges=Y"`
+   - Log after: `"[FACADE-TEST] After clear: nodes=X, edges=Y (should be 0,0)"`
+   - Log validation: `"[FACADE-TEST] Crash check: nodeCount=X, edgeCount=Y"`
+   - Action: Run Test → Template System Validation
+   - Expected: Before shows counts, After shows 0,0
+
+3. **testTemplateConnections()** (8 locations)
+   - Same logging pattern as above
+   - Action: Run Test → Template Edge Connections
+   - Expected: Before shows counts, After shows 0,0, Final shows new counts
+
+4. **testClearGraphRemovesEverything()** (4 locations)
+   - Log before: `"[FACADE-TEST] Before clear: nodes=X, edges=Y"`
+   - Log after: `"[FACADE-TEST] After clear: nodes=X, edges=Y (expect 0,0)"`
+   - Action: Run Test → ClearGraph Removes Everything
+   - Expected: Pass if after=(0,0)
+
+5. **testNewFile()** (2 locations)
+   - Log: `"[FACADE-TEST] After newFile(): nodes=X, edges=Y (expect 0,0)"`
+   - Action: Run Test → New File Resets
+   - Expected: nodes=0, edges=0, currentFile empty
+
+6. **runForceLayoutSmokeInternal()** (2 locations)
+   - Log: `"[FACADE-TEST] After layout: nodes=X, edges=Y"`
+   - Action: Run Test → Force Layout Smoke Test
+   - Expected: Shows created node/edge counts
+
+**Validation Checklist:**
+- [ ] Add verification logging to all 6 test points
+- [ ] Run application and test each menu item
+- [ ] Verify logs show facade API calls
+- [ ] Confirm values are correct
+- [ ] Check status bar updates in real-time
+- [ ] Once satisfied, remove verification logs (keep existing debug logs)
+
+**Expected Log Pattern:**
+```
+[FACADE-TEST] getGraphStats() called
+[FACADE-TEST] Returned: {"nodeCount": 5, "edgeCount": 4}
+[FACADE-TEST] Status bar will show: Nodes: 5 | Edges: 4
+```
+
 ---
 
 ### Branch 4: `feature/facade-edge-creation`

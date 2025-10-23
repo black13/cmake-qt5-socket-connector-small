@@ -82,6 +82,9 @@ void Window::adoptFactory(GraphFactory* factory)
     m_scene->attach(m_autosaveObserver);
 
     initializeWithFactory(); // actions that depend on m_factory
+
+    // Initial status bar update (m_graph exists now, safe to call)
+    updateStatusBar();
 }
 
 void Window::initializeUi()
@@ -113,10 +116,10 @@ void Window::initializeUi()
     
     // Connect view signals for drag-and-drop
     connect(m_view, &View::nodeDropped, this, &Window::createNodeFromPalette);
-    
-    // Initial status update
-    updateStatusBar();
-    
+
+    // Initial status update moved to adoptFactory() after m_graph is created
+    // (updateStatusBar() now requires m_graph to exist)
+
     // Enable keyboard shortcuts
     setFocusPolicy(Qt::StrongFocus);
 }
