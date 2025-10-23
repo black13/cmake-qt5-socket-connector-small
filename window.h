@@ -24,13 +24,7 @@ class GraphFactory;
 class XmlAutosaveObserver;
 class NodePaletteWidget;
 
-#if ENABLE_JS
-class ScriptHost;
-class GraphScriptApi;
-#else
-#include "script_api_stub.h"
-class ScriptHost;
-#endif
+// JavaScript integration will be added via Graph facade (no conditional compilation)
 
 /**
  * Window - Enhanced main window for self-serializing node editor
@@ -210,12 +204,5 @@ private:
     // Force-layout smoke test state
     bool m_runForceLayoutTestOnLoad = false;
 
-    // JavaScript integration (enabled only when ENABLE_JS=ON)
-#if ENABLE_JS
-    ScriptHost* m_scriptHost;
-    GraphScriptApi* m_scriptApi;
-#else
-    ScriptHost* m_scriptHost;               // Stub implementation
-    GraphScriptApiStub* m_scriptApi;       // Stub implementation  
-#endif
+    // JavaScript integration will be added via Graph facade
 };

@@ -5,14 +5,9 @@
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
-#include "script_host.h"
 #include "node_palette_widget.h"
 
-#if ENABLE_JS
-#include "graph_script_api.h"
-#else
-#include "script_api_stub.h"
-#endif
+// JavaScript integration removed - will be reimplemented via Graph facade
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -47,13 +42,6 @@ Window::Window(QWidget* parent)
     , m_scene(new Scene(this))
     , m_view(new View(m_scene, this))
     , m_factory(nullptr)
-#if ENABLE_JS
-    , m_scriptHost(nullptr)
-    , m_scriptApi(nullptr)
-#else
-    , m_scriptHost(nullptr)
-    , m_scriptApi(nullptr)
-#endif
 {
     initializeUi(); // Setup UI that doesn't depend on factory
 }
@@ -85,18 +73,10 @@ void Window::adoptFactory(GraphFactory* factory)
     
     // CRITICAL: Attach observer to scene to receive notifications
     m_scene->attach(m_autosaveObserver);
-    
-    // Initialize JavaScript host (conditional compilation)
-#if ENABLE_JS
-    m_scriptApi = new GraphScriptApi(m_scene, m_factory, this);
-    m_scriptHost = new ScriptHost(m_scene, m_factory, this);
-    qDebug() << "JavaScript engine: Initialized";
-#else
-    m_scriptApi = new GraphScriptApiStub(m_scene, m_factory);
-    m_scriptHost = new ScriptHost(m_scene, m_factory, this);  // Stub implementation
-    qDebug() << "JavaScript engine: Disabled (using stubs)";
-#endif
-    
+
+    // JavaScript integration will be added via Graph facade
+    qDebug() << "JavaScript engine: Will be integrated via Graph facade";
+
     initializeWithFactory(); // actions that depend on m_factory
 }
 
