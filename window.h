@@ -14,6 +14,7 @@
 
 class View;
 class Scene;
+class Graph;
 
 // Forward declarations for libxml types (reduces header pollution)
 typedef struct _xmlNode xmlNode;
@@ -46,9 +47,12 @@ public:
     
     // Adopt an external factory (non-owning)
     void adoptFactory(GraphFactory* factory);
-    
+
     // Access to scene for testing
     [[nodiscard]] Scene* getScene() const { return m_scene; }
+
+    // Access to graph facade
+    [[nodiscard]] Graph* getGraph() const { return m_graph; }
     
     // Update status bar with current graph information
     void updateStatusBar();
@@ -142,6 +146,7 @@ protected:
 private:
     Scene* m_scene;
     View* m_view;
+    Graph* m_graph;           // Graph facade (owns QJSEngine)
     GraphFactory* m_factory;  // non-owning
     // GraphController removed - using template system directly
     XmlAutosaveObserver* m_autosaveObserver;

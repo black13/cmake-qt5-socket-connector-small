@@ -1,13 +1,12 @@
 #include "window.h"
 #include "view.h"
 #include "scene.h"
+#include "graph.h"
 #include "node.h"
 #include "edge.h"
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
 #include "node_palette_widget.h"
-
-// JavaScript integration removed - will be reimplemented via Graph facade
 #include <QKeyEvent>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -41,6 +40,7 @@ Window::Window(QWidget* parent)
     : QMainWindow(parent)
     , m_scene(new Scene(this))
     , m_view(new View(m_scene, this))
+    , m_graph(nullptr)
     , m_factory(nullptr)
 {
     initializeUi(); // Setup UI that doesn't depend on factory
@@ -54,7 +54,10 @@ Window::~Window()
         m_scene->detach(m_autosaveObserver);
         delete m_autosaveObserver;
     }
-    
+
+    // Clean up Graph facade (owns QJSEngine)
+    delete m_graph;
+
     // DO NOT delete m_factory (non-owning)
 }
 
@@ -62,20 +65,21 @@ void Window::adoptFactory(GraphFactory* factory)
 {
     Q_ASSERT(factory); // Null factory is a programming error
     m_factory = factory; // non-owning: main owns factory lifetime
-    
+
     // ISSUE 4: Inject factory into scene for consistent edge creation
     m_scene->setGraphFactory(factory);
-    
+
+    // Create Graph facade - the new public API with JavaScript integration
+    m_graph = new Graph(m_scene, m_factory, this);
+    qDebug() << "Graph facade created with JavaScript engine enabled";
+
     // Now that a factory exists, wire things that depend on it:
     // ISSUE 2: Centralize autosave timing - using 1200ms as compromise
     m_autosaveObserver = new XmlAutosaveObserver(m_scene, "autosave.xml");
     m_autosaveObserver->setDelay(1200); // Centralized autosave policy
-    
+
     // CRITICAL: Attach observer to scene to receive notifications
     m_scene->attach(m_autosaveObserver);
-
-    // JavaScript integration will be added via Graph facade
-    qDebug() << "JavaScript engine: Will be integrated via Graph facade";
 
     initializeWithFactory(); // actions that depend on m_factory
 }
@@ -325,76 +329,82 @@ bool Window::loadGraph(const QString& filename)
 
 void Window::createInputNode()
 {
-    if (!m_factory) {
-        QMessageBox::warning(this,"No Factory","Adopt a factory first.");
+    if (!m_graph) {
+        QMessageBox::warning(this,"No Graph","Graph facade not initialized.");
         return;
     }
-    
+
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
+
     // Add some randomization so multiple nodes don't overlap
     qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
     qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
     QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create input node using factory (XML-first approach)
-    Node* node = m_factory->createNode("SOURCE", position);
-    
-    if (node) {
-        qDebug() << "Created input node at" << position;
+
+    // Create input node using Graph facade API
+    QString nodeId = m_graph->createNode("SOURCE", position.x(), position.y());
+
+    if (!nodeId.isEmpty()) {
+        qDebug() << "Created input node" << nodeId << "at" << position;
+        statusBar()->showMessage(QString("Created SOURCE node: %1").arg(nodeId), 2000);
     } else {
         qDebug() << "Failed to create input node";
+        statusBar()->showMessage("Failed to create SOURCE node", 3000);
     }
 }
 
 void Window::createOutputNode()
 {
-    if (!m_factory) {
-        QMessageBox::warning(this,"No Factory","Adopt a factory first.");
+    if (!m_graph) {
+        QMessageBox::warning(this,"No Graph","Graph facade not initialized.");
         return;
     }
-    
+
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
+
     // Add some randomization so multiple nodes don't overlap
     qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
     qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
     QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create output node using factory (XML-first approach)
-    Node* node = m_factory->createNode("SINK", position);
-    
-    if (node) {
-        qDebug() << "Created output node at" << position;
+
+    // Create output node using Graph facade API
+    QString nodeId = m_graph->createNode("SINK", position.x(), position.y());
+
+    if (!nodeId.isEmpty()) {
+        qDebug() << "Created output node" << nodeId << "at" << position;
+        statusBar()->showMessage(QString("Created SINK node: %1").arg(nodeId), 2000);
     } else {
         qDebug() << "Failed to create output node";
+        statusBar()->showMessage("Failed to create SINK node", 3000);
     }
 }
 
 void Window::createProcessorNode()
 {
-    if (!m_factory) {
-        QMessageBox::warning(this,"No Factory","Adopt a factory first.");
+    if (!m_graph) {
+        QMessageBox::warning(this,"No Graph","Graph facade not initialized.");
         return;
     }
-    
+
     // Find a nice position in the view center
     QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-    
+
     // Add some randomization so multiple nodes don't overlap
     qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
     qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
     QPointF position = viewCenter + QPointF(randomX, randomY);
-    
-    // Create processor node using factory (XML-first approach)
-    Node* node = m_factory->createNode("TRANSFORM", position);
-    
-    if (node) {
-        qDebug() << "Created processor node at" << position;
+
+    // Create processor node using Graph facade API
+    QString nodeId = m_graph->createNode("TRANSFORM", position.x(), position.y());
+
+    if (!nodeId.isEmpty()) {
+        qDebug() << "Created processor node" << nodeId << "at" << position;
+        statusBar()->showMessage(QString("Created TRANSFORM node: %1").arg(nodeId), 2000);
     } else {
         qDebug() << "Failed to create processor node";
+        statusBar()->showMessage("Failed to create TRANSFORM node", 3000);
     }
 }
 

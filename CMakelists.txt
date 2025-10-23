@@ -80,7 +80,8 @@ endif()
 # ─────────────────────────────────────
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
-set(QT5_COMPONENTS Core Widgets Gui Test)
+# Qml is required for QJSEngine (JavaScript integration in Graph facade)
+set(QT5_COMPONENTS Core Widgets Gui Test Qml)
 
 find_package(Qt5 REQUIRED COMPONENTS ${QT5_COMPONENTS})
 
@@ -193,7 +194,11 @@ set(CORE_SOURCES
     # XML-first factory
     graph_factory.h
     graph_factory.cpp
-    
+
+    # Graph facade (public API with JavaScript integration)
+    graph.h
+    graph.cpp
+
     # Template-driven scriptable node types
     node_templates.h
     node_templates.cpp
@@ -296,6 +301,7 @@ set(CORE_LIBRARIES
     Qt5::Widgets
     Qt5::Gui
     Qt5::Test
+    Qt5::Qml  # Required for QJSEngine in Graph facade
     LibXml2::LibXml2
 )
 
