@@ -95,8 +95,54 @@ build_Debug\NodeGraph.exe
 
 ### Visual Studio Debugging
 - Open `build_Debug\NodeGraph.sln` in Visual Studio
-- Press **F5** to debug (XML test file will load automatically)
+- Press **F5** to debug
 - Breakpoints and debugging work as expected
+
+**IMPORTANT**: Qt DLLs are automatically found during debugging because CMake configures the PATH environment in Visual Studio's debugger settings (see below).
+
+---
+
+## ⚠️ **CRITICAL: Windows Visual Studio Debugger PATH Configuration**
+
+### Automatic Configuration (Already Handled)
+
+**CMakeLists.txt** (lines 321-324) automatically configures the Qt PATH for Visual Studio debugging:
+
+```cmake
+set_target_properties(NodeGraph PROPERTIES
+    VS_DEBUGGER_ENVIRONMENT_DEBUG
+        "PATH=D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/bin;%PATH%"
+    VS_DEBUGGER_ENVIRONMENT_RELEASE
+        "PATH=D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/bin;%PATH%"
+)
+```
+
+This setting:
+1. ✅ Automatically generated when you run `build.bat`
+2. ✅ Written to `build_Debug\NodeGraph.vcxproj.user`
+3. ✅ Allows the executable to find Qt DLLs when debugging in Visual Studio
+4. ✅ Uses different Qt paths for Debug vs Release configurations
+
+### Verification
+
+After running `build.bat debug`, verify the configuration:
+
+```cmd
+# Check that the .vcxproj.user file was created
+dir build_Debug\NodeGraph.vcxproj.user
+
+# The file should contain:
+# <LocalDebuggerEnvironment>PATH=D:\Qt-5.15.17-msvc142-x64-Debug\msvc2019_64\bin;%PATH%</LocalDebuggerEnvironment>
+```
+
+### **MUST-HAVE for All Windows Work**
+
+**When adapting this project to a new computer:**
+1. Update Qt paths in `CMakeLists.txt` lines 321-324 to match your Qt installation
+2. Run `build.bat debug` to regenerate Visual Studio project files
+3. VS_DEBUGGER_ENVIRONMENT ensures Qt DLLs are found without manual PATH configuration
+
+**DO NOT** rely on system PATH or manual environment variable changes. This CMake configuration ensures consistent builds across all developer machines.
 
 ---
 

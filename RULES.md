@@ -1,5 +1,45 @@
 # Development Rules for Qt NodeGraph System
 
+## 🔧 **MANDATORY: Windows Build System Requirements**
+
+### Visual Studio Debugger PATH Configuration
+
+**ALL Windows development MUST ensure CMake configures the Qt PATH for Visual Studio debugging.**
+
+#### Required CMakeLists.txt Configuration (Lines 321-324)
+
+```cmake
+set_target_properties(NodeGraph PROPERTIES
+    VS_DEBUGGER_ENVIRONMENT_DEBUG
+        "PATH=D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/bin;%PATH%"
+    VS_DEBUGGER_ENVIRONMENT_RELEASE
+        "PATH=D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/bin;%PATH%"
+)
+```
+
+#### Why This Matters
+
+- ✅ Ensures Qt DLLs are found when debugging in Visual Studio
+- ✅ Eliminates "Qt5Core.dll not found" runtime errors
+- ✅ Consistent behavior across all developer machines
+- ✅ No manual PATH configuration required
+
+#### Verification Steps
+
+1. After any CMakeLists.txt changes, run `build.bat debug`
+2. Verify `build_Debug\NodeGraph.vcxproj.user` exists
+3. Check that it contains `<LocalDebuggerEnvironment>PATH=...Qt.../bin;%PATH%</LocalDebuggerEnvironment>`
+
+#### When Adapting to New Machines
+
+1. Update Qt paths in CMakeLists.txt (lines 36-38 for CMAKE_PREFIX_PATH AND lines 321-324 for VS_DEBUGGER_ENVIRONMENT)
+2. Run `build.bat debug` to regenerate project files
+3. Never rely on system PATH or manual environment variables
+
+**This configuration is NON-NEGOTIABLE for all Windows development work.**
+
+---
+
 ## Branch: fix/proper-delete-key-event-routing
 
 ### Purpose

@@ -270,7 +270,7 @@ main
 
 - [x] Plan created
 - [x] Branch 1: feature/facade-graph-loading ✅ (Merged commit: 4d55d48)
-- [ ] Branch 2: feature/facade-graph-clearing
+- [x] Branch 2: feature/facade-graph-clearing ✅ (Merged commit: TBD)
 - [ ] Branch 3: feature/facade-query-operations
 - [ ] Branch 4: feature/facade-edge-creation
 - [ ] All branches merged to main
@@ -280,7 +280,17 @@ main
 
 **Completed:**
 - Branch 1: Graph loading migrated to facade (2 locations changed)
-- Graph::loadFromFile() implemented
-- Tested and verified with logs
+  - Graph::loadFromFile() implemented
+  - Tested and verified with logs
+  - Merged to main: 4d55d48
 
-**Next Step:** Create and work on Branch 2: feature/facade-graph-clearing
+- Branch 2: Graph clearing migrated to facade (11 locations changed)
+  - All `m_scene->clearGraph()` calls migrated to `m_graph->clearGraph()`
+  - Graph::clearGraph() emits graphCleared() signal
+  - Build successful, tested and verified
+  - Added Windows VS debugger PATH documentation (BUILD_INSTRUCTIONS.md, RULES.md)
+  - Ready to merge to main
+
+**Progress:** 50% complete (2 of 4 branches)
+
+**Next Step:** Create and work on Branch 3: feature/facade-query-operations
