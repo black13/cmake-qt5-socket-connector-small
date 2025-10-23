@@ -408,35 +408,43 @@ void Window::createProcessorNode()
     }
 }
 
-void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
+void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType,
                                   const QString& name, int inputSockets, int outputSockets)
 {
+    Q_UNUSED(inputSockets)  // Template system handles socket counts
+    Q_UNUSED(outputSockets) // Template system handles socket counts
+
     qDebug() << "========================================";
     qDebug() << "Window: RECEIVED nodeDropped signal";
     qDebug() << "Window: Creating node from palette:";
     qDebug() << "  - Name:" << name;
     qDebug() << "  - Type:" << nodeType;
     qDebug() << "  - Position:" << scenePos;
-    qDebug() << "  - Input sockets:" << inputSockets;
-    qDebug() << "  - Output sockets:" << outputSockets;
-    qDebug() << "Window: Calling factory->createNode()";
-    
-    // Create node using factory with the exact specifications from the palette
-    Node* node = m_factory->createNode(nodeType, scenePos, inputSockets, outputSockets);
-    
-    if (node) {
-        qDebug() << "Window: Factory successfully created" << name << "node";
+    qDebug() << "Window: Calling Graph facade API";
+
+    if (!m_graph) {
+        qDebug() << "Window: Graph facade not initialized!";
+        statusBar()->showMessage("Failed to create node - Graph not initialized", 3000);
+        qDebug() << "========================================";
+        return;
+    }
+
+    // Create node using Graph facade API (unified interface)
+    QString nodeId = m_graph->createNode(nodeType, scenePos.x(), scenePos.y());
+
+    if (!nodeId.isEmpty()) {
+        qDebug() << "Window: Graph facade successfully created" << name << "node:" << nodeId;
         qDebug() << "Window: Node created at scene position:" << scenePos;
         qDebug() << "Window: Updating status bar";
-        
+
         // Update status bar to reflect the new node
         updateStatusBar();
-        statusBar()->showMessage(QString("Created %1 node").arg(name), 2000);
-        
+        statusBar()->showMessage(QString("Created %1 node: %2").arg(name).arg(nodeId), 2000);
+
         qDebug() << "Window: Node creation process completed successfully";
     } else {
-        qDebug() << "Window: Factory FAILED to create" << name << "node";
-        qDebug() << "Window: This may indicate factory or scene issues";
+        qDebug() << "Window: Graph facade FAILED to create" << name << "node";
+        qDebug() << "Window: This may indicate invalid node type or scene issues";
         statusBar()->showMessage(QString("Failed to create %1 node").arg(name), 3000);
     }
     qDebug() << "========================================";

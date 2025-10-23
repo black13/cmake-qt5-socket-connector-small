@@ -71,14 +71,14 @@ void Socket::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
     if (m_hovered || m_hoverOpacity > 0.0) {
         qreal hoverAmount = m_hovered ? 1.0 : m_hoverOpacity;
         socketColor = QColor::fromRgb(
-            socketColor.red() + (50 * hoverAmount),
-            socketColor.green() + (50 * hoverAmount),
-            socketColor.blue() + (50 * hoverAmount)
+            qMin(255, socketColor.red() + static_cast<int>(50 * hoverAmount)),
+            qMin(255, socketColor.green() + static_cast<int>(50 * hoverAmount)),
+            qMin(255, socketColor.blue() + static_cast<int>(50 * hoverAmount))
         );
         borderColor = QColor::fromRgb(
-            borderColor.red() + (30 * hoverAmount),
-            borderColor.green() + (30 * hoverAmount),
-            borderColor.blue() + (30 * hoverAmount)
+            qMin(255, borderColor.red() + static_cast<int>(30 * hoverAmount)),
+            qMin(255, borderColor.green() + static_cast<int>(30 * hoverAmount)),
+            qMin(255, borderColor.blue() + static_cast<int>(30 * hoverAmount))
         );
     }
     
