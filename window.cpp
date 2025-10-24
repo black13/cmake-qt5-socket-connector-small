@@ -1223,23 +1223,29 @@ void Window::testTemplateConnections()
     
     // Edge 1: SOURCE (output 0) -> TRANSFORM (input 0)
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Connecting SOURCE->TRANSFORM";
-    Edge* edge1 = m_factory->createEdge(sourceNode, 0, transformNode, 0);
-    if (edge1) {
+    QString edgeId1 = m_graph->connectNodes(
+        sourceNode->getId().toString(QUuid::WithoutBraces), 0,
+        transformNode->getId().toString(QUuid::WithoutBraces), 0
+    );
+    if (!edgeId1.isEmpty()) {
         edgeResults << "SOURCE->TRANSFORM: SUCCESS";
         edgeSuccessCount++;
-        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge 1 created with ID" << edge1->getId().toString(QUuid::WithoutBraces);
+        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge 1 created with ID" << edgeId1;
     } else {
         edgeResults << "SOURCE->TRANSFORM: FAILED";
         qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: FAILED to create SOURCE->TRANSFORM edge";
     }
     
-    // Edge 2: TRANSFORM (output 1) -> MERGE (input 0) 
+    // Edge 2: TRANSFORM (output 1) -> MERGE (input 0)
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Connecting TRANSFORM->MERGE";
-    Edge* edge2 = m_factory->createEdge(transformNode, 1, mergeNode, 0);
-    if (edge2) {
+    QString edgeId2 = m_graph->connectNodes(
+        transformNode->getId().toString(QUuid::WithoutBraces), 1,
+        mergeNode->getId().toString(QUuid::WithoutBraces), 0
+    );
+    if (!edgeId2.isEmpty()) {
         edgeResults << "TRANSFORM->MERGE: SUCCESS";
         edgeSuccessCount++;
-        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge 2 created with ID" << edge2->getId().toString(QUuid::WithoutBraces);
+        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge 2 created with ID" << edgeId2;
     } else {
         edgeResults << "TRANSFORM->MERGE: FAILED";
         qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: FAILED to create TRANSFORM->MERGE edge";
@@ -1247,20 +1253,26 @@ void Window::testTemplateConnections()
     
     // Edge 3: MERGE (output 2) -> SINK (input 0)
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Connecting MERGE->SINK";
-    Edge* edge3 = m_factory->createEdge(mergeNode, 2, sinkNode, 0);
-    if (edge3) {
+    QString edgeId3 = m_graph->connectNodes(
+        mergeNode->getId().toString(QUuid::WithoutBraces), 2,
+        sinkNode->getId().toString(QUuid::WithoutBraces), 0
+    );
+    if (!edgeId3.isEmpty()) {
         edgeResults << "MERGE->SINK: SUCCESS";
         edgeSuccessCount++;
-        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge 3 created with ID" << edge3->getId().toString(QUuid::WithoutBraces);
+        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Edge 3 created with ID" << edgeId3;
     } else {
         edgeResults << "MERGE->SINK: FAILED";
         qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: FAILED to create MERGE->SINK edge";
     }
-    
+
     // Test invalid connection (wrong socket indices)
     qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Testing invalid connection rejection...";
-    Edge* invalidEdge = m_factory->createEdge(sourceNode, 999, sinkNode, 0); // Invalid socket index
-    bool invalidRejected = (invalidEdge == nullptr);
+    QString invalidEdgeId = m_graph->connectNodes(
+        sourceNode->getId().toString(QUuid::WithoutBraces), 999,
+        sinkNode->getId().toString(QUuid::WithoutBraces), 0
+    ); // Invalid socket index
+    bool invalidRejected = invalidEdgeId.isEmpty();
     
     // Get final scene stats
     QVariantMap finalStats = m_graph->getGraphStats();
@@ -1643,8 +1655,11 @@ void Window::runVisualSmokeTest()
     // simple chain so edges exist (if sockets permit index 0)
     int edgesMade = 0;
     for (int i=0; i+1<nodes.size(); ++i) {
-        Edge* e = m_factory->createEdge(nodes[i], 0, nodes[i+1], 0);
-        if (e) {
+        QString edgeId = m_graph->connectNodes(
+            nodes[i]->getId().toString(QUuid::WithoutBraces), 0,
+            nodes[i+1]->getId().toString(QUuid::WithoutBraces), 0
+        );
+        if (!edgeId.isEmpty()) {
             ++edgesMade;
         }
     }
