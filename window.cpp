@@ -234,6 +234,13 @@ void Window::setCurrentFile(const QString& filename)
     }
 }
 
+void Window::setStartupScript(const QString& scriptPath)
+{
+    m_startupScript = scriptPath;
+    qDebug() << "Window: Startup script set:" << scriptPath;
+    // TODO: Execute script in showEvent() after event loop is running
+}
+
 bool Window::saveGraph(const QString& filename)
 {
     qDebug() << "Saving graph to:" << filename;
@@ -1048,8 +1055,35 @@ void Window::createNodeAtPosition(const QString& nodeType, const QPointF& sceneP
 */
 
 // ============================================================================
-// PHASE 3: Safe Shutdown Coordination
+// Event Handlers
 // ============================================================================
+
+void Window::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+
+    if (!m_startupScript.isEmpty() && !m_startupScriptExecuted) {
+        m_startupScriptExecuted = true;
+
+        QTimer::singleShot(50, this, [this]() {
+            qDebug() << "=== Executing startup script:" << m_startupScript;
+
+            if (m_graph) {
+                QJSValue result = m_graph->evalFile(m_startupScript);
+
+                if (result.isError()) {
+                    qCritical() << "Script error:" << result.toString();
+                } else {
+                    qDebug() << "Script executed successfully";
+                }
+            } else {
+                qCritical() << "Graph facade not available";
+            }
+
+            qDebug() << "=== Script execution complete";
+        });
+    }
+}
 
 void Window::closeEvent(QCloseEvent* event)
 {

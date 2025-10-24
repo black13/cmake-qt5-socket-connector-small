@@ -1,10 +1,11 @@
 # Qt5/C++ Node Graph Editor - Architectural Documentation
 
-## **CRITICAL ARCHITECTURAL REGRESSION IDENTIFIED**
+## **ARCHITECTURAL REGRESSION - RESOLVED**
 
-**Date**: August 28, 2025  
-**Issue**: GraphFactory validation system regressed from data-driven to hardcoded  
-**Status**: **IMMEDIATE FIX REQUIRED**
+**Date Identified**: August 28, 2025
+**Date Resolved**: October 24, 2025
+**Issue**: GraphFactory validation system regressed from data-driven to hardcoded
+**Status**: **✓ RESOLVED - Code now uses NodeTypeTemplates::hasNodeType()**
 
 ### **Historical Context: What We Built Correctly**
 
@@ -23,9 +24,9 @@ QStringList templatedTypes = {"SOURCE", "SINK", "TRANSFORM", "MERGE", "SPLIT"};
 if (!templatedTypes.contains(nodeType)) {
 ```
 
-**CORRECT IMPLEMENTATION**:
+**CORRECT IMPLEMENTATION** (now in place):
 ```cpp
-// Use existing NodeTypeTemplates system
+// graph_factory.cpp:36-40 - Uses data-driven NodeTypeTemplates system
 if (!NodeTypeTemplates::hasNodeType(nodeType)) {
     qCritical() << "Invalid node type:" << nodeType;
     qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
@@ -33,7 +34,12 @@ if (!NodeTypeTemplates::hasNodeType(nodeType)) {
 }
 ```
 
-**This regression violates the carefully designed XML-first, data-driven architecture and must be fixed immediately.**
+**Resolution Details**:
+- Verified in `graph_factory.cpp` lines 36-40 and 392-404
+- Both node creation pathways use `NodeTypeTemplates::hasNodeType()`
+- No hardcoded type lists found in production code
+- Template system remains fully extensible and data-driven
+- XML-first architecture is maintained correctly
 
 ---
 
@@ -74,9 +80,9 @@ signals:
 4. **Debugging Nightmare**: Mysterious failures when objects are destroyed
 
 **The QObject + connect() Trap:**
-- See QObject → Think "I need connect()"
+- See QObject -> Think "I need connect()"
 - Use signals/slots to solve communication problems
-- Items get deleted → connect() holds dangling pointers
+- Items get deleted -> connect() holds dangling pointers
 - Result: "zombie references and connect goes badly"
 
 **Why std::smart_pointer + Qt Objects Is Bad:**
@@ -85,7 +91,7 @@ signals:
 std::shared_ptr<QObject> obj = std::make_shared<SomeQObject>();
 obj->setParent(parent);  // Qt thinks parent owns it
 // Question: Who's responsible for deletion? Qt parent or shared_ptr?
-// Answer: Both try → Double deletion → Crash
+// Answer: Both try -> Double deletion -> Crash
 ```
 
 **Qt's Memory Management vs. Smart Pointers:**
@@ -339,27 +345,20 @@ class NodeTypeTemplates {
     +QStringList getAvailableTypes()
 }
 
-' JavaScript Integration Layer
-class JavaScriptEngine {
-    -QJSEngine* m_engine
-    -Scene* m_scene
-    -GraphController* m_graphController
-    -QMap<QString, QJSValue> m_scriptModules
-    +QJSValue evaluate(QString)
-    +QJSValue evaluateFile(QString)
-    +void registerGraphController(Scene*, GraphFactory*)
-    +bool executeNodeScript(Node*, QString, QVariantMap)
-}
-
-class GraphController {
+' Facade and Scripting Layer
+class Graph {
     -Scene* m_scene
     -GraphFactory* m_factory
+    -QJSEngine* m_jsEngine
+    -bool m_batchMode
     +QString createNode(QString, qreal, qreal)
     +bool deleteNode(QString)
     +QString connect(QString, int, QString, int)
-    +void saveXml(QString)
-    +void loadXml(QString)
-    +QVariantMap getStats()
+    +void clearGraph()
+    +QVariantMap getGraphStats() const
+    +QJSValue evalScript(QString)
+    +QJSValue evalFile(QString)
+    +QJSEngine* jsEngine()
 }
 
 ' Observer Pattern Layer
@@ -409,8 +408,7 @@ QGraphicsItem <|-- GhostEdge
 QGraphicsScene <|-- Scene
 QGraphicsView <|-- View
 QMainWindow <|-- Window
-QObject <|-- JavaScriptEngine
-QObject <|-- GraphController
+QObject <|-- Graph
 GraphObserver <|-- XmlAutosaveObserver
 GraphSubject <|-- Scene
 
@@ -418,22 +416,21 @@ GraphSubject <|-- Scene
 Node *-- Socket : "contains"
 Scene *-- Node : "manages"
 Scene *-- Edge : "manages"
-Scene *-- JavaScriptEngine : "contains"
 Window *-- Scene : "contains"
 Window *-- View : "contains"
 Window *-- GraphFactory : "contains"
 Window *-- XmlAutosaveObserver : "contains"
+Window *-- Graph : "facade"
 GraphFactory ..> NodeRegistry : "uses"
 GraphFactory ..> NodeTypeTemplates : "uses"
-JavaScriptEngine *-- GraphController : "contains"
+Graph ..> Scene : "coordinates"
+Graph ..> GraphFactory : "uses"
 GraphSubject *-- GraphObserver : "notifies"
 
 ' Dependencies
 Edge ..> Socket : "connects"
 Edge ..> Node : "connects"
 Socket ..> Node : "parent"
-GraphController ..> Scene : "controls"
-GraphController ..> GraphFactory : "uses"
 XmlAutosaveObserver ..> Scene : "observes"
 
 @enduml
@@ -461,9 +458,8 @@ package "Graph Engine" {
     component GhostEdge
 }
 
-package "JavaScript Bridge" {
-    component JavaScriptEngine
-    component GraphController
+package "Graph Facade" {
+    component Graph
     component "QJSEngine"
 }
 
@@ -496,17 +492,16 @@ NodePaletteWidget --> Window : signals
 
 Scene --> Node : contains
 Scene --> Edge : contains
-Scene --> JavaScriptEngine : contains
+Window --> Graph : owns
 Scene --> GraphSubject : inherits
 
 Node --> Socket : contains
 Edge --> Socket : connects
 Socket --> Node : parent
 
-JavaScriptEngine --> GraphController : contains
-JavaScriptEngine --> "QJSEngine" : uses
-GraphController --> Scene : controls
-GraphController --> GraphFactory : uses
+Graph --> "QJSEngine" : owns engine
+Graph --> Scene : coordinates
+Graph --> GraphFactory : uses
 
 GraphFactory --> NodeRegistry : uses
 GraphFactory --> NodeTypeTemplates : uses
@@ -521,7 +516,7 @@ GraphSubject --> GraphObserver : notifies
 
 ' External Dependencies
 "Qt5 Widgets" --> Window
-"QJSEngine" --> JavaScriptEngine
+"QJSEngine" --> Graph
 "libxml2" --> GraphFactory
 "libxml2" --> XmlAutosaveObserver
 
@@ -536,8 +531,8 @@ GraphSubject --> GraphObserver : notifies
 @startuml NodeCreationSequence
 
 participant "JavaScript\nScript" as JS
-participant "JavaScriptEngine" as JSEngine
-participant "GraphController" as GC
+participant "QJSEngine" as Engine
+participant "Graph (Facade)" as GraphFacade
 participant "GraphFactory" as GF
 participant "NodeTypeTemplates" as NTT
 participant "Scene" as S
@@ -545,22 +540,22 @@ participant "Node" as N
 participant "XmlAutosaveObserver" as XAO
 participant "XML Storage" as XML
 
-note over JS : User executes:\nGraph.createNode("SOURCE", 100, 100)
+note over JS : Script invokes:\ngraph.createNode("SOURCE", 100, 100)
 
-JS -> JSEngine : evaluate("Graph.createNode(...)")
-activate JSEngine
+JS -> Engine : evaluate("graph.createNode(...)")
+activate Engine
 
-JSEngine -> GC : createNode("SOURCE", 100, 100)
-activate GC
+Engine -> GraphFacade : createNode("SOURCE", 100, 100)
+activate GraphFacade
 
-GC -> NTT : generateNodeXml("SOURCE", QPointF(100,100))
+GraphFacade -> NTT : generateNodeXml("SOURCE", QPointF(100,100))
 activate NTT
 NTT -> NTT : getTemplate("SOURCE")
 NTT -> NTT : injectDynamicValues(template, position, uuid)
-NTT -> GC : return XML string
+NTT -> GraphFacade : return XML string
 deactivate NTT
 
-GC -> GF : createNodeFromXml(xmlNode)
+GraphFacade -> GF : createNodeFromXml(xmlNode)
 activate GF
 
 GF -> GF : parse XML properties
@@ -575,7 +570,7 @@ GF -> S : addNode(node)
 activate S
 S -> S : m_nodes[uuid] = node
 S -> S : addItem(node) // Qt graphics
-S -> S : notifyNodeAdded(node)
+S -> S : notifyNodeAdded(node) // Observer notifications
 
 S -> XAO : onNodeAdded(node)
 activate XAO
@@ -585,15 +580,14 @@ deactivate XAO
 
 deactivate S
 
-GF -> GC : return node
+GF -> GraphFacade : return node
 deactivate GF
 
-GC -> GC : nodeToVariant(node)
-GC -> JSEngine : return nodeId (UUID string)
-deactivate GC
+GraphFacade -> Engine : return nodeId (UUID string)
+deactivate GraphFacade
 
-JSEngine -> JS : return QJSValue(nodeId)
-deactivate JSEngine
+Engine -> JS : return QJSValue(nodeId)
+deactivate Engine
 
 note over XAO : Timer expires after 500ms
 XAO -> XAO : performAutosave()
@@ -603,7 +597,7 @@ XAO -> XAO : generateFullXml()
 XAO -> XML : write autosave.xml
 deactivate XAO
 
-note over JS, XML : Complete flow:\nJS → Qt Bridge → Factory → Scene → Observer → XML
+note over JS, XML : Complete flow:\nJS -> Graph facade -> Factory -> Scene -> Observer -> XML
 
 @enduml
 ```
@@ -622,7 +616,7 @@ note over JS, XML : Complete flow:\nJS → Qt Bridge → Factory → Scene → O
 **Benefits:**
 - Clear separation of concerns between data, presentation, and control logic
 - Enables independent testing of business logic (Scene) from UI (View)
-- Facilitates JavaScript control through `GraphController` without tight coupling to UI
+- Facilitates JavaScript control through the `Graph` facade without tight coupling to UI
 
 ### 4.2 Observer Pattern
 
@@ -675,35 +669,41 @@ class NodeTypeTemplates {
 - **Solution**: XML-first factory with template system - all creation paths generate XML first, then create objects
 - **Result**: Unified creation process ensures consistency across UI, JavaScript API, and file loading
 
-### 4.4 Bridge Pattern (JavaScript ↔ C++)
+### 4.4 Facade Pattern (JavaScript <-> C++)
 
 **Implementation:**
 ```cpp
-class JavaScriptEngine {
-    QJSEngine* m_engine;
-    GraphController* m_graphController;
-    
-    void registerGraphController(Scene* scene, GraphFactory* factory) {
-        m_graphController = new GraphController(scene, factory);
-        m_engine->globalObject().setProperty("Graph", 
-            m_engine->newQObject(m_graphController));
-    }
-};
-
-class GraphController : public QObject {
+class Graph : public QObject {
     Q_OBJECT
-public slots:
-    QString createNode(const QString& type, qreal x, qreal y);  // Exposed to JS
-    QString connect(const QString& fromNodeId, int fromIndex, 
-                   const QString& toNodeId, int toIndex);  // Exposed to JS
-    void saveXml(const QString& path);  // Exposed to JS
+public:
+    explicit Graph(Scene* scene, GraphFactory* factory, QObject* parent = nullptr);
+
+    Q_INVOKABLE QString createNode(const QString& type, qreal x, qreal y);
+    Q_INVOKABLE QString connectNodes(const QString& fromId, int fromSocket,
+                                     const QString& toId, int toSocket);
+    Q_INVOKABLE void clearGraph();
+    Q_INVOKABLE QVariantMap getGraphStats() const;
+    Q_INVOKABLE QJSValue evalScript(const QString& script);
+    Q_INVOKABLE QJSValue evalFile(const QString& filePath);
+
+private:
+    void initializeJavaScript() {
+        QJSValue graphObject = m_jsEngine->newQObject(this);
+        m_jsEngine->globalObject().setProperty("graph", graphObject);
+        m_jsEngine->installExtensions(QJSEngine::ConsoleExtension);
+    }
+
+    Scene* m_scene;
+    GraphFactory* m_factory;
+    QJSEngine* m_jsEngine;
+    bool m_batchMode = false;
 };
 ```
 
 **Architectural Challenge Solved:**
-- **Challenge**: How to provide JavaScript access to C++ graph operations without exposing internal implementation
-- **Solution**: Bridge pattern with `GraphController` as abstraction layer and `JavaScriptEngine` as implementor
-- **Result**: Clean JavaScript API (`Graph.createNode()`, `Graph.connect()`) that maps to type-safe C++ operations
+- **Challenge**: Expose graph operations to JavaScript without leaking raw Node/Edge pointers.
+- **Solution**: The `Graph` facade owns a `QJSEngine`, registers itself as the global `graph` object, and forwards calls to `Scene`/`GraphFactory`.
+- **Result**: Scripts call high-level methods (`graph.createNode(...)`) while C++ maintains ownership, validation, and observer notifications.
 
 ### 4.5 Template Method Pattern
 
@@ -733,73 +733,73 @@ private:
 
 ## 5. Data Flow Documentation
 
-### 5.1 JavaScript API → C++ Backend → XML Storage
+### 5.1 JavaScript API -> C++ Backend -> XML Storage
 
 ```
 JavaScript Call:
 Graph.createNode("SOURCE", 100, 100)
     ↓
 QJSEngine Binding:
-JavaScriptEngine.evaluate() → GraphController.createNode()
+JavaScriptEngine.evaluate() -> GraphController.createNode()
     ↓
 Template Resolution:
 NodeTypeTemplates.generateNodeXml("SOURCE", QPointF(100,100))
     ↓
 XML-First Creation:
-GraphFactory.createNodeFromXml(xmlNode) → new Node()
+GraphFactory.createNodeFromXml(xmlNode) -> new Node()
     ↓
 Scene Registration:
-Scene.addNode() → m_nodes[uuid] = node
+Scene.addNode() -> m_nodes[uuid] = node
     ↓
 Observer Notification:
-Scene.notifyNodeAdded() → XmlAutosaveObserver.onNodeAdded()
+Scene.notifyNodeAdded() -> XmlAutosaveObserver.onNodeAdded()
     ↓
 Delayed Persistence:
-XmlAutosaveObserver.performAutosave() → XML file write
+XmlAutosaveObserver.performAutosave() -> XML file write
 ```
 
-### 5.2 User Interaction → Scene Updates → Autosave
+### 5.2 User Interaction -> Scene Updates -> Autosave
 
 ```
 User Action:
-Drag node in View → QGraphicsItem.mouseMoveEvent()
+Drag node in View -> QGraphicsItem.mouseMoveEvent()
     ↓
 Position Update:
-Node.itemChange(ItemPositionHasChanged) → Scene.notifyNodeMoved()
+Node.itemChange(ItemPositionHasChanged) -> Scene.notifyNodeMoved()
     ↓
 Observer Chain:
-GraphSubject.notifyNodeMoved() → XmlAutosaveObserver.onNodeMoved()
+GraphSubject.notifyNodeMoved() -> XmlAutosaveObserver.onNodeMoved()
     ↓
 Edge Updates:
-Node.updateConnectedEdges() → Edge.updatePath()
+Node.updateConnectedEdges() -> Edge.updatePath()
     ↓
 Deferred Save:
-QTimer.timeout() → XmlAutosaveObserver.performAutosave()
+QTimer.timeout() -> XmlAutosaveObserver.performAutosave()
     ↓
 XML Synchronization:
-Generate full XML → Write to autosave.xml
+Generate full XML -> Write to autosave.xml
 ```
 
-### 5.3 XML Loading → Object Reconstruction → Scene Population
+### 5.3 XML Loading -> Object Reconstruction -> Scene Population
 
 ```
 File Load:
-Window.loadGraph("graph.xml") → GraphFactory.loadFromXmlFile()
+Window.loadGraph("graph.xml") -> GraphFactory.loadFromXmlFile()
     ↓
 XML Parsing:
-libxml2.xmlReadFile() → xmlDoc with nodes and edges
+libxml2.xmlReadFile() -> xmlDoc with nodes and edges
     ↓
 Node Creation:
-For each <node>: GraphFactory.createNodeFromXml() → Scene.addNode()
+For each <node>: GraphFactory.createNodeFromXml() -> Scene.addNode()
     ↓
 Edge Resolution:
-For each <edge>: GraphFactory.createEdgeFromXml() → Edge.resolveConnections()
+For each <edge>: GraphFactory.createEdgeFromXml() -> Edge.resolveConnections()
     ↓
 Socket Linking:
 Edge.resolveConnections() finds Socket* from Node indices
     ↓
 Visual Updates:
-Scene populated → View.update() → Graphics rendering
+Scene populated -> View.update() -> Graphics rendering
 ```
 
 ---
@@ -847,7 +847,7 @@ class Scene : public QGraphicsScene {
     QHash<QUuid, Edge*> m_edges;    // Fast edge lookup
     
     Node* getNode(const QUuid& nodeId) const { return m_nodes.value(nodeId); }  // O(1)
-    // vs QGraphicsScene::items() → foreach + qgraphicsitem_cast  // O(n)
+    // vs QGraphicsScene::items() -> foreach + qgraphicsitem_cast  // O(n)
 };
 ```
 
@@ -1092,7 +1092,6 @@ class MetricsObserver : public GraphObserver {
 
 // Register additional observers
 scene->attach(new MetricsObserver());
-scene->attach(new NetworkSyncObserver());
 scene->attach(new UndoRedoObserver());
 ```
 
@@ -1102,11 +1101,9 @@ scene->attach(new UndoRedoObserver());
 
 ### 11.1 Planned Enhancements
 
-1. **Rubber Types Integration**: Type-erasure facade system for advanced node polymorphism
-2. **Layout Engine**: Automatic graph layout using graph algorithms
-3. **Network Synchronization**: Multi-user collaborative editing
-4. **Plugin System**: Dynamic loading of node type libraries
-5. **Undo/Redo**: Command pattern implementation with observer integration
+1. **Layout Engine**: Automatic graph layout using graph algorithms
+2. **Plugin System**: Dynamic loading of node type libraries
+3. **Undo/Redo**: Command pattern implementation with observer integration
 
 ### 11.2 Scalability Considerations
 
@@ -1117,7 +1114,76 @@ scene->attach(new UndoRedoObserver());
 
 ---
 
-## 12. Conclusion
+## 12. JavaScript CLI Integration
+
+### 12.1 Architecture Principles
+
+**Main.cpp Stays Minimal:**
+- Main.cpp is BOOTSTRAP ONLY
+- No Graph facade usage in main.cpp
+- No JavaScript execution logic in main.cpp
+- Window/Scene/Graph handle all application logic
+
+**Execution Order (Critical):**
+```
+1. Create Window/Scene/Factory/Graph
+2. adoptFactory() - wire components
+3. Load XML file (if --load specified)     ← XML FIRST
+4. setStartupScript() - pass to Window     ← Store only
+5. window.show()                           ← UI appears
+6. ↓ Event loop starts ↓
+7. showEvent() → Execute script            ← Script LAST (coal is hot!)
+```
+
+**Why This Order:**
+- XML loads BEFORE window shows
+- Script runs AFTER event loop is running
+- Script has full access to loaded graph OR can load its own
+- "The coal is hot" - everything initialized and ready
+
+### 12.2 CLI Usage
+
+```bash
+# Basic script execution
+NodeGraph --script hello.js
+
+# Load graph then run script (XML first, script last)
+NodeGraph --load mygraph.xml --script analyze.js
+
+# Script creates its own graph
+NodeGraph --script create_pipeline.js
+```
+
+### 12.3 Use Cases
+
+**Analyze Loaded Graph:**
+```bash
+NodeGraph --load mygraph.xml --script analyze.js
+```
+Script sees the loaded graph and can query it.
+
+**Script Creates Graph:**
+```bash
+NodeGraph --script create_pipeline.js
+```
+Script starts with empty graph and creates nodes/edges.
+
+**Modify Loaded Graph:**
+```bash
+NodeGraph --load base.xml --script add_nodes.js
+```
+Script adds to existing graph.
+
+### 12.4 Implementation Status
+
+- ✅ `--script` CLI option added to main.cpp
+- ✅ Graph facade with QJSEngine ready
+- ⬜ Window::setStartupScript() implementation needed
+- ⬜ Window::showEvent() script execution needed
+
+---
+
+## 13. Conclusion
 
 This Qt5/C++ node graph editor demonstrates a mature, production-ready architecture that successfully bridges object-oriented C++ with dynamic JavaScript automation. The key architectural innovations include:
 
@@ -1126,7 +1192,9 @@ This Qt5/C++ node graph editor demonstrates a mature, production-ready architect
 3. **Clean JavaScript Integration**: 100% API coverage with comprehensive test validation
 4. **Observer-Driven Persistence**: Automatic, non-intrusive change tracking
 5. **Template-Based Extensibility**: Runtime node type registration for future growth
+6. **CLI Automation**: JavaScript execution at startup for batch processing and testing
 
 The system's **100% JavaScript integration success rate** validates the architectural decisions and positions it as a robust foundation for advanced node-based applications, visual programming environments, and automated graph processing systems.
 
 The modular design, comprehensive test coverage, and clean separation of concerns make this codebase an excellent reference implementation for Qt-based graphics applications requiring JavaScript integration and robust persistence mechanisms.
+

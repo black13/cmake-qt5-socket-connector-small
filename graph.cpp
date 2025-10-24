@@ -32,17 +32,28 @@ Graph::~Graph()
     // m_jsEngine is QObject child, will be deleted automatically
 }
 
+void Graph::jsLog(const QString& message)
+{
+    qDebug() << "[JS]" << message;
+}
+
 void Graph::initializeJavaScript()
 {
     // Expose this Graph object to JavaScript as global "graph"
     QJSValue graphObj = m_jsEngine->newQObject(this);
     m_jsEngine->globalObject().setProperty("graph", graphObj);
 
-    // Add console.log support
+    // Add console.log support using exposed C++ function
+    QString consoleLogImpl = R"(
+        (function() {
+            return function(msg) {
+                graph.jsLog(String(msg));
+            };
+        })()
+    )";
+
     QJSValue consoleObj = m_jsEngine->newObject();
-    consoleObj.setProperty("log", m_jsEngine->evaluate(
-        "(function() { return function(msg) { print('[JS] ' + msg); }; })()"
-    ));
+    consoleObj.setProperty("log", m_jsEngine->evaluate(consoleLogImpl));
     m_jsEngine->globalObject().setProperty("console", consoleObj);
 
     qDebug() << "Graph: JavaScript engine initialized - 'graph' object available";

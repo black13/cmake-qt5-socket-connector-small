@@ -111,10 +111,14 @@ int main(int argc, char *argv[])
                                       "Load graph from XML file",
                                       "file");
     parser.addOption(loadFileOption);
-    
-    // JavaScript verification option removed - focusing on core C++ functionality
-    
-    
+
+    // Add JavaScript script execution option
+    QCommandLineOption scriptOption(QStringList() << "s" << "script",
+                                    "Execute JavaScript file after initialization",
+                                    "script");
+    parser.addOption(scriptOption);
+
+
     // Add positional argument for file
     parser.addPositionalArgument("file", "XML file to load (optional)");
     
@@ -133,12 +137,13 @@ int main(int argc, char *argv[])
         qDebug() << "Description:" << parser.applicationDescription();
         qDebug() << "Usage: NodeGraph [options] file";
         qDebug() << "Options:";
-        qDebug() << "  -h, --help         Displays help on commandline options";
-        qDebug() << "  --help-all         Displays help including Qt specific options";
-        qDebug() << "  -v, --version      Displays version information";
-        qDebug() << "  -l, --load <file>  Load graph from XML file";
+        qDebug() << "  -h, --help           Displays help on commandline options";
+        qDebug() << "  --help-all           Displays help including Qt specific options";
+        qDebug() << "  -v, --version        Displays version information";
+        qDebug() << "  -l, --load <file>    Load graph from XML file";
+        qDebug() << "  -s, --script <file>  Execute JavaScript file after initialization";
         qDebug() << "Arguments:";
-        qDebug() << "  file               XML file to load (optional)";
+        qDebug() << "  file                 XML file to load (optional)";
         qDebug() << "=== END HELP ===";
     }
     
@@ -227,10 +232,13 @@ int main(int argc, char *argv[])
     // Cleanup XML document when done
     // Note: GraphFactory holds reference, so clean up after window closes
     
+    // Pass startup script to window if specified
+    if (parser.isSet(scriptOption)) {
+        window.setStartupScript(parser.value(scriptOption));
+    }
+
     window.show();
-    
-    // JavaScript verification mode removed - focusing on core C++ functionality
-    
+
     // Show user-friendly message about file loading status
     if (fileLoadAttempted && originalFilename != filename) {
         // File was attempted but failed to load (filename was cleared)

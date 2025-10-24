@@ -53,7 +53,10 @@ public:
 
     // Access to graph facade
     [[nodiscard]] Graph* getGraph() const { return m_graph; }
-    
+
+    // Set startup script (for CLI --script option)
+    void setStartupScript(const QString& scriptPath);
+
     // Update status bar with current graph information
     void updateStatusBar();
     
@@ -67,7 +70,7 @@ public:
     // JavaScript test methods removed - focusing on core C++ functionality
 
 protected:
-    // PHASE 3: Safe shutdown coordination
+    void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
 public slots:
     // Scene event handlers
@@ -179,7 +182,9 @@ private:
     
     // File management
     QString m_currentFile;
-    
+    QString m_startupScript;
+    bool m_startupScriptExecuted = false;
+
     // Setup methods
     void setupUI();
     void setupMenus();

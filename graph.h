@@ -227,6 +227,12 @@ public:
      */
     QJSEngine* jsEngine() { return m_jsEngine; }
 
+    /**
+     * JavaScript console.log implementation
+     * @param message Message to log
+     */
+    Q_INVOKABLE void jsLog(const QString& message);
+
 signals:
     // Change notifications (for JavaScript listeners and UI)
     void nodeCreated(const QString& nodeId);
