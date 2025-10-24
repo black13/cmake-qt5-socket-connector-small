@@ -843,11 +843,12 @@ void Window::updateStatusBar()
     if (!m_scene) {
         return;
     }
-    
+
     // Update graph statistics
     QVariantMap stats = m_graph->getGraphStats();
     int nodeCount = stats["nodeCount"].toInt();
     int edgeCount = stats["edgeCount"].toInt();
+    qDebug() << "[FACADE-TEST] updateStatusBar: getGraphStats() returned nodes=" << nodeCount << ", edges=" << edgeCount;
     m_graphStatsLabel->setText(QString("Nodes: %1 | Edges: %2").arg(nodeCount).arg(edgeCount));
     
     // Update file info
@@ -1075,6 +1076,7 @@ void Window::testTemplateNodeCreation()
 
     // Show collection state BEFORE clearing
     QVariantMap statsBefore = m_graph->getGraphStats();
+    qDebug() << "[FACADE-TEST]" << __FUNCTION__ << "- getGraphStats() BEFORE clear: nodes=" << statsBefore["nodeCount"].toInt() << ", edges=" << statsBefore["edgeCount"].toInt();
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Scene has" << statsBefore["nodeCount"].toInt() << "nodes," << statsBefore["edgeCount"].toInt() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE BEFORE: Qt scene has" << m_scene->items().size() << "total items";
 
@@ -1084,6 +1086,7 @@ void Window::testTemplateNodeCreation()
 
     // Show collection state AFTER clearing
     QVariantMap statsAfter = m_graph->getGraphStats();
+    qDebug() << "[FACADE-TEST]" << __FUNCTION__ << "- getGraphStats() AFTER clear: nodes=" << statsAfter["nodeCount"].toInt() << ", edges=" << statsAfter["edgeCount"].toInt() << "(expect 0,0)";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Scene has" << statsAfter["nodeCount"].toInt() << "nodes," << statsAfter["edgeCount"].toInt() << "edges";
     qDebug() << __FUNCTION__ << "- COLLECTION STATE AFTER: Qt scene has" << m_scene->items().size() << "total items";
 

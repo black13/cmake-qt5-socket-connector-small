@@ -21,6 +21,10 @@
 #include "node_templates.h"
 #include <libxml/tree.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 void setupLogging()
 {
     // Create logs directory if it doesn't exist
@@ -41,7 +45,7 @@ void setupLogging()
     qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
         QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
         QString typeStr;
-        
+
         switch (type) {
         case QtDebugMsg:
             typeStr = "DEBUG";
@@ -59,13 +63,18 @@ void setupLogging()
             typeStr = "FATAL";
             break;
         }
-        
+
         QString logEntry = QString("[%1] %2: %3").arg(timestamp, typeStr, msg);
-        
-        // Write to main log
+
+        // Write to file log
         stream << logEntry << Qt::endl;
         stream.flush();
-        
+
+#ifdef _WIN32
+        // Also output to Windows Debug API (visible in Visual Studio Output window)
+        OutputDebugStringW((logEntry + "\n").toStdWString().c_str());
+#endif
+
         // JavaScript logging removed - focusing on core C++ functionality
     });
     
