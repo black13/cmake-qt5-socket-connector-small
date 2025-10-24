@@ -328,8 +328,8 @@ main
 - [x] Branch 1: feature/facade-graph-loading ✅ (Merged commit: 4d55d48)
 - [x] Branch 2: feature/facade-graph-clearing ✅ (Merged commit: 770ac19)
 - [x] Branch 3: feature/facade-query-operations ✅ (Merged commit: b5ec77d)
-- [ ] Branch 4: feature/facade-edge-creation
-- [ ] All branches merged to main
+- [x] Branch 4: feature/facade-edge-creation ✅ (Merged commit: acfe762)
+- [x] All branches merged to main
 - [ ] Documentation updated
 
 ---
@@ -354,6 +354,14 @@ main
   - Build successful, ready for live testing
   - Merged to main: b5ec77d
 
-**Progress:** 75% complete (3 of 4 branches)
+- Branch 4: Edge creation migrated to facade (4 locations changed)
+  - Migrated `testTemplateConnections()` edge creation (3 edges + invalid test)
+  - Migrated `runVisualSmokeTest()` edge creation loop
+  - Changed from `m_factory->createEdge(node1, 0, node2, 0)` to `m_graph->connectNodes(uuid1, 0, uuid2, 0)`
+  - Kept `connectSockets()` calls as factory-level tests per plan
+  - Build successful, all migrations complete
+  - Merged to main: acfe762
 
-**Next Step:** Create and work on Branch 4: feature/facade-edge-creation
+**Progress:** 100% complete (4 of 4 branches) ✅
+
+**Status:** FACADE MIGRATION COMPLETE - All window.cpp operations now use Graph facade API
