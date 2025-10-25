@@ -722,14 +722,7 @@ void Window::createToolsMenu()
     
     // Debug Force Layout with 3 Nodes
     arrangeMenu->addSeparator();
-    QAction* debugForce3Action = new QAction("Debug Force Layout (3 Nodes)...", this);
-    debugForce3Action->setStatusTip("Animated debug of force layout with 3 test nodes");
-    connect(debugForce3Action, &QAction::triggered, this, [this]() {
-        if (m_scene) {
-            m_scene->debugForceLayout3Nodes();
-        }
-    });
-    arrangeMenu->addAction(debugForce3Action);
+    // Debug Force Layout removed - use JavaScript scripts for testing
     
 #if ENABLE_JS
     // JavaScript console and scripting (only when enabled)

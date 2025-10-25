@@ -59,15 +59,11 @@ public:
 
     // Update status bar with current graph information
     void updateStatusBar();
-    
-    // Visual, automatic tests (no new layout required yet)
-    void runVisualSmokeTest();     // builds a sample graph, snapshots, restores
-    void saveSceneSnapshot();      // snapshot current scene to PNG
-    
-    // Create node at specific position (disabled for now)
-    // void createNodeAtPosition(const QString& nodeType, const QPointF& scenePos);
-    
-    // JavaScript test methods removed - focusing on core C++ functionality
+
+    // Snapshot current scene to PNG (useful for documentation)
+    void saveSceneSnapshot();
+
+    // All testing/automation goes through JavaScript + Graph facade
 
 protected:
     void showEvent(QShowEvent* event) override;
@@ -89,18 +85,8 @@ public slots:
     void createInputNode();
     void createOutputNode();
     void createProcessorNode();
-    
-    // Template System Tests - validate NodeTypeTemplates + GraphFactory
-    void testTemplateNodeCreation();
-    void testTemplateConnections();
 
-    // Diagnostics / Smoke tests (menu-triggered)
-    void testConnectSourceToSink();           // quick factory+scene path check
-    void testClearGraphRemovesEverything();   // verifies typed registries + items()
-    void testNewFileResetsState();            // asserts newFile clears scene + filename
-    void runAllSmokes();                      // runs the three above and summarizes
-    
-    // Node creation from palette (will be implemented with proper includes)
+    // Node creation from palette
     void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
                               const QString& name, int inputSockets, int outputSockets);
     
@@ -112,17 +98,10 @@ private slots:
     void saveAsFile();
     void exportGraph();
     void showAbout();
-    
-    // Smoke test runner
-    void runSmokeTests();
-    
+
     // Auto layout (annealing)
     void arrangeAutoAnnealSelection();
     void arrangeAutoAnnealAll();
-    
-    // Auto layout (annealing / force-directed) – load-time smoke test
-    void toggleForceLayoutTestOnLoad(bool on);
-    void runForceLayoutSmokeNow();
     
     // View actions
     void zoomIn();
@@ -206,13 +185,7 @@ private:
     // Helpers for visual tests
     QImage renderSceneImage(const QRectF& viewRect, const QSize& size) const;
     void restoreCurrentFile();     // reload m_currentFile if set, else clear
-    
-    // Helpers for force-layout smoke test
-    void runForceLayoutSmokeInternal(int nodeCount, bool connectSequential);
     void restoreJustLoadedFile();
-    
-    // Force-layout smoke test state
-    bool m_runForceLayoutTestOnLoad = false;
 
     // JavaScript integration will be added via Graph facade
 };
