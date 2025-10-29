@@ -184,10 +184,9 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     }
     
     // Clear existing sockets - both graphics items AND cache
-    for (QGraphicsItem* child : childItems()) {
-        if (qgraphicsitem_cast<Socket*>(child)) {
-            delete child;  // Qt removes from parent automatically
-        }
+    // Use typed vectors instead of qgraphicsitem_cast
+    for (Socket* socket : m_sockets) {
+        delete socket;  // Qt removes from parent automatically
     }
     m_sockets.clear();  // Clear cache to prevent dangling pointers
     m_inputSockets.clear();
@@ -435,15 +434,10 @@ xmlNodePtr Node::write(xmlDocPtr doc, xmlNodePtr repr) const
     xmlSetProp(node, BAD_CAST "y", BAD_CAST QString::number(m_lastPos.y()).toUtf8().constData());
     xmlSetProp(node, BAD_CAST "type", BAD_CAST m_nodeType.toUtf8().constData());
     
-    // Count sockets by role
-    int inputCount = 0, outputCount = 0;
-    for (QGraphicsItem* child : childItems()) {
-        if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-            if (socket->getRole() == Socket::Input) inputCount++;
-            else if (socket->getRole() == Socket::Output) outputCount++;
-        }
-    }
-    
+    // Count sockets by role - use typed vectors instead of qgraphicsitem_cast
+    int inputCount = m_inputSockets.size();
+    int outputCount = m_outputSockets.size();
+
     // Save socket configuration as XML attributes
     xmlSetProp(node, BAD_CAST "inputs", BAD_CAST QString::number(inputCount).toUtf8().constData());
     xmlSetProp(node, BAD_CAST "outputs", BAD_CAST QString::number(outputCount).toUtf8().constData());
