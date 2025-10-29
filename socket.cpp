@@ -13,6 +13,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
     : QGraphicsItem(parentNode)
     , m_role(role)
     , m_index(index)
+    , m_parentNode(parentNode)
     , m_connectedEdge(nullptr)
     , m_connectionState(Disconnected)
     , m_radius(8.0)
@@ -39,7 +40,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
 
 Node* Socket::getParentNode() const
 {
-    return qgraphicsitem_cast<Node*>(parentItem());
+    return m_parentNode;
 }
 
 QRectF Socket::boundingRect() const

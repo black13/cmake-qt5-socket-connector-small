@@ -113,14 +113,15 @@ public:
 private:
     Role m_role;
     int m_index;                 // Socket index within parent node (0, 1, 2...)
-    Edge* m_connectedEdge;       // Connected edge (if any)  
+    Node* m_parentNode;          // Typed parent pointer (eliminates qgraphicsitem_cast)
+    Edge* m_connectedEdge;       // Connected edge (if any)
     ConnectionState m_connectionState; // Visual connection state
     qreal m_radius;
     bool m_hovered;
     qreal m_hoverOpacity; // Smooth hover opacity transition
     bool m_pressed; // Click feedback state
-    
+
     // Performance optimization: cache index string (created once, not every frame)
     mutable QString m_cachedIndexString;
-    
+
 };
