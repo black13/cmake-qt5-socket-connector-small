@@ -61,7 +61,6 @@ public:
     void updateStatusBar();
 
     // Snapshot current scene to PNG (useful for documentation)
-    void saveSceneSnapshot();
 
     // All testing/automation goes through JavaScript + Graph facade
 
@@ -100,9 +99,6 @@ private slots:
     void showAbout();
 
     // Auto layout (annealing)
-    void arrangeAutoAnnealSelection();
-    void arrangeAutoAnnealAll();
-    
     // View actions
     void zoomIn();
     void zoomOut();
@@ -111,9 +107,6 @@ private slots:
     
     // Selection info update
     void updateSelectionInfo();
-    
-    // Palette integration
-    void onNodeCreationRequested();
     
 protected:
     // Handle keyboard shortcuts
@@ -183,7 +176,6 @@ private:
     void connectStatusBarSignals();
     
     // Helpers for visual tests
-    QImage renderSceneImage(const QRectF& viewRect, const QSize& size) const;
     void restoreCurrentFile();     // reload m_currentFile if set, else clear
     void restoreJustLoadedFile();
 
