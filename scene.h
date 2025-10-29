@@ -138,9 +138,7 @@ public:
     void setSnapToGrid(bool on) { m_snapToGrid = on; }
     bool isSnapToGrid() const { return m_snapToGrid; }
     int gridSize() const { return 40; }          // TODO: make configurable
-    
-    // Debug animated force layout for 3 nodes
-    void debugForceLayout3Nodes();
-    
+
     // JavaScript engine removed - focusing on core C++ functionality
+    // All testing/debugging goes through JavaScript + Graph facade
 };
