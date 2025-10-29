@@ -786,33 +786,27 @@ void Window::updateSelectionInfo()
     if (!m_scene) {
         return;
     }
-    
-    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
-    if (selectedItems.isEmpty()) {
+
+    const QList<Node*> nodes = m_scene->selectedNodes();
+    const QList<Edge*> edges = m_scene->selectedEdges();
+    const int nodeCount = nodes.size();
+    const int edgeCount = edges.size();
+
+    if (nodeCount == 0 && edgeCount == 0) {
         m_selectionLabel->setText("No selection");
-    } else {
-        int nodeCount = 0;
-        int edgeCount = 0;
-        
-        for (QGraphicsItem* item : selectedItems) {
-            if (qgraphicsitem_cast<Node*>(item)) {
-                nodeCount++;
-            } else if (qgraphicsitem_cast<Edge*>(item)) {
-                edgeCount++;
-            }
-        }
-        
-        QString selectionText;
-        if (nodeCount > 0 && edgeCount > 0) {
-            selectionText = QString("Selected: %1 nodes, %2 edges").arg(nodeCount).arg(edgeCount);
-        } else if (nodeCount > 0) {
-            selectionText = QString("Selected: %1 nodes").arg(nodeCount);
-        } else if (edgeCount > 0) {
-            selectionText = QString("Selected: %1 edges").arg(edgeCount);
-        }
-        
-        m_selectionLabel->setText(selectionText);
+        return;
     }
+
+    QString selectionText;
+    if (nodeCount > 0 && edgeCount > 0) {
+        selectionText = QString("Selected: %1 nodes, %2 edges").arg(nodeCount).arg(edgeCount);
+    } else if (nodeCount > 0) {
+        selectionText = QString("Selected: %1 nodes").arg(nodeCount);
+    } else if (edgeCount > 0) {
+        selectionText = QString("Selected: %1 edges").arg(edgeCount);
+    }
+
+    m_selectionLabel->setText(selectionText);
 }
 
 // ============================================================================

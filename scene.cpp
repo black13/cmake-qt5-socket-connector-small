@@ -138,6 +138,28 @@ Edge* Scene::getEdge(const QUuid& edgeId) const
     return m_edges.value(edgeId, nullptr);
 }
 
+QList<Node*> Scene::selectedNodes() const
+{
+    QList<Node*> result;
+    for (Node* node : m_nodes) {
+        if (node && node->isSelected()) {
+            result.append(node);
+        }
+    }
+    return result;
+}
+
+QList<Edge*> Scene::selectedEdges() const
+{
+    QList<Edge*> result;
+    for (Edge* edge : m_edges) {
+        if (edge && edge->isSelected()) {
+            result.append(edge);
+        }
+    }
+    return result;
+}
+
 void Scene::deleteNode(const QUuid& nodeId)
 {
     Node* node = getNode(nodeId);
