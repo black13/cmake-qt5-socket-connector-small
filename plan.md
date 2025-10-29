@@ -747,9 +747,9 @@ git branch -d test/javascript-integration-examples
 ## Progress Tracking
 
 ### Phase 1: Architecture (qgraphicsitem_cast Elimination) 🔥 CRITICAL
-- [x] Branch 1.1: refactor/socket-typed-parent (commit: 489305e)
-- [ ] Branch 1.2: refactor/node-typed-collections
-- [ ] Branch 1.3: refactor/scene-typed-collections
+- [x] Branch 1.1: refactor/socket-typed-parent (commit: 489305e) - 1 cast eliminated
+- [x] Branch 1.2: refactor/node-typed-collections (commit: 8975361) - 2 casts eliminated
+- [ ] Branch 1.3: refactor/scene-typed-collections - 4 casts
 - [ ] Branch 1.4: refactor/delete-key-self-managed 🔥
 - [ ] Branch 1.5: refactor/ghost-edge-typed
 - [ ] Branch 1.6: refactor/window-typed-queries
