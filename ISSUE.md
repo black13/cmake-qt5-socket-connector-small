@@ -5,11 +5,13 @@
 - Pick a single canonical naming style (likely uppercase) and either normalize inputs centrally or add alias support in `NodeTypeTemplates`.
 - **Test:** Execute the force-layout and palette smoke routines; they should successfully instantiate nodes without unknown-type warnings.
 
-## Guarantee Load Rollback
-- `graph_factory.cpp:61` + `graph_factory.cpp:517-528` currently push nodes/edges into `Scene` during Phase 2, but `loadFromXmlFile` returns `false` on Phase-3 validation failures without unwinding; we end up with half-loaded objects while the caller believes the load failed.
-- Keep nodes/edges created during `GraphFactory::loadFromXmlFile` isolated until validation finishes, or explicitly roll back the scene/registries before returning `false`.
-- Always pair `GraphSubject::beginBatch()`/`endBatch()` even when aborting so observers resume in a known state.
-- **Test:** Load an XML containing duplicate socket connections and confirm the scene remains unchanged after a reported failure; follow with a valid file to verify normal loading.
+## Guarantee Load Rollback ⚠️ PARTIAL - Memory Leak
+- **Status:** Phase 2 implementation complete (objects created in memory), but cleanup missing on validation failure.
+- `graph_factory.cpp:463, 482, 517, 528` - validation failure paths call `endBatch()` and `return false` but don't delete the `allNodes` and `allEdges` vectors.
+- **Memory Leak:** On validation failure, Node* and Edge* objects remain allocated but orphaned (not in scene, not deleted).
+- **Fix Needed:** Add cleanup loops before each `return false`: `for (Node* n : allNodes) delete n; for (Edge* e : allEdges) delete e;`
+- `GraphSubject::beginBatch()`/`endBatch()` pairing is correct.
+- **Test:** Load an XML containing duplicate socket connections and confirm the scene remains unchanged after a reported failure; follow with a valid file to verify normal loading. Use Valgrind/ASAN to verify no memory leaks.
 
 ## Preserve Precise Node Positions
 - `node.cpp:123` only updates `m_lastPos` if movement exceeds a 5px manhattan delta, yet `Node::write()` (`node.cpp:434-435`) persists `m_lastPos`; small drags or scripted nudges serialize stale coordinates.
@@ -38,3 +40,13 @@
 - Track zoom level, clamp wheel-based scaling between sensible min/max values, and anchor zoom under the mouse so the scene stays in view.
 - Ensure horizontal/vertical scrollbars appear as needed and the scene rect updates so users can reach all items after large zoom operations.
 - **Test:** Load `tests_large.xml`, zoom/pan, resize the window, and verify the graph remains visible with usable scrollbars.
+
+## Improve Edge Visual Ordering & Separation
+- **Problem:** Multiple edges converging on nodes (e.g., MERGE nodes with many inputs) overlap perfectly, making it hard to distinguish individual connections (see `edgeoverlap.png`).
+- All edges currently at z-level 2, causing random overlap ordering.
+- **Quick Wins:**
+  1. **Selection Z-Order Boost:** Selected edges jump to z-level 4, bringing them to front for visibility (`edge.cpp` - 5 min fix).
+  2. **Stacked Edge Z-Order:** Edges with more connections get slightly higher z-values for natural stacking (`edge.cpp` - 15 min fix).
+  3. **Curve Offset for Parallel Edges:** Add perpendicular offset to control points for edges between same nodes, creating fan-out effect (`edge.cpp` - 30-60 min fix).
+- **Note:** Full edge routing (path planning around obstacles) is deferred - these are visual ordering improvements only.
+- **Test:** Load graph with MERGE/SPLIT nodes with multiple connections, verify edges are distinguishable; select edge, verify it comes to front.
