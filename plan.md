@@ -1,7 +1,30 @@
 # NodeGraph Development Plan
 **Updated:** 2025-11-02
-**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (14 remaining of 17)
+**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (3 remaining of 17)
 **SECONDARY GOAL:** Full JavaScript integration for programmable nodes/edges
+
+---
+
+## 🎯 NEXT STEP (Session Resume)
+
+**Current Status:**
+- Branch: `main` (all recent work merged)
+- qgraphicsitem_cast count: **3 remaining** (down from 17)
+- Recent completions: Branch 2.4 (remove unused auto-layout), Branch 1.3 (scene typed selections)
+
+**Remaining 3 violations:**
+1. `graph_factory.cpp:752` - Socket validation (Branch 1.7)
+2. `scene.cpp:326` - Ghost edge mouse move (Branch 1.5)
+3. `scene.cpp:504` - Ghost edge mouse release (Branch 1.5)
+
+**RECOMMENDED NEXT TASK:**
+- **Skip Branch 1.4** (Delete key - risky, complex)
+- **Start Branch 1.5: refactor/ghost-edge-typed** - Eliminates 2/3 remaining violations
+  - Create `Scene::socketAt(QPointF)` helper using typed collections
+  - Replace `itemAt()` + `qgraphicsitem_cast` in ghost edge code
+  - User note: "Ghost edge system is fragile - test thoroughly after changes"
+
+**Alternative:** Start Branch 1.7 (factory typed serialization) if ghost edge feels too risky.
 
 ---
 
@@ -161,39 +184,16 @@ git branch -d refactor/node-typed-collections
 
 ---
 
-### Branch 1.3: Scene Typed Collections
-**Branch:** `refactor/scene-typed-collections`
+### Branch 1.3: Scene Typed Collections ✅ COMPLETE
+**Branch:** `refactor/scene-typed-collections` → **Status:** MERGED (commit: 43b4ccb)
 
-**Problem:** scene.cpp:538, 641 + window.cpp:895, 897 iterate items() with casts
+**Implementation:**
+- [x] scene.h: QHash<QUuid, Node*> m_nodes and QHash<QUuid, Edge*> m_edges (already existed)
+- [x] scene.h: Added QList<Node*> selectedNodes() and QList<Edge*> selectedEdges() helpers
+- [x] scene.cpp: Implemented typed selection helpers
+- [x] window.cpp: Updated updateSelectionInfo() to use typed helpers
 
-**Changes:**
-- [ ] scene.h: Add `QList<Node*> m_nodes` and `QList<Edge*> m_edges`
-- [ ] scene.h: Add `QList<Node*> nodes()` and `QList<Edge*> edges()` accessors
-- [ ] scene.cpp: Add nodes/edges to typed lists when creating
-- [ ] scene.cpp: Remove items() iteration with casts
-- [ ] window.cpp: Use Scene::nodes() and Scene::edges() instead of casting
-
-**Eliminates:** 4 cast violations
-
-**Git Workflow:**
-```bash
-git checkout main
-git checkout -b refactor/scene-typed-collections
-# ... make changes ...
-git add scene.h scene.cpp window.cpp
-git commit -m "refactor: add typed Node/Edge collections to Scene
-
-- Add QList<Node*> m_nodes and QList<Edge*> m_edges
-- Track nodes/edges on creation
-- Remove items() + qgraphicsitem_cast loops
-- Update window.cpp to use typed accessors
-- Eliminates 4/17 cast violations"
-git push origin refactor/scene-typed-collections
-git checkout main
-git merge refactor/scene-typed-collections --no-ff
-git push origin main
-git branch -d refactor/scene-typed-collections
-```
+**Note:** Scene already had QHash-based typed collections from earlier work. This branch added selection helpers and cleaned up window.cpp. No new qgraphicsitem_cast violations eliminated (window.cpp was already clean). Auto-layout casts (scene.cpp:538, 641) were eliminated by Branch 2.4 (remove/unused-auto-layout).
 
 ---
 
@@ -885,18 +885,18 @@ git branch -d test/javascript-integration-examples
 ### Phase 1: Architecture (qgraphicsitem_cast Elimination) 🔥 CRITICAL
 - [x] Branch 1.1: refactor/socket-typed-parent (commit: 489305e) - 1 cast eliminated
 - [x] Branch 1.2: refactor/node-typed-collections (commit: 8975361) - 2 casts eliminated
-- [ ] Branch 1.3: refactor/scene-typed-collections - 4 casts
-- [ ] Branch 1.4: refactor/delete-key-self-managed 🔥
-- [ ] Branch 1.5: refactor/ghost-edge-typed
-- [ ] Branch 1.6: refactor/window-typed-queries
-- [ ] Branch 1.7: refactor/factory-typed-serialization
+- [x] Branch 1.3: refactor/scene-typed-collections (commit: 43b4ccb) - infrastructure, 0 casts (already clean)
+- [ ] Branch 1.4: refactor/delete-key-self-managed 🔥 (SKIP - risky, not required for final goal)
+- [ ] **Branch 1.5: refactor/ghost-edge-typed** ← NEXT - eliminates 2 casts
+- [ ] Branch 1.6: refactor/window-typed-queries (likely already done)
+- [ ] **Branch 1.7: refactor/factory-typed-serialization** ← eliminates final cast
 
 ### Phase 2: Bug Fixes (Parallel to Phase 1)
 - [ ] Branch 2.1: fix/graph-save-to-file
 - [ ] Branch 2.2: fix/node-position-precision
 - [x] Branch 2.3: fix/load-rollback (commit: fix/load-rollback-memory-leak) - ASAN validated ✓
-- [ ] Branch 2.4: remove/unused-auto-layout - 2 casts eliminated
-- [x] Branch 2.5: feature/edge-z-order-enhancements (basic implementation, commit: feature/edge-visual-ordering)
+- [x] Branch 2.4: remove/unused-auto-layout (commit: 8f0ad98) - 2 casts eliminated, 306 lines removed
+- [x] Branch 2.5: feature/edge-z-order-enhancements (basic implementation, commit: 2b7bb36)
 
 ### Phase 3: Payload Infrastructure
 - [ ] Branch 3.1: feature/node-edge-payload-storage
