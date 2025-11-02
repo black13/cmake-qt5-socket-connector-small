@@ -55,6 +55,10 @@ public:
     [[nodiscard]] const QHash<QUuid, Node*>& getNodes() const { return m_nodes; }
     [[nodiscard]] const QHash<QUuid, Edge*>& getEdges() const { return m_edges; }
     // Clean design: sockets accessed via nodes, not scene
+
+    // Typed selection helpers (eliminates qgraphicsitem_cast in selection loops)
+    [[nodiscard]] QList<Node*> selectedNodes() const;
+    [[nodiscard]] QList<Edge*> selectedEdges() const;
     
     // Deletion methods - maintain integrity
     void deleteNode(const QUuid& nodeId);

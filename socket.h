@@ -105,10 +105,6 @@ public:
     // Size properties for edge connection calculations
     [[nodiscard]] qreal getRadius() const { return m_radius; }
     [[nodiscard]] QSizeF getSocketSize() const { return boundingRect().size(); }
-    
-    // Visual state for drag-and-drop feedback (disabled)
-    // VisualState getVisualState() const { return m_visualState; }
-    // void setVisualState(VisualState state) { m_visualState = state; update(); }
 
 private:
     Role m_role;

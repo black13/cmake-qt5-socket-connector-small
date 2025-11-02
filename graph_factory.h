@@ -29,11 +29,11 @@ class GraphFactory
 {
 public:
     // Initialize factory with scene and XML document
-    GraphFactory(QGraphicsScene* scene, xmlDocPtr xmlDoc);
+    GraphFactory(Scene* scene, xmlDocPtr xmlDoc);
     
     // XML-first creation methods
-    Node* createNodeFromXml(xmlNodePtr xmlNode);
-    Edge* createEdgeFromXml(xmlNodePtr xmlEdge);
+    Node* createNodeFromXml(xmlNodePtr xmlNode, bool addToScene = true);
+    Edge* createEdgeFromXml(xmlNodePtr xmlEdge, bool addToScene = true);
     
     // UNIFIED CREATION - Template-driven XML-first approach (inputs/outputs ignored - template defines sockets)
     Node* createNode(const QString& nodeType, const QPointF& position, int inputs = -1, int outputs = -1);
@@ -55,7 +55,7 @@ public:
     Socket* createSocket(Socket::Role role, Node* parentNode, int index);
     
     // Access to managed scene
-    Scene* getScene() const { return qobject_cast<Scene*>(m_scene); }
+    Scene* getScene() const { return m_scene; }
     
     // Utility to get XML property
     static QString getXmlProperty(xmlNodePtr node, const QString& name);
@@ -65,7 +65,7 @@ public:
                        const QUuid& toNodeId,   int toSocketIndex);
 
 private:
-    QGraphicsScene* m_scene;
+    Scene* m_scene;
     xmlDocPtr m_xmlDocument;
     
     // Helper methods
