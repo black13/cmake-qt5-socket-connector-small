@@ -123,21 +123,9 @@ private:
     
     // Factory for consistent edge creation (non-owning)
     GraphFactory* m_graphFactory;
-    
+
 public:
-    // ===== Auto layout (Simulated Annealing) =====
-    // If selectionOnly==true and no nodes are selected, falls back to all nodes.
-    void autoLayoutAnneal(bool selectionOnly = true,
-                          int maxIters = 2000,
-                          double t0 = 1.0,
-                          double t1 = 0.01);
-    
-    // Force-directed layout (using same annealing algorithm with different parameters)
-    void autoLayoutForceDirected(bool selectionOnly = true,
-                                 int maxIters = 350,
-                                 double cooling = 0.92);
-    
-    // Grid and snap helpers (for auto-layout integration)
+    // Grid and snap helpers
     QPointF snapPoint(const QPointF& scenePos) const;
     void setSnapToGrid(bool on) { m_snapToGrid = on; }
     bool isSnapToGrid() const { return m_snapToGrid; }
