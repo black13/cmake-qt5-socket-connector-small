@@ -103,6 +103,8 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    // Visual ordering helper
+    void updateZOrderFromConnections();
     QUuid m_id;
     QString m_fromNodeId;     // Store node IDs from XML (for serialization)
     QString m_toNodeId;
