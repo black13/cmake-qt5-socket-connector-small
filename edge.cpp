@@ -466,11 +466,17 @@ void Edge::read(xmlNodePtr node)
     }
     
     // Store data for later resolution - don't try to resolve now
-    m_fromNodeId = QString::fromUtf8((char*)fromNodeStr);
-    m_toNodeId = QString::fromUtf8((char*)toNodeStr);
+    // Strip braces if present (XML may have {uuid} or uuid formats)
+    QString rawFromId = QString::fromUtf8((char*)fromNodeStr);
+    QString rawToId = QString::fromUtf8((char*)toNodeStr);
+
+    // QUuid::fromString handles both formats, then output without braces
+    m_fromNodeId = QUuid::fromString(rawFromId).toString(QUuid::WithoutBraces);
+    m_toNodeId = QUuid::fromString(rawToId).toString(QUuid::WithoutBraces);
+
     m_fromSocketIndex = QString::fromUtf8((char*)fromIndexStr).toInt();
     m_toSocketIndex = QString::fromUtf8((char*)toIndexStr).toInt();
-    
+
     // Performance optimization: cache UUIDs for fast comparison
     m_fromNodeUuid = QUuid(m_fromNodeId);
     m_toNodeUuid = QUuid(m_toNodeId);

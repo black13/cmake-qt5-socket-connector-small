@@ -72,6 +72,13 @@ add_file "graph_factory.h"
 add_file "graph_factory.cpp"
 
 # ─────────────────────────────────────
+# Graph Facade (Public API + JavaScript Integration)
+# ─────────────────────────────────────
+add_section "GRAPH FACADE (PUBLIC API)"
+add_file "graph.h"
+add_file "graph.cpp"
+
+# ─────────────────────────────────────
 # Template-Driven Node Types
 # ─────────────────────────────────────
 add_section "TEMPLATE-DRIVEN NODE TYPES"
@@ -97,17 +104,10 @@ add_file "node_palette_widget.h"
 add_file "node_palette_widget.cpp"
 
 # ─────────────────────────────────────
-# JavaScript Integration (Optional)
+# JavaScript Integration (REMOVED - now part of Graph facade)
 # ─────────────────────────────────────
-add_section "JAVASCRIPT INTEGRATION"
-add_file "script_api_stub.h"
-add_file "script_host.h"
-add_file "script_host.cpp"
-# Conditional - only if ENABLE_JS is ON
-if [ -f "graph_script_api.h" ]; then
-    add_file "graph_script_api.h"
-    add_file "graph_script_api.cpp"
-fi
+# Old files (script_api_stub.h, script_host.h, etc.) no longer exist
+# JavaScript integration is now built into graph.h/graph.cpp via QJSEngine
 
 # ─────────────────────────────────────
 # Observer Pattern

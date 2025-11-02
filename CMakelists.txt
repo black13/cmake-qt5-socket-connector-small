@@ -33,12 +33,25 @@ endif()
 # 4.  Qt search paths (adapt to your install)
 # ─────────────────────────────────────
 if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH
-        "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64"
-        "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64"
-        "C:/Qt/5.15.2/msvc2019_64"
-        "C:/Qt/5.15.2/msvc2019"
-    )
+    # Order matters! CMake uses first match.
+    # For Debug builds, list Debug path first; for Release, list Release first
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        list(APPEND CMAKE_PREFIX_PATH
+            "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64"      # Debug first for Debug builds
+            "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64"
+            "C:/Qt/5.15.2/msvc2019_64"
+            "C:/Qt/5.15.2/msvc2019"
+        )
+        message(STATUS "Debug build: Prioritizing Qt Debug libraries at D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64")
+    else()
+        list(APPEND CMAKE_PREFIX_PATH
+            "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64"    # Release first for Release builds
+            "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64"
+            "C:/Qt/5.15.2/msvc2019_64"
+            "C:/Qt/5.15.2/msvc2019"
+        )
+        message(STATUS "Release build: Prioritizing Qt Release libraries at D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64")
+    endif()
 else()
     # Linux/WSL: Auto-detect Qt installations in /usr/local/qt-*
     file(GLOB QT_INSTALL_DIRS "/usr/local/qt*")
