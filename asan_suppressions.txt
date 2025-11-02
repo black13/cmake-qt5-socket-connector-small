@@ -1,0 +1,8 @@
+# ASAN Leak Suppressions
+# These are known false positives from third-party libraries
+
+# Mesa OpenGL driver initialization leaks (one-time, unavoidable)
+leak:libGLX_mesa.so
+
+# Qt X11 OpenGL integration (driver-level, not our code)
+leak:QXcbGlxWindow::createVisual

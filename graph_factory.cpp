@@ -459,7 +459,11 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                      << node->getNodeType() << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
         } else {
             qCritical() << "INTERNAL ERROR: Failed to create validated node";
-            // This shouldn't happen after validation, but cleanup anyway
+            // Cleanup: delete all nodes created so far to prevent memory leak
+            for (Node* n : allNodes) {
+                delete n;
+            }
+            allNodes.clear();
             GraphSubject::endBatch();
             xmlFreeDoc(doc);
             return false;
@@ -478,7 +482,15 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                      << edge->getId().toString(QUuid::WithoutBraces).left(8);
         } else {
             qCritical() << "INTERNAL ERROR: Failed to create validated edge";
-            // This shouldn't happen after validation, but cleanup anyway
+            // Cleanup: delete all nodes and edges created to prevent memory leak
+            for (Node* n : allNodes) {
+                delete n;
+            }
+            allNodes.clear();
+            for (Edge* e : allEdges) {
+                delete e;
+            }
+            allEdges.clear();
             GraphSubject::endBatch();
             xmlFreeDoc(doc);
             return false;
@@ -513,7 +525,14 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 qCritical() << "  Output socket:" << fromSocketKey << "already used by edge:" << socketUsage[fromSocketKey];
                 qCritical() << "  Conflicting edge:" << edgeDebugId;
                 qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-                
+
+                // Manual cleanup: we own these objects, must delete them explicitly
+                for (Node* n : allNodes) {
+                    delete n;
+                }
+                for (Edge* e : allEdges) {
+                    delete e;
+                }
                 GraphSubject::endBatch();
                 return false;
             }
@@ -524,7 +543,14 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 qCritical() << "  Input socket:" << toSocketKey << "already used by edge:" << socketUsage[toSocketKey];
                 qCritical() << "  Conflicting edge:" << edgeDebugId;
                 qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-                
+
+                // Manual cleanup: we own these objects, must delete them explicitly
+                for (Node* n : allNodes) {
+                    delete n;
+                }
+                for (Edge* e : allEdges) {
+                    delete e;
+                }
                 GraphSubject::endBatch();
                 return false;
             }
