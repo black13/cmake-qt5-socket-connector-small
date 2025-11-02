@@ -1,7 +1,46 @@
 # NodeGraph Development Plan
-**Updated:** 2025-01-29
-**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot
+**Updated:** 2025-11-02
+**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (14 remaining of 17)
 **SECONDARY GOAL:** Full JavaScript integration for programmable nodes/edges
+
+---
+
+## Session Resume Checklist
+
+**Use this checklist when resuming work after computer restart or context loss:**
+
+1. **Understand Current State:**
+   - [ ] Run `git status` to see uncommitted changes
+   - [ ] Run `git log --oneline -10` to see recent commits
+   - [ ] Check current branch with `git branch`
+   - [ ] Review ISSUE.md for known bugs
+   - [ ] Review this plan.md Progress Tracking section
+
+2. **Rebuild Project:**
+   - [ ] Windows: Open Visual Studio solution, rebuild
+   - [ ] WSL/Linux: `cd build_linux && cmake .. && make`
+   - [ ] Verify build succeeds before making changes
+
+3. **Validate Current Code:**
+   - [ ] Run concatenation: `bash concat.sh` (generates concatenated_code.txt)
+   - [ ] Check for dead code with grep: `git grep -n "qgraphicsitem_cast"`
+   - [ ] Check test files exist: `ls -la test_*.xml test_*.js`
+
+4. **Memory Leak Testing (WSL/Linux only):**
+   - [ ] Build with ASAN: `cmake -DCMAKE_BUILD_TYPE=Debug .. && make`
+   - [ ] Run leak test: `LSAN_OPTIONS=suppressions=../asan_suppressions.txt ./NodeGraph test_corrupt_duplicate.xml`
+   - [ ] Verify no leaks from graph_factory.cpp
+
+5. **Quick Smoke Test:**
+   - [ ] Launch application: `./NodeGraph` (Linux) or run from Visual Studio (Windows)
+   - [ ] Test basic operations: create nodes, connect sockets, save/load
+   - [ ] Test JavaScript CLI: `./NodeGraph --script test_memory_leak.js`
+
+6. **Identify Next Task:**
+   - [ ] Look at Progress Tracking section below
+   - [ ] Pick next unchecked [ ] branch
+   - [ ] Read the branch description and implementation plan
+   - [ ] Create branch: `git checkout -b <branch-name>`
 
 ---
 
@@ -410,52 +449,149 @@ git branch -d fix/node-position-precision
 
 ---
 
-### Branch 2.3: Fix Load Rollback on Validation Failure
-**Branch:** `fix/load-rollback`
+### Branch 2.3: Fix Load Rollback on Validation Failure ✅ COMPLETE
+**Branch:** `fix/load-rollback` → **Status:** MERGED (commit: fix/load-rollback-memory-leak)
 
-**Problem:** `graph_factory.cpp:461-535` creates nodes/edges in Phase 2, but Phase 3 validation can fail (duplicate sockets). On failure, scene left with orphaned objects.
+**Problem:** `graph_factory.cpp:461-535` created nodes/edges in Phase 2, but Phase 3 validation could fail (duplicate sockets). On failure, objects allocated but not deleted → memory leak.
+
+**Implementation:**
+- [x] Added cleanup loops to 4 error paths in graph_factory.cpp
+- [x] Lines 463-466: Delete allNodes on node creation failure
+- [x] Lines 486-493: Delete allNodes + allEdges on edge creation failure
+- [x] Lines 530-535: Delete allNodes + allEdges on duplicate output socket validation failure
+- [x] Lines 548-553: Delete allNodes + allEdges on duplicate input socket validation failure
+- [x] Each cleanup loop explicitly calls `delete` before `return false`
+
+**Validation:**
+- [x] Created test_corrupt_duplicate.xml with duplicate socket connections
+- [x] Created test_memory_leak.js to load corrupt file 50 times
+- [x] Added ASAN support to CMakeLists.txt (Linux/WSL Debug builds)
+- [x] Created asan_suppressions.txt for OpenGL false positives
+- [x] Ran ASAN test on WSL: NO leaks from graph_factory.cpp ✓
+- [x] Updated ISSUE.md to document the fix
+
+**Key Learning:** Manual `delete` is correct pattern for Qt graphics items. Smart pointers (std::unique_ptr) would conflict with QGraphicsScene's parent-child ownership system.
+
+---
+
+### Branch 2.4: Remove Unused Auto-Layout Code
+**Branch:** `remove/unused-auto-layout`
+
+**Problem:** Scene contains two unused auto-layout functions that don't work and should be removed entirely. These functions also contain 2 qgraphicsitem_cast violations.
+
+**Functions to Remove:**
+- `Scene::autoLayoutAnneal` (scene.cpp:526) - attempted simulated annealing, doesn't work
+- `Scene::autoLayoutForceDirected` (scene.cpp:629) - attempted force-directed layout, doesn't work
 
 **Changes:**
-- [ ] `graph_factory.cpp:461-491` - Defer scene insertion until Phase 3 passes
-- [ ] Store created nodes/edges in temporary vectors
-- [ ] On Phase 3 validation failure: delete objects and call `GraphSubject::endBatch()`
-- [ ] Ensure `endBatch()` always paired with `beginBatch()`
+- [ ] scene.h: Remove method declarations for both functions
+- [ ] scene.cpp: Delete both function implementations
+- [ ] window.cpp: Remove menu items/shortcuts that call these functions (if any)
+- [ ] Verify no other callers exist with `git grep "autoLayout"`
 
-**Implementation Strategy:**
-1. Create nodes/edges but DON'T add to scene yet
-2. Store in local vectors: `QVector<Node*> pendingNodes`, `QVector<Edge*> pendingEdges`
-3. Run Phase 3 validation (socket duplicate check)
-4. If validation passes: add to scene, emit signals
-5. If validation fails: delete all pending objects, `endBatch()`, return false
+**Eliminates:** 2 qgraphicsitem_cast violations (scene.cpp:532, 635)
 
 **Test Plan:**
-- [ ] Create malformed XML file with duplicate socket connections
 - [ ] Build and run application
-- [ ] Clear graph, count nodes/edges (should be 0/0)
-- [ ] Load malformed file
-- [ ] Verify error message about duplicate socket
-- [ ] Verify loadFromXmlFile() returns false
-- [ ] Count nodes/edges (should still be 0/0 - no orphans)
-- [ ] Load valid file, verify success
+- [ ] Verify no compilation errors
+- [ ] Verify no runtime crashes
+- [ ] Verify menu/shortcuts still work for remaining features
 
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b fix/load-rollback
+git checkout -b remove/unused-auto-layout
 # ... make changes ...
-git add graph_factory.cpp
-git commit -m "fix: guarantee scene rollback on XML validation failure
+git add scene.h scene.cpp window.cpp
+git commit -m "remove: delete unused auto-layout functions
 
-- Defer scene insertion until Phase 3 validation passes
-- Store nodes/edges in pending vectors during Phase 2
-- Delete pending objects if Phase 3 fails (duplicate sockets)
-- Ensure GraphSubject::endBatch() always called
-- Prevents orphaned objects in scene on load failure"
-git push origin fix/load-rollback
+- Delete Scene::autoLayoutAnneal (doesn't work)
+- Delete Scene::autoLayoutForceDirected (doesn't work)
+- Remove menu/shortcut bindings
+- Eliminates 2 qgraphicsitem_cast violations
+- Reduces codebase complexity"
+git push origin remove/unused-auto-layout
 git checkout main
-git merge fix/load-rollback --no-ff
+git merge remove/unused-auto-layout --no-ff
 git push origin main
-git branch -d fix/load-rollback
+git branch -d remove/unused-auto-layout
+```
+
+---
+
+### Branch 2.5: Enhanced Edge Visual Ordering
+**Branch:** `feature/edge-z-order-enhancements`
+
+**Status:** Basic implementation MERGED (commit: feature/edge-visual-ordering)
+**Current Implementation:**
+- [x] Selection z-order boost: selected edges jump to z=10
+- [x] Connectivity-based stacking: edges with more connections get higher z-values (z = 2.0 + connections * 0.02)
+
+**Remaining Improvements:**
+- [ ] Cache z-value before selection to restore properly (currently always restores to z=2)
+- [ ] Trigger `updateZOrderFromConnections()` when node connectivity changes (add/remove edges)
+- [ ] Add perpendicular offset to control points for parallel edges between same nodes (fan-out effect)
+- [ ] Add smoke test for deterministic z-ordering
+
+**Changes Needed:**
+
+**edge.h:**
+```cpp
+private:
+    qreal m_normalZValue;  // Cache z-value before selection
+```
+
+**edge.cpp:**
+```cpp
+// In itemChange():
+if (change == ItemSelectedHasChanged) {
+    if (value.toBool()) {
+        m_normalZValue = zValue();  // Cache before boosting
+        setZValue(10);
+    } else {
+        setZValue(m_normalZValue);  // Restore cached value
+    }
+}
+
+// Call updateZOrderFromConnections() after edge creation/deletion
+// Add to Node::addEdge() and Node::removeEdge() if they exist
+```
+
+**scene.cpp:**
+```cpp
+// After creating edge in connectSockets():
+edge->updateZOrderFromConnections();
+
+// After deleting edge:
+// Update z-order of remaining edges connected to affected nodes
+```
+
+**Test Plan:**
+- [ ] Load tests_large.xml with MERGE nodes
+- [ ] Verify edges stack by connectivity
+- [ ] Select edge, verify it comes to front at z=10
+- [ ] Deselect edge, verify it returns to correct stacked z-value (not always z=2)
+- [ ] Add new edge, verify all connected edges update their z-order
+- [ ] Delete edge, verify remaining edges update their z-order
+
+**Git Workflow:**
+```bash
+git checkout main
+git checkout -b feature/edge-z-order-enhancements
+# ... make changes ...
+git add edge.h edge.cpp scene.cpp
+git commit -m "feat: enhance edge z-order with cached restoration
+
+- Cache normal z-value before selection boost
+- Restore cached value on deselection (not hardcoded z=2)
+- Trigger updateZOrderFromConnections() on edge add/remove
+- Ensures deterministic z-ordering throughout graph lifecycle
+- Improves edge visibility in complex graphs"
+git push origin feature/edge-z-order-enhancements
+git checkout main
+git merge feature/edge-z-order-enhancements --no-ff
+git push origin main
+git branch -d feature/edge-z-order-enhancements
 ```
 
 ---
@@ -758,7 +894,9 @@ git branch -d test/javascript-integration-examples
 ### Phase 2: Bug Fixes (Parallel to Phase 1)
 - [ ] Branch 2.1: fix/graph-save-to-file
 - [ ] Branch 2.2: fix/node-position-precision
-- [ ] Branch 2.3: fix/load-rollback
+- [x] Branch 2.3: fix/load-rollback (commit: fix/load-rollback-memory-leak) - ASAN validated ✓
+- [ ] Branch 2.4: remove/unused-auto-layout - 2 casts eliminated
+- [x] Branch 2.5: feature/edge-z-order-enhancements (basic implementation, commit: feature/edge-visual-ordering)
 
 ### Phase 3: Payload Infrastructure
 - [ ] Branch 3.1: feature/node-edge-payload-storage
