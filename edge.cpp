@@ -234,11 +234,18 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
             qDebug() << "Edge selected"
                      << m_id.toString(QUuid::WithoutBraces).left(8);
             setFocus(Qt::MouseFocusReason);
+
+            // Visual improvement: Bring selected edge to front
+            // Makes it easy to see which edge is selected in dense node graphs
+            setZValue(10);  // Above all normal edges
         } else {
             qDebug() << "Edge deselected"
                      << m_id.toString(QUuid::WithoutBraces).left(8);
+
+            // Restore normal edge z-order when deselected
+            setZValue(2);
         }
-        
+
         // Trigger visual update when selection changes
         update();
     }
@@ -604,10 +611,15 @@ bool Edge::resolveConnections(Scene* scene)
     fromNode->registerEdge(this);
     toNode->registerEdge(this);
     
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved" 
+    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved"
              << m_fromSocketIndex << "->" << m_toSocketIndex;
-    
+
     updatePath();
+
+    // Visual improvement: Stack edges based on node connectivity
+    // Edges to "busier" nodes (like MERGE nodes) naturally stack on top
+    updateZOrderFromConnections();
+
     return true;
 }
 
@@ -687,6 +699,32 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     qDebug() << "Edge: Set resolved sockets directly (optimization)";
     updatePath();
+}
+
+void Edge::updateZOrderFromConnections()
+{
+    // Skip if not connected yet
+    if (!m_fromNode || !m_toNode) {
+        return;
+    }
+
+    // Calculate stacking order based on node connectivity
+    // Edges connecting to "busier" nodes (more connections) get higher z-values
+    // This creates natural stacking: later connections appear on top
+    int fromNodeEdgeCount = m_fromNode->getConnectedEdges().size();
+    int toNodeEdgeCount = m_toNode->getConnectedEdges().size();
+
+    // Base z-level for edges is 2, add small offset based on total connectivity
+    // Max offset of 0.1 per edge to keep edges below sockets but create visible stacking
+    qreal totalConnections = fromNodeEdgeCount + toNodeEdgeCount;
+    qreal zOffset = totalConnections * 0.02;  // Small increments for subtle stacking
+
+    setZValue(2.0 + zOffset);
+
+    qDebug() << "Edge z-order updated:" << m_id.toString(QUuid::WithoutBraces).left(8)
+             << "from node edges:" << fromNodeEdgeCount
+             << "to node edges:" << toNodeEdgeCount
+             << "final z:" << (2.0 + zOffset);
 }
 
 // Note: Delete key handling moved to Scene::keyPressEvent() for centralized multi-selection support
