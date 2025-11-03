@@ -338,13 +338,10 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
         VS_DPI_AWARE "PerMonitor"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        
-        # Separate Debug and Release Qt paths
-        VS_DEBUGGER_ENVIRONMENT_DEBUG
-            "PATH=D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/bin;%PATH%"
-        VS_DEBUGGER_ENVIRONMENT_RELEASE
-            "PATH=D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/bin;%PATH%"
-            
+
+        # Configure Qt PATH for Visual Studio debugger (configuration-specific)
+        VS_DEBUGGER_ENVIRONMENT "PATH=$<IF:$<CONFIG:Debug>,D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/bin,D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/bin>;%PATH%"
+
         # No command arguments - removed test_working_graph.xml
         VS_DEBUGGER_WORKING_DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}"
