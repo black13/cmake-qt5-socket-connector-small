@@ -711,8 +711,8 @@ void Edge::updateZOrderFromConnections()
     // Calculate stacking order based on node connectivity
     // Edges connecting to "busier" nodes (more connections) get higher z-values
     // This creates natural stacking: later connections appear on top
-    int fromNodeEdgeCount = m_fromNode->getConnectedEdges().size();
-    int toNodeEdgeCount = m_toNode->getConnectedEdges().size();
+    int fromNodeEdgeCount = m_fromNode->getIncidentEdgeCount();
+    int toNodeEdgeCount = m_toNode->getIncidentEdgeCount();
 
     // Base z-level for edges is 2, add small offset based on total connectivity
     // Max offset of 0.1 per edge to keep edges below sockets but create visible stacking

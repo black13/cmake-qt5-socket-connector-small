@@ -747,13 +747,11 @@ bool GraphFactory::validateGraphIntegrity() const
             valid = false;
         }
         
-        // Check sockets belong to parent node
-        for (QGraphicsItem* child : node->childItems()) {
-            if (Socket* socket = qgraphicsitem_cast<Socket*>(child)) {
-                if (socket->getParentNode() != node) {
-                    qCritical() << "Validation: socket parent mismatch";
-                    valid = false;
-                }
+        // Check sockets belong to parent node - use typed accessor instead of qgraphicsitem_cast
+        for (Socket* socket : node->allSockets()) {
+            if (socket->getParentNode() != node) {
+                qCritical() << "Validation: socket parent mismatch";
+                valid = false;
             }
         }
     }
