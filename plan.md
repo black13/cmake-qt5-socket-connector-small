@@ -596,6 +596,68 @@ git branch -d feature/edge-z-order-enhancements
 
 ---
 
+### Branch 2.6: Improve View/Scene Spacing and Navigation
+**Branch:** `feature/improved-view-navigation`
+
+**Problem:** Multiple viewport and navigation issues
+- **Fixed scene rect:** scene.cpp:32 has fixed 2000x2000 area, large graphs go outside bounds
+- **No auto-center:** Loading XML doesn't center view on content
+- **No panning:** setDragMode(NoDrag) prevents middle-click pan
+- **No auto-fit:** Can't zoom to fit entire graph
+- **Tight node spacing:** 100px spacing causes overlaps (nodes are ~120-150px wide)
+
+**Changes:**
+
+**scene.cpp:**
+- [ ] Replace fixed sceneRect with dynamic calculation based on content
+- [ ] Add `updateSceneRect()` method that expands to fit all nodes + margin
+- [ ] Call updateSceneRect() after loading graph, adding nodes, moving nodes
+
+**view.cpp:**
+- [ ] Change `setDragMode(QGraphicsView::ScrollHandDrag)` for middle-click pan
+- [ ] Add Ctrl+0 shortcut to fit entire graph in view
+- [ ] Add `centerOnGraph()` method to center view on content bounding box
+
+**window.cpp:**
+- [ ] Call `view->centerOnGraph()` after loading XML files
+- [ ] Add menu item "View > Fit Graph" (Ctrl+0)
+- [ ] Add constants for node spacing (HORIZONTAL_SPACING = 300, VERTICAL_SPACING = 180)
+- [ ] Update node creation positions to use proper spacing
+
+**generate_test_files.py (for testing):**
+- [ ] Update spacing from 100px to 300px horizontal, 180px vertical
+- [ ] Reduce jitter from ±20 to ±10 for cleaner layouts
+- [ ] Fix UUID format: remove braces (use str(uuid.uuid4()) not "{...}")
+
+**Test Plan:**
+- [ ] Generate new test files with improved spacing
+- [ ] Load tests_tiny.xml, tests_small.xml, tests_medium.xml
+- [ ] Verify nodes don't overlap
+- [ ] Verify edges have clear routing space
+- [ ] Test with different node types (MERGE, SPLIT have more sockets)
+
+**Git Workflow:**
+```bash
+git checkout main
+git checkout -b feature/improved-node-spacing
+# ... make changes ...
+git add window.cpp scene.cpp generate_test_files.py
+git commit -m "feat: improve node layout spacing to prevent overlaps
+
+- Add proper spacing constants for node placement
+- Update grid layout to accommodate node dimensions
+- Fix generate_test_files.py spacing (300x180 vs 100x100)
+- Fix UUID format (remove braces for consistency)
+- Prevents visual collisions in dense graphs"
+git push origin feature/improved-node-spacing
+git checkout main
+git merge feature/improved-node-spacing --no-ff
+git push origin main
+git branch -d feature/improved-node-spacing
+```
+
+---
+
 ## Phase 3: Payload Infrastructure (Data Layer)
 
 ### Branch 3.1: Add Payload Storage to Node and Edge
@@ -887,9 +949,9 @@ git branch -d test/javascript-integration-examples
 - [x] Branch 1.2: refactor/node-typed-collections (commit: 8975361) - 2 casts eliminated
 - [x] Branch 1.3: refactor/scene-typed-collections (commit: 43b4ccb) - infrastructure, 0 casts (already clean)
 - [ ] Branch 1.4: refactor/delete-key-self-managed 🔥 (SKIP - risky, not required for final goal)
-- [ ] **Branch 1.5: refactor/ghost-edge-typed** ← NEXT - eliminates 2 casts
+- [ ] **Branch 1.5: refactor/ghost-edge-typed** ← NEXT - eliminates 2 remaining casts (scene.cpp:326, 504)
 - [ ] Branch 1.6: refactor/window-typed-queries (likely already done)
-- [ ] **Branch 1.7: refactor/factory-typed-serialization** ← eliminates final cast
+- [x] Branch 1.7: refactor/factory-typed-serialization (commit: 542a5e8, 128a1b3) - 1 cast eliminated + VS debugger fix
 
 ### Phase 2: Bug Fixes (Parallel to Phase 1)
 - [ ] Branch 2.1: fix/graph-save-to-file
