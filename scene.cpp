@@ -160,6 +160,34 @@ QList<Edge*> Scene::selectedEdges() const
     return result;
 }
 
+Socket* Scene::socketAt(const QPointF& scenePos) const
+{
+    Socket* best = nullptr;
+    qreal bestDist2 = std::numeric_limits<qreal>::max();
+
+    // Iterate typed collections; no QGraphicsScene::itemAt or casts
+    for (Node* node : m_nodes.values()) {
+        if (!node) continue;
+        const auto& sockets = node->getAllSockets();
+        for (Socket* socket : sockets) {
+            if (!socket) continue;
+            // Hit test in socket's local coordinates
+            QPointF local = socket->mapFromScene(scenePos);
+            if (socket->contains(local)) {
+                QPointF c = socket->scenePos();
+                qreal dx = c.x() - scenePos.x();
+                qreal dy = c.y() - scenePos.y();
+                qreal d2 = dx*dx + dy*dy;
+                if (d2 < bestDist2) {
+                    bestDist2 = d2;
+                    best = socket;
+                }
+            }
+        }
+    }
+    return best;
+}
+
 void Scene::deleteNode(const QUuid& nodeId)
 {
     Node* node = getNode(nodeId);
@@ -320,10 +348,9 @@ void Scene::updateGhostEdge(const QPointF& currentPos)
     QPointF control2 = currentPos - QPointF(controlOffset, 0);
     path.cubicTo(control1, control2, currentPos);
     
-    // Update ghost edge visual based on target validity
+    // Update ghost edge visual based on target validity (typed lookup)
     QPen ghostPenCurrent = ghostPen();
-    QGraphicsItem* itemUnderCursor = itemAt(currentPos, QTransform());
-    Socket* targetSocket = qgraphicsitem_cast<Socket*>(itemUnderCursor);
+    Socket* targetSocket = socketAt(currentPos);
     
     // Reset all socket visual states to normal first
     resetAllSocketStates();
@@ -499,9 +526,8 @@ QPointF Scene::snapPoint(const QPointF& scenePos) const
 void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     if (m_ghostEdgeActive && event->button() == Qt::RightButton) {
-        // Find socket under mouse
-        QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
-        Socket* targetSocket = qgraphicsitem_cast<Socket*>(item);
+        // Find socket under mouse (typed lookup)
+        Socket* targetSocket = socketAt(event->scenePos());
         finishGhostEdge(targetSocket);
         event->accept();
         return;

@@ -59,6 +59,9 @@ public:
     // Typed selection helpers (eliminates qgraphicsitem_cast in selection loops)
     [[nodiscard]] QList<Node*> selectedNodes() const;
     [[nodiscard]] QList<Edge*> selectedEdges() const;
+
+    // Typed hit-testing helper for sockets (no itemAt/casts)
+    [[nodiscard]] Socket* socketAt(const QPointF& scenePos) const;
     
     // Deletion methods - maintain integrity
     void deleteNode(const QUuid& nodeId);

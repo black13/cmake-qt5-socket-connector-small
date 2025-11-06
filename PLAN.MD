@@ -1,6 +1,6 @@
 # NodeGraph Development Plan
 **Updated:** 2025-11-06
-**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (2 remaining of 17)
+**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (0 remaining of 17)
 **SECONDARY GOAL:** Full JavaScript integration for programmable nodes/edges
 
 ---
@@ -8,28 +8,15 @@
 ## 🎯 NEXT STEP (Session Resume)
 
 **Current Status:**
-- Branch: `refactor/ghost-edge-typed` (active for Branch 1.5)
-- qgraphicsitem_cast count: **2 remaining** (ghost-edge mouse move/release)
-- Working tree consolidation: screenshots (`edgeoverlap.png`, `environement.png`) added to repo; generated/local helpers (`concatenated_code.txt`, `generate_test_files.py`) now ignored via .gitignore
-- Recent completions: Branch 1.7 merged (factory typed serialization + VS debugger PATH fix)
-
-**Remaining 2 violations:**
-1. `scene.cpp:326` - Ghost edge mouse move (Branch 1.5)
-2. `scene.cpp:504` - Ghost edge mouse release (Branch 1.5)
-
-**Immediate Prep:**
-- [ ] Run `git status` and confirm only intentional files remain; resolve untracked artifacts
-- [ ] Run `git grep -n "qgraphicsitem_cast"` to verify only the two scene hits remain
-- [ ] Review current ghost-edge flow (`updateGhostEdge`, `finishGhostEdge`, magnet snapping) before refactoring
+- Branch: `docs-plan-consolidation` (merging Branch 1.5)
+- qgraphicsitem_cast count: **0 remaining** (ghost-edge casts eliminated)
+- Working tree consolidation: screenshots tracked; generated helpers ignored via `.gitignore`
+- Recent completions: Branch 1.5 (ghost edge typed access), Branch 1.7 (factory typed serialization + VS debugger PATH fix)
 
 **RECOMMENDED NEXT TASK:**
-- Continue **Branch 1.5: refactor/ghost-edge-typed** - remove the final casts and stabilize ghost-edge UX
-  - Implement `Scene::socketAt(const QPointF&)` using typed node/socket collections (no `itemAt()` or casts)
-  - Use the helper in ghost-edge mouse move and mouse release handlers
-  - Keep magnet snapping and socket-state resets but ensure they rely only on typed accessors
-  - Capture a manual test checklist covering drag, invalid targets, snapping, and cancel flows
+- Proceed to Branch 1.6 (window typed queries) and/or Phase 2 bug fixes (e.g., 2.1 graph save)
 
-**Parallel Prep:** Gather notes/screens for Phase 2.6 (view/navigation + spacing) so we can pivot once Branch 1.5 lands.
+**Parallel Prep:** Gather notes/screens for Phase 2.6 (view/navigation + spacing).
 ---
 
 ## Observer & Rendering Next Steps (Nov 2025)
@@ -76,9 +63,10 @@
 2. Keep scripts asynchronous-safe by querying state through facade methods (`Graph::getNodeData`, `Graph::getAllEdges`, etc.).
 
 ### Immediate Follow-Up Items
-- Eliminate the final `qgraphicsitem_cast` calls in ghost-edge paths via the typed lookup helper.
-- Update existing `GraphObserver` implementations (autosave, future undo) to consume the new event structs.
-- Refresh documentation once the event hub and snapshot pipeline are in place.
+- Validate ghost-edge typed lookup in UI (hover/release) and magnet snapping
+- Update existing `GraphObserver` implementations (autosave, future undo) to consume the new event structs
+- Proceed to Branch 1.6 (window typed queries) or Phase 2 bug fixes (e.g., 2.1 graph save)
+- Refresh documentation once the event hub and snapshot pipeline are in place
 
 
 ---
@@ -995,7 +983,7 @@ git branch -d refactor/ghost-edge-typed
 - [x] Branch 1.2: refactor/node-typed-collections (commit: 8975361) - 2 casts eliminated
 - [x] Branch 1.3: refactor/scene-typed-collections (commit: 43b4ccb) - infrastructure, 0 casts (already clean)
 - [ ] Branch 1.4: refactor/delete-key-self-managed 🔥 (SKIP - risky, not required for final goal)
-- [ ] **Branch 1.5: refactor/ghost-edge-typed** ← NEXT - eliminates 2 remaining casts (scene.cpp:326, 504)
+- [x] **Branch 1.5: refactor/ghost-edge-typed** (this branch) - eliminated 2 remaining casts (scene.cpp:326, 504)
 - [ ] Branch 1.6: refactor/window-typed-queries (likely already done)
 - [x] Branch 1.7: refactor/factory-typed-serialization (commit: 542a5e8, 128a1b3) - 1 cast eliminated + VS debugger fix
 
@@ -1095,4 +1083,3 @@ graph.saveToFile("my_program.xml");
 ---
 
 **Next Step:** Start Phase 1, Branch 1.1 - Socket Typed Parent (eliminate qgraphicsitem_cast)
-
