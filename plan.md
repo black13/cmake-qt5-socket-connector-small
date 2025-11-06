@@ -1,6 +1,6 @@
 # NodeGraph Development Plan
-**Updated:** 2025-11-02
-**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (3 remaining of 17)
+**Updated:** 2025-11-06
+**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (0 remaining of 17)
 **SECONDARY GOAL:** Full JavaScript integration for programmable nodes/edges
 
 ---
@@ -8,21 +8,15 @@
 ## 🎯 NEXT STEP (Session Resume)
 
 **Current Status:**
-- Branch: `main` (all recent work merged)
-- qgraphicsitem_cast count: **3 remaining** (down from 17)
-- Recent completions: Branch 2.4 (remove unused auto-layout), Branch 1.3 (scene typed selections)
+- Branch: `refactor/ghost-edge-typed` (Branch 1.5)
+- qgraphicsitem_cast count: **0 remaining**
+- Recent completions: Branch 2.4 (remove unused auto-layout), Branch 1.3 (scene typed selections), Branch 1.5 (ghost edge typed access)
 
-**Remaining 3 violations:**
-1. `graph_factory.cpp:752` - Socket validation (Branch 1.7)
-2. `scene.cpp:326` - Ghost edge mouse move (Branch 1.5)
-3. `scene.cpp:504` - Ghost edge mouse release (Branch 1.5)
+**Remaining violations:** None in source code (docs may reference prior state).
 
 **RECOMMENDED NEXT TASK:**
-- **Skip Branch 1.4** (Delete key - risky, complex)
-- **Start Branch 1.5: refactor/ghost-edge-typed** - Eliminates 2/3 remaining violations
-  - Create `Scene::socketAt(QPointF)` helper using typed collections
-  - Replace `itemAt()` + `qgraphicsitem_cast` in ghost edge code
-  - User note: "Ghost edge system is fragile - test thoroughly after changes"
+- Skip Branch 1.4 (Delete key - risky, complex)
+- Proceed to Branch 1.6 (window typed queries) or start Phase 2 bug fixes (e.g., 2.1 graph save).
 
 **Alternative:** Start Branch 1.7 (factory typed serialization) if ghost edge feels too risky.
 
@@ -949,7 +943,7 @@ git branch -d test/javascript-integration-examples
 - [x] Branch 1.2: refactor/node-typed-collections (commit: 8975361) - 2 casts eliminated
 - [x] Branch 1.3: refactor/scene-typed-collections (commit: 43b4ccb) - infrastructure, 0 casts (already clean)
 - [ ] Branch 1.4: refactor/delete-key-self-managed 🔥 (SKIP - risky, not required for final goal)
-- [ ] **Branch 1.5: refactor/ghost-edge-typed** ← NEXT - eliminates 2 remaining casts (scene.cpp:326, 504)
+- [x] **Branch 1.5: refactor/ghost-edge-typed** (this branch) - eliminated 2 remaining casts (scene.cpp:326, 504)
 - [ ] Branch 1.6: refactor/window-typed-queries (likely already done)
 - [x] Branch 1.7: refactor/factory-typed-serialization (commit: 542a5e8, 128a1b3) - 1 cast eliminated + VS debugger fix
 
