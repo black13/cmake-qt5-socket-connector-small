@@ -72,6 +72,8 @@ stress_*.xml
 *.md.bak
 compendium.txt
 current_status_*.md
+concatenated_code.txt
+generate_test_files.py
 
 # Cleanup scripts
 cleanup_repo.sh

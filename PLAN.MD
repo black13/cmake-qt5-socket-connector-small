@@ -1,5 +1,5 @@
 # NodeGraph Development Plan
-**Updated:** 2025-11-03
+**Updated:** 2025-11-06
 **PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (2 remaining of 17)
 **SECONDARY GOAL:** Full JavaScript integration for programmable nodes/edges
 
@@ -10,7 +10,7 @@
 **Current Status:**
 - Branch: `refactor/ghost-edge-typed` (active for Branch 1.5)
 - qgraphicsitem_cast count: **2 remaining** (ghost-edge mouse move/release)
-- Working tree: untracked helpers (`generate_test_files.py`, `concatenated_code.txt`, `edgeoverlap.png`, `environement.png`, `3_11_2025log.md`) - decide to commit, ignore, or relocate before finalizing Branch 1.5
+- Working tree consolidation: screenshots (`edgeoverlap.png`, `environement.png`) added to repo; generated/local helpers (`concatenated_code.txt`, `generate_test_files.py`) now ignored via .gitignore
 - Recent completions: Branch 1.7 merged (factory typed serialization + VS debugger PATH fix)
 
 **Remaining 2 violations:**
@@ -1095,5 +1095,4 @@ graph.saveToFile("my_program.xml");
 ---
 
 **Next Step:** Start Phase 1, Branch 1.1 - Socket Typed Parent (eliminate qgraphicsitem_cast)
-
 
