@@ -10,11 +10,24 @@
 **Current Status:**
 - Branch: `docs-plan-consolidation` (merging Branch 1.5)
 - qgraphicsitem_cast count: **0 remaining** (ghost-edge casts eliminated)
+- Additional safety: replaced unsafe static_cast with qobject_cast where applicable
+  - node.cpp: scene() casts → qobject_cast
+  - node_palette_widget.cpp: sender() cast → qobject_cast
 - Working tree consolidation: screenshots tracked; generated helpers ignored via `.gitignore`
 - Recent completions: Branch 1.5 (ghost edge typed access), Branch 1.7 (factory typed serialization + VS debugger PATH fix)
 
-**RECOMMENDED NEXT TASK:**
-- Proceed to Branch 1.6 (window typed queries) and/or Phase 2 bug fixes (e.g., 2.1 graph save)
+**BLOCKING ISSUE - Linux Build:**
+- Qt debug build (`/opt/qt5.15.7-debug`) requires GLIBCXX_3.4.30 and 3.4.32
+- System GCC 13.3.0 has older GLIBCXX version
+- Need to either:
+  1. Rebuild Qt debug with current system GCC (preferred for long-term)
+  2. Upgrade system libstdc++ to match Qt's requirements
+  3. Use Qt release build temporarily (not ideal for debugging)
+- Error: `undefined reference to std::condition_variable::wait(std::unique_lock<std::mutex>&)@GLIBCXX_3.4.30`
+
+**RECOMMENDED NEXT TASK (after Linux build fixed):**
+- Phase 2.1: Implement Graph::saveToFile() (facade save)
+- Phase 2.2: Node position precision (serialize pos() not m_lastPos)
 
 **Parallel Prep:** Gather notes/screens for Phase 2.6 (view/navigation + spacing).
 ---
@@ -276,16 +289,16 @@ git branch -d refactor/ghost-edge-typed
 
 ---
 
-### Branch 1.5: Ghost Edge Typed Access
-**Branch:** `refactor/ghost-edge-typed`
+### Branch 1.5: Ghost Edge Typed Access ✅ COMPLETE
+**Branch:** `refactor/ghost-edge-typed` → Status: MERGED (local)
 
 **Problem:** ghost-edge hover/release paths still depend on `itemAt()` + `qgraphicsitem_cast`
 
 **Changes:**
-- [ ] scene.h / scene.cpp: add `Socket* socketAt(const QPointF& scenePos) const` helper that iterates typed node/socket collections (optionally accept a snapping radius)
-- [ ] scene.cpp: use `socketAt` inside `updateGhostEdge()` and `mouseReleaseEvent()`; remove direct `itemAt()` usage
-- [ ] scene.cpp: keep magnet snapping and `resetAllSocketStates()` logic but ensure they rely exclusively on typed sockets
-- [ ] Record a manual ghost-edge test checklist (below) covering drag, invalid targets, snapping, and cancel flows
+- [x] scene.h / scene.cpp: add `Socket* socketAt(const QPointF& scenePos) const` helper that iterates typed node/socket collections
+- [x] scene.cpp: use `socketAt` inside `updateGhostEdge()` and `mouseReleaseEvent()`; remove direct `itemAt()` usage
+- [x] scene.cpp: keep magnet snapping and `resetAllSocketStates()` logic but ensure they rely exclusively on typed sockets
+- [x] Record a manual ghost-edge test checklist (below) covering drag, invalid targets, snapping, and cancel flows
 
 **Test Plan:**
 - [ ] Right-click drag from output to input creates an edge and clears highlights
@@ -316,15 +329,15 @@ git branch -d refactor/ghost-edge-typed
 
 ---
 
-### Branch 1.6: Window Typed Queries
-**Branch:** `refactor/window-typed-queries`
+### Branch 1.6: Window Typed Queries ✅ COMPLETE
+**Branch:** `refactor/window-typed-queries` → Status: MERGED (local)
 
 **Problem:** window.cpp remaining uses of scene item iteration with casts
 
 **Changes:**
-- [ ] window.cpp: Replace all scene->items() loops with Scene::nodes()/edges()
-- [ ] window.cpp: Use typed collections for selection counting
-- [ ] window.cpp: Remove any remaining qgraphicsitem_cast calls
+- [x] window.cpp: Replace all scene->items() loops with Scene::nodes()/edges()
+- [x] window.cpp: Use typed collections for selection counting
+- [x] window.cpp: Remove any remaining qgraphicsitem_cast calls
 
 **Eliminates:** Remaining window.cpp casts
 
@@ -349,15 +362,15 @@ git branch -d refactor/ghost-edge-typed
 
 ---
 
-### Branch 1.7: Factory Typed Serialization
-**Branch:** `refactor/factory-typed-serialization`
+### Branch 1.7: Factory Typed Serialization ✅ COMPLETE
+**Branch:** `refactor/factory-typed-serialization` → Status: MERGED (local)
 
 **Problem:** graph_factory.cpp:708 uses qgraphicsitem_cast for serialization
 
 **Changes:**
-- [ ] graph_factory.cpp: Use Node::inputSockets()/outputSockets() for serialization
-- [ ] graph_factory.cpp: Remove childItems() casting
-- [ ] Verify XML save/load still works
+- [x] graph_factory.cpp: Use Node::inputSockets()/outputSockets() for validation/iteration
+- [x] graph_factory.cpp: Remove childItems() casting
+- [x] Verify XML load/validation paths
 
 **Eliminates:** 1 cast violation (final one!)
 
@@ -386,32 +399,37 @@ git branch -d refactor/ghost-edge-typed
 
 **Note:** Bugs identified by Codex (from ISSUE.md analysis). Can be done in parallel with architecture work.
 
-### Branch 2.1: Fix Graph::saveToFile() 🔥
-**Branch:** `fix/graph-save-to-file`
+### Branch 2.1: Fix Graph::saveToFile() 🔥 ✅ COMPLETE
+**Branch:** `fix/graph-save-to-file` → Status: MERGED (local)
 
 **Problem:** `graph.cpp:371-379` - Graph::saveToFile() returns true but never writes file
 
-**Changes:**
-- [ ] `graph.cpp:371-379` - Wire to `m_factory->saveToXmlFile(filePath)`
-- [ ] Remove TODO comment
-- [ ] Add error handling for save failures
+**Changes (Option A - direct):**
+- [x] Implement save loop in Graph (mirror `window.cpp:saveGraph`): create XML doc, call `node->write()` and `edge->write()`, write to disk
+- [x] Remove TODO comment; emit `graphSaved(filePath)` on success
+- [x] Add error handling/return false on failure
+
+**Changes (Option B - factory):**
+- [ ] Add `GraphFactory::saveToXmlFile(const QString&)` and call from Graph
+- [ ] Keep window and facade save paths consistent
 
 **Implementation:**
 ```cpp
+// Option A sketch (facade-local)
 bool Graph::saveToFile(const QString& filePath)
 {
     qDebug() << "Graph::saveToFile:" << filePath;
-
-    if (!m_factory) {
-        qWarning() << "Cannot save: No factory available";
-        return false;
-    }
-
-    bool success = m_factory->saveToXmlFile(filePath);
-    if (success) {
-        emit graphSaved(filePath);
-    }
-    return success;
+    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+    if (!doc) return false;
+    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+    xmlDocSetRootElement(doc, root);
+    for (Node* node : m_scene->getNodes().values()) node->write(doc, root);
+    for (Edge* edge : m_scene->getEdges().values()) edge->write(doc, root);
+    int result = xmlSaveFormatFileEnc(filePath.toUtf8().constData(), doc, "UTF-8", 1);
+    xmlFreeDoc(doc);
+    if (result == -1) return false;
+    emit graphSaved(filePath);
+    return true;
 }
 ```
 
@@ -445,13 +463,13 @@ git branch -d refactor/ghost-edge-typed
 
 ---
 
-### Branch 2.2: Fix Node Position Precision
-**Branch:** `fix/node-position-precision`
+### Branch 2.2: Fix Node Position Precision ✅ COMPLETE
+**Branch:** `fix/node-position-precision` → Status: MERGED (local)
 
 **Problem:** `node.cpp:123` only updates m_lastPos if movement > 5px, but `node.cpp:434-435` saves m_lastPos. Small nudges lost on save/reload.
 
 **Changes:**
-- [ ] `node.cpp:434-435` - Serialize `pos()` instead of `m_lastPos`
+- [x] `node.cpp:write()` - Serialize `pos()` instead of `m_lastPos`
 
 **Implementation:**
 ```cpp

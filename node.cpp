@@ -128,7 +128,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
             updateConnectedEdges();
             
             // Notify observers of node movement via scene
-            if (Scene* typedScene = static_cast<Scene*>(scene())) {
+            if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
                 typedScene->notifyNodeMoved(m_id, oldPos, currentPos);
             }
         }
@@ -166,7 +166,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
 {
     // CRITICAL: Delete edges connected to this node BEFORE deleting sockets
     // Otherwise edges keep stale Socket* pointers and crash on updatePath()
-    Scene* typedScene = static_cast<Scene*>(scene());
+    Scene* typedScene = qobject_cast<Scene*>(scene());
     if (typedScene) {
         QList<QUuid> edgesToDelete;
         for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
@@ -430,8 +430,9 @@ xmlNodePtr Node::write(xmlDocPtr doc, xmlNodePtr repr) const
     
     // Core attributes
     xmlSetProp(node, BAD_CAST "id", BAD_CAST m_id.toString(QUuid::WithoutBraces).toUtf8().constData());
-    xmlSetProp(node, BAD_CAST "x", BAD_CAST QString::number(m_lastPos.x()).toUtf8().constData());
-    xmlSetProp(node, BAD_CAST "y", BAD_CAST QString::number(m_lastPos.y()).toUtf8().constData());
+    QPointF currentPos = pos();
+    xmlSetProp(node, BAD_CAST "x", BAD_CAST QString::number(currentPos.x()).toUtf8().constData());
+    xmlSetProp(node, BAD_CAST "y", BAD_CAST QString::number(currentPos.y()).toUtf8().constData());
     xmlSetProp(node, BAD_CAST "type", BAD_CAST m_nodeType.toUtf8().constData());
     
     // Count sockets by role - use typed vectors instead of qgraphicsitem_cast

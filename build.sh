@@ -108,29 +108,39 @@ for qt_dir in "${QT_INSTALLS[@]}"; do
     echo "  - $qt_dir"
 done
 
-# Select best Qt installation based on build type
 QT_PATH=""
 
-# First try to find debug/release specific builds
-if [ "$BUILD_TYPE" = "Debug" ]; then
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 Debug build: $QT_PATH"
-            break
-        fi
-    done
-else
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [[ "$qt_dir" == *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 Release build: $QT_PATH"
-            break
-        fi
-    done
+# Selection strategy: prefer generic install first, then -debug/-release
+for qt_dir in "${QT_INSTALLS[@]}"; do
+    if [[ "$qt_dir" != *"-debug"* && "$qt_dir" != *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+        QT_PATH="$qt_dir"
+        print_success "Selected Qt5 installation: $QT_PATH"
+        break
+    fi
+done
+
+# If not found, fall back to build-type-specific directories
+if [ -z "$QT_PATH" ]; then
+    if [ "$BUILD_TYPE" = "Debug" ]; then
+        for qt_dir in "${QT_INSTALLS[@]}"; do
+            if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+                QT_PATH="$qt_dir"
+                print_success "Selected Qt5 Debug build: $QT_PATH"
+                break
+            fi
+        done
+    else
+        for qt_dir in "${QT_INSTALLS[@]}"; do
+            if [[ "$qt_dir" == *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+                QT_PATH="$qt_dir"
+                print_success "Selected Qt5 Release build: $QT_PATH"
+                break
+            fi
+        done
+    fi
 fi
 
-# Fallback to first available Qt installation
+# Final fallback to any available Qt installation
 if [ -z "$QT_PATH" ]; then
     for qt_dir in "${QT_INSTALLS[@]}"; do
         if [ -d "$qt_dir/lib/cmake/Qt5" ]; then
