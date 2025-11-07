@@ -1,6 +1,6 @@
 # NodeGraph Development Plan
-**Updated:** 2025-11-02
-**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (3 remaining of 17)
+**Updated:** 2025-11-06
+**PRIMARY GOAL:** Eliminate qgraphicsitem_cast - architectural rot (0 remaining of 17)
 **SECONDARY GOAL:** Full JavaScript integration for programmable nodes/edges
 
 ---
@@ -8,23 +8,79 @@
 ## 🎯 NEXT STEP (Session Resume)
 
 **Current Status:**
-- Branch: `main` (all recent work merged)
-- qgraphicsitem_cast count: **3 remaining** (down from 17)
-- Recent completions: Branch 2.4 (remove unused auto-layout), Branch 1.3 (scene typed selections)
+- Branch: `docs-plan-consolidation` (merging Branch 1.5)
+- qgraphicsitem_cast count: **0 remaining** (ghost-edge casts eliminated)
+- Additional safety: replaced unsafe static_cast with qobject_cast where applicable
+  - node.cpp: scene() casts → qobject_cast
+  - node_palette_widget.cpp: sender() cast → qobject_cast
+- Working tree consolidation: screenshots tracked; generated helpers ignored via `.gitignore`
+- Recent completions: Branch 1.5 (ghost edge typed access), Branch 1.7 (factory typed serialization + VS debugger PATH fix)
 
-**Remaining 3 violations:**
-1. `graph_factory.cpp:752` - Socket validation (Branch 1.7)
-2. `scene.cpp:326` - Ghost edge mouse move (Branch 1.5)
-3. `scene.cpp:504` - Ghost edge mouse release (Branch 1.5)
+**BLOCKING ISSUE - Linux Build:**
+- Qt debug build (`/opt/qt5.15.7-debug`) requires GLIBCXX_3.4.30 and 3.4.32
+- System GCC 13.3.0 has older GLIBCXX version
+- Need to either:
+  1. Rebuild Qt debug with current system GCC (preferred for long-term)
+  2. Upgrade system libstdc++ to match Qt's requirements
+  3. Use Qt release build temporarily (not ideal for debugging)
+- Error: `undefined reference to std::condition_variable::wait(std::unique_lock<std::mutex>&)@GLIBCXX_3.4.30`
 
-**RECOMMENDED NEXT TASK:**
-- **Skip Branch 1.4** (Delete key - risky, complex)
-- **Start Branch 1.5: refactor/ghost-edge-typed** - Eliminates 2/3 remaining violations
-  - Create `Scene::socketAt(QPointF)` helper using typed collections
-  - Replace `itemAt()` + `qgraphicsitem_cast` in ghost edge code
-  - User note: "Ghost edge system is fragile - test thoroughly after changes"
+**RECOMMENDED NEXT TASK (after Linux build fixed):**
+- Phase 2.1: Implement Graph::saveToFile() (facade save)
+- Phase 2.2: Node position precision (serialize pos() not m_lastPos)
 
-**Alternative:** Start Branch 1.7 (factory typed serialization) if ghost edge feels too risky.
+**Parallel Prep:** Gather notes/screens for Phase 2.6 (view/navigation + spacing).
+---
+
+## Observer & Rendering Next Steps (Nov 2025)
+
+### Current Architecture Snapshot
+- `Graph` is the public facade coordinating `Scene` and `GraphFactory` (shared API for C++ and JavaScript).
+- `Scene` owns QGraphics items but exposes typed collections (`Node*`, `Edge*`) without QObject inheritance.
+- `GraphObserver`/`GraphSubject` deliver plain-C++ notifications; observers must not touch QGraphics items.
+- Rendering is moving toward snapshot feeds so the QGraphics view consumes value objects, not live scene pointers.
+
+### Guiding Principles
+- Keep Node/Edge/Socket free of QObject; rely on explicit registration and deterministic teardown.
+- Observers exchange UUIDs, geometry structs, and payload data—never `QGraphicsItem*`.
+- `Graph` remains the sole surface for scripting/UI; `Scene` stays an internal detail.
+- Batch operations defer notifications via `GraphSubject::beginBatch()` / `endBatch()`.
+
+### Phase 1 – Event Hub Stabilization
+1. Introduce a `GraphEventHub` (or extend `GraphSubject`) that publishes typed event structs:
+   - `NodeCreated { QUuid id, QString type, QPointF position }`
+   - `NodeMoved { QUuid id, QPointF from, QPointF to }`
+   - `EdgeCreated { QUuid id, QUuid fromNode, int fromSocket, QUuid toNode, int toSocket }`
+2. Route all `Graph` facade mutations (create/delete/connect/disconnect/move/load/save) through the hub.
+3. Ensure batch mode coalesces events before emission and document observer expectations.
+
+### Phase 2 – Snapshot-Based Rendering Bridge
+1. Build a `GraphSnapshotBuilder` that walks typed collections and produces immutable render data:
+   - `SceneSnapshot { QVector<NodeRenderData>, QVector<EdgeRenderData>, GhostEdgeState }`
+2. Create a rendering observer (`RenderBridge`) that listens for hub events and requests snapshots when state changes.
+3. Update the QGraphics view ("QGraph") to consume snapshots instead of raw `Scene` pointers.
+4. Keep ghost-edge interactions typed: add `Scene::socketAt()` and maintain magnet snapping without `itemAt()` casts.
+
+### Phase 3 – Autosave & Persistence Observers
+1. Port `XmlAutosaveObserver` to the event hub—remove any direct `Scene::items()` iteration.
+2. Fire autosave once per batch when `GraphSubject::endBatch()` runs.
+3. Add failure telemetry (path, error messages) without exposing QGraphics objects to observers.
+
+### Phase 4 – Diagnostics, Logging, Undo Preparation
+1. Implement a logging observer that records event structs (human-readable plus optional JSON for tooling).
+2. Draft undo/redo command wrappers that store event snapshots rather than graphics references.
+3. Document the observer/snapshot interplay in `GRAPH_SPECIFICATION.md` and cross-link from `RULES.md`.
+
+### Phase 5 – JavaScript Validation & Examples
+1. Add facade test scripts under `scripts/` (and future `examples/`) covering node create/move/delete, edge connect/disconnect, and autosave verification.
+2. Keep scripts asynchronous-safe by querying state through facade methods (`Graph::getNodeData`, `Graph::getAllEdges`, etc.).
+
+### Immediate Follow-Up Items
+- Validate ghost-edge typed lookup in UI (hover/release) and magnet snapping
+- Update existing `GraphObserver` implementations (autosave, future undo) to consume the new event structs
+- Proceed to Branch 1.6 (window typed queries) or Phase 2 bug fixes (e.g., 2.1 graph save)
+- Refresh documentation once the event hub and snapshot pipeline are in place
+
 
 ---
 
@@ -37,7 +93,7 @@
    - [ ] Run `git log --oneline -10` to see recent commits
    - [ ] Check current branch with `git branch`
    - [ ] Review ISSUE.md for known bugs
-   - [ ] Review this plan.md Progress Tracking section
+   - [ ] Review this PLAN.MD Progress Tracking section
 
 2. **Rebuild Project:**
    - [ ] Windows: Open Visual Studio solution, rebuild
@@ -131,20 +187,20 @@
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b refactor/socket-typed-parent
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add socket.h socket.cpp node.cpp
-git commit -m "refactor: add typed parent pointer to Socket
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add Node* m_parentNode member
-- Initialize in constructor
-- Remove qgraphicsitem_cast from socket.cpp:42
-- Eliminates 1/17 cast violations"
-git push origin refactor/socket-typed-parent
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge refactor/socket-typed-parent --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d refactor/socket-typed-parent
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -166,20 +222,20 @@ git branch -d refactor/socket-typed-parent
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b refactor/node-typed-collections
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add node.h node.cpp
-git commit -m "refactor: add typed Socket collections to Node
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add QList<Socket*> for inputs/outputs
-- Store sockets in lists on creation
-- Remove childItems() + qgraphicsitem_cast loops
-- Eliminates 2/17 cast violations (node.cpp:188, 426)"
-git push origin refactor/node-typed-collections
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge refactor/node-typed-collections --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d refactor/node-typed-collections
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -215,51 +271,15 @@ git branch -d refactor/node-typed-collections
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b refactor/delete-key-self-managed
-# ... make changes ...
-git add node.h node.cpp edge.h edge.cpp scene.cpp
-git commit -m "refactor: move Delete key handling to items
-
-- Add keyPressEvent() to Node and Edge
-- Items delete themselves via deleteLater()
-- Remove scene-level deletion with type checking
-- Objects manage own lifecycle
-- Eliminates 3/17 cast violations (scene.cpp:454-458)"
-git push origin refactor/delete-key-self-managed
-git checkout main
-git merge refactor/delete-key-self-managed --no-ff
-git push origin main
-git branch -d refactor/delete-key-self-managed
-```
-
----
-
-### Branch 1.5: Ghost Edge Typed Access
-**Branch:** `refactor/ghost-edge-typed`
-
-**Problem:** scene.cpp ghost edge code uses casts to find sockets
-
-**Changes:**
-- [ ] node.h: Add `Socket* socketAtPoint(const QPointF& scenePos) const`
-- [ ] node.cpp: Implement using typed m_inputSockets/m_outputSockets
-- [ ] scene.cpp: Use Node::socketAtPoint() instead of casting childItems()
-- [ ] socket.cpp:183: Complete TODO - left-click starts ghost edge
-- [ ] socket.cpp:204: Complete TODO - left-click completes connection
-
-**Eliminates:** Remaining scene.cpp ghost edge casts
-
-**Git Workflow:**
-```bash
-git checkout main
 git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add node.h node.cpp scene.cpp socket.cpp
-git commit -m "refactor: use typed accessors for ghost edge
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add Node::socketAtPoint() using typed socket lists
-- Remove scene childItems() casting for ghost edges
-- Complete left-click ghost edge drag TODOs
-- Eliminates ghost edge cast violations"
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
 git push origin refactor/ghost-edge-typed
 git checkout main
 git merge refactor/ghost-edge-typed --no-ff
@@ -269,70 +289,108 @@ git branch -d refactor/ghost-edge-typed
 
 ---
 
-### Branch 1.6: Window Typed Queries
-**Branch:** `refactor/window-typed-queries`
+### Branch 1.5: Ghost Edge Typed Access ✅ COMPLETE
+**Branch:** `refactor/ghost-edge-typed` → Status: MERGED (local)
+
+**Problem:** ghost-edge hover/release paths still depend on `itemAt()` + `qgraphicsitem_cast`
+
+**Changes:**
+- [x] scene.h / scene.cpp: add `Socket* socketAt(const QPointF& scenePos) const` helper that iterates typed node/socket collections
+- [x] scene.cpp: use `socketAt` inside `updateGhostEdge()` and `mouseReleaseEvent()`; remove direct `itemAt()` usage
+- [x] scene.cpp: keep magnet snapping and `resetAllSocketStates()` logic but ensure they rely exclusively on typed sockets
+- [x] Record a manual ghost-edge test checklist (below) covering drag, invalid targets, snapping, and cancel flows
+
+**Test Plan:**
+- [ ] Right-click drag from output to input creates an edge and clears highlights
+- [ ] Drag to invalid targets (output->output, same node) turns ghost edge red and cancels cleanly
+- [ ] Release near (not on) an input to confirm magnet snapping selects the closest valid socket
+- [ ] Cancel mid-drag (Esc or secondary click) to verify the ghost edge and socket states reset
+
+**Eliminates:** Final scene.cpp `qgraphicsitem_cast` usage (lines 326, 504)
+
+**Git Workflow:**
+```bash
+git checkout main
+git checkout -b refactor/ghost-edge-typed
+# ... make changes ...
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
+
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
+git checkout main
+git merge refactor/ghost-edge-typed --no-ff
+git push origin main
+git branch -d refactor/ghost-edge-typed
+```
+
+---
+
+### Branch 1.6: Window Typed Queries ✅ COMPLETE
+**Branch:** `refactor/window-typed-queries` → Status: MERGED (local)
 
 **Problem:** window.cpp remaining uses of scene item iteration with casts
 
 **Changes:**
-- [ ] window.cpp: Replace all scene->items() loops with Scene::nodes()/edges()
-- [ ] window.cpp: Use typed collections for selection counting
-- [ ] window.cpp: Remove any remaining qgraphicsitem_cast calls
+- [x] window.cpp: Replace all scene->items() loops with Scene::nodes()/edges()
+- [x] window.cpp: Use typed collections for selection counting
+- [x] window.cpp: Remove any remaining qgraphicsitem_cast calls
 
 **Eliminates:** Remaining window.cpp casts
 
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b refactor/window-typed-queries
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add window.cpp
-git commit -m "refactor: use typed queries in window.cpp
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Replace items() loops with nodes()/edges()
-- Use typed collections for all queries
-- Eliminates remaining window.cpp casts"
-git push origin refactor/window-typed-queries
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge refactor/window-typed-queries --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d refactor/window-typed-queries
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
 
-### Branch 1.7: Factory Typed Serialization
-**Branch:** `refactor/factory-typed-serialization`
+### Branch 1.7: Factory Typed Serialization ✅ COMPLETE
+**Branch:** `refactor/factory-typed-serialization` → Status: MERGED (local)
 
 **Problem:** graph_factory.cpp:708 uses qgraphicsitem_cast for serialization
 
 **Changes:**
-- [ ] graph_factory.cpp: Use Node::inputSockets()/outputSockets() for serialization
-- [ ] graph_factory.cpp: Remove childItems() casting
-- [ ] Verify XML save/load still works
+- [x] graph_factory.cpp: Use Node::inputSockets()/outputSockets() for validation/iteration
+- [x] graph_factory.cpp: Remove childItems() casting
+- [x] Verify XML load/validation paths
 
 **Eliminates:** 1 cast violation (final one!)
 
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b refactor/factory-typed-serialization
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add graph_factory.cpp
-git commit -m "refactor: use typed socket accessors in factory
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Use Node::inputSockets()/outputSockets() for XML serialization
-- Remove final qgraphicsitem_cast violation
-- Eliminates 1/17 cast violations (graph_factory.cpp:708)
-
-🎉 MILESTONE: ZERO qgraphicsitem_cast in entire codebase"
-git push origin refactor/factory-typed-serialization
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge refactor/factory-typed-serialization --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d refactor/factory-typed-serialization
-git tag -a v1.0-zero-cast -m "Architecture: Zero qgraphicsitem_cast"
-git push origin v1.0-zero-cast
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -341,32 +399,37 @@ git push origin v1.0-zero-cast
 
 **Note:** Bugs identified by Codex (from ISSUE.md analysis). Can be done in parallel with architecture work.
 
-### Branch 2.1: Fix Graph::saveToFile() 🔥
-**Branch:** `fix/graph-save-to-file`
+### Branch 2.1: Fix Graph::saveToFile() 🔥 ✅ COMPLETE
+**Branch:** `fix/graph-save-to-file` → Status: MERGED (local)
 
 **Problem:** `graph.cpp:371-379` - Graph::saveToFile() returns true but never writes file
 
-**Changes:**
-- [ ] `graph.cpp:371-379` - Wire to `m_factory->saveToXmlFile(filePath)`
-- [ ] Remove TODO comment
-- [ ] Add error handling for save failures
+**Changes (Option A - direct):**
+- [x] Implement save loop in Graph (mirror `window.cpp:saveGraph`): create XML doc, call `node->write()` and `edge->write()`, write to disk
+- [x] Remove TODO comment; emit `graphSaved(filePath)` on success
+- [x] Add error handling/return false on failure
+
+**Changes (Option B - factory):**
+- [ ] Add `GraphFactory::saveToXmlFile(const QString&)` and call from Graph
+- [ ] Keep window and facade save paths consistent
 
 **Implementation:**
 ```cpp
+// Option A sketch (facade-local)
 bool Graph::saveToFile(const QString& filePath)
 {
     qDebug() << "Graph::saveToFile:" << filePath;
-
-    if (!m_factory) {
-        qWarning() << "Cannot save: No factory available";
-        return false;
-    }
-
-    bool success = m_factory->saveToXmlFile(filePath);
-    if (success) {
-        emit graphSaved(filePath);
-    }
-    return success;
+    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+    if (!doc) return false;
+    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+    xmlDocSetRootElement(doc, root);
+    for (Node* node : m_scene->getNodes().values()) node->write(doc, root);
+    for (Edge* edge : m_scene->getEdges().values()) edge->write(doc, root);
+    int result = xmlSaveFormatFileEnc(filePath.toUtf8().constData(), doc, "UTF-8", 1);
+    xmlFreeDoc(doc);
+    if (result == -1) return false;
+    emit graphSaved(filePath);
+    return true;
 }
 ```
 
@@ -382,31 +445,31 @@ bool Graph::saveToFile(const QString& filePath)
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b fix/graph-save-to-file
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add graph.cpp graph.h
-git commit -m "fix: implement Graph::saveToFile() - wire to GraphFactory
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Connect Graph::saveToFile() to m_factory->saveToXmlFile()
-- Add null factory check with error logging
-- Emit graphSaved signal only on success
-- Fixes JavaScript saveToFile() returning true but not writing files"
-git push origin fix/graph-save-to-file
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge fix/graph-save-to-file --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d fix/graph-save-to-file
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
 
-### Branch 2.2: Fix Node Position Precision
-**Branch:** `fix/node-position-precision`
+### Branch 2.2: Fix Node Position Precision ✅ COMPLETE
+**Branch:** `fix/node-position-precision` → Status: MERGED (local)
 
 **Problem:** `node.cpp:123` only updates m_lastPos if movement > 5px, but `node.cpp:434-435` saves m_lastPos. Small nudges lost on save/reload.
 
 **Changes:**
-- [ ] `node.cpp:434-435` - Serialize `pos()` instead of `m_lastPos`
+- [x] `node.cpp:write()` - Serialize `pos()` instead of `m_lastPos`
 
 **Implementation:**
 ```cpp
@@ -432,19 +495,20 @@ xmlSetProp(node, BAD_CAST "y", BAD_CAST QString::number(currentPos.y()).toUtf8()
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b fix/node-position-precision
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add node.cpp
-git commit -m "fix: preserve exact node positions on save
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Serialize pos() instead of m_lastPos
-- Fixes small movements (<5px) being lost on save/reload
-- Ensures WYSIWYG for node positions"
-git push origin fix/node-position-precision
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge fix/node-position-precision --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d fix/node-position-precision
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -500,21 +564,20 @@ git branch -d fix/node-position-precision
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b remove/unused-auto-layout
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add scene.h scene.cpp window.cpp
-git commit -m "remove: delete unused auto-layout functions
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Delete Scene::autoLayoutAnneal (doesn't work)
-- Delete Scene::autoLayoutForceDirected (doesn't work)
-- Remove menu/shortcut bindings
-- Eliminates 2 qgraphicsitem_cast violations
-- Reduces codebase complexity"
-git push origin remove/unused-auto-layout
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge remove/unused-auto-layout --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d remove/unused-auto-layout
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -577,21 +640,20 @@ edge->updateZOrderFromConnections();
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/edge-z-order-enhancements
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add edge.h edge.cpp scene.cpp
-git commit -m "feat: enhance edge z-order with cached restoration
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Cache normal z-value before selection boost
-- Restore cached value on deselection (not hardcoded z=2)
-- Trigger updateZOrderFromConnections() on edge add/remove
-- Ensures deterministic z-ordering throughout graph lifecycle
-- Improves edge visibility in complex graphs"
-git push origin feature/edge-z-order-enhancements
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/edge-z-order-enhancements --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/edge-z-order-enhancements
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -639,21 +701,20 @@ git branch -d feature/edge-z-order-enhancements
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/improved-node-spacing
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add window.cpp scene.cpp generate_test_files.py
-git commit -m "feat: improve node layout spacing to prevent overlaps
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add proper spacing constants for node placement
-- Update grid layout to accommodate node dimensions
-- Fix generate_test_files.py spacing (300x180 vs 100x100)
-- Fix UUID format (remove braces for consistency)
-- Prevents visual collisions in dense graphs"
-git push origin feature/improved-node-spacing
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/improved-node-spacing --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/improved-node-spacing
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -688,22 +749,20 @@ git branch -d feature/improved-node-spacing
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/node-edge-payload-storage
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add node.h node.cpp edge.h edge.cpp
-git commit -m "feat: add payload storage to Node and Edge classes
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add QVariantMap m_payload to Node and Edge
-- Implement setPayload/getPayload/getAllPayload/clearPayload API
-- Add XML serialization via writePayload/readPayload methods
-- Support string, int, double, bool types
-- Payloads persist through save/load cycle
-- Foundation for JavaScript property access"
-git push origin feature/node-edge-payload-storage
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/node-edge-payload-storage --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/node-edge-payload-storage
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -734,21 +793,20 @@ git branch -d feature/node-edge-payload-storage
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/payload-facade-api
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add graph.h graph.cpp
-git commit -m "feat: expose payload API through Graph facade
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add Q_INVOKABLE payload methods for nodes and edges
-- Emit nodePayloadChanged/edgePayloadChanged signals
-- Trigger autosave on payload mutations
-- Enables JavaScript access to node/edge payloads
-- Foundation for scriptable node properties"
-git push origin feature/payload-facade-api
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/payload-facade-api --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/payload-facade-api
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -790,22 +848,20 @@ git branch -d feature/payload-facade-api
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/node-javascript-behavior
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add node.h node.cpp graph.h graph.cpp
-git commit -m "feat: enable JavaScript behavior execution in nodes
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add Node::executeJavaScript() with context injection
-- Store JS source in payload['__jsBehavior']
-- Expose 'node' object to scripts (id, type, payload, position)
-- Add Graph::setNodeBehavior/getNodeBehavior/executeNodeScript
-- Scripts persist through save/load cycle
-- Foundation for programmable node logic"
-git push origin feature/node-javascript-behavior
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/node-javascript-behavior --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/node-javascript-behavior
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -841,22 +897,20 @@ git branch -d feature/node-javascript-behavior
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/edge-javascript-expressions
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add edge.h edge.cpp graph.h graph.cpp
-git commit -m "feat: enable JavaScript expression evaluation in edges
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Add Edge::evaluateExpression() with node context
-- Store expression in payload['__jsExpression']
-- Expose fromNode, toNode, edge objects to expressions
-- Add Graph::setEdgeExpression/getEdgeExpression/evaluateEdge
-- Enables dynamic edge weights based on connected nodes
-- Expressions persist through save/load"
-git push origin feature/edge-javascript-expressions
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/edge-javascript-expressions --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/edge-javascript-expressions
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -885,21 +939,20 @@ git branch -d feature/edge-javascript-expressions
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b feature/template-default-payloads
+git checkout -b refactor/ghost-edge-typed
 # ... make changes ...
-git add node_type_templates.h node_type_templates.cpp
-git commit -m "feat: add default payloads and scripts to node templates
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Update registerTemplate() to accept defaultPayload
-- Define default behaviors for SOURCE, TRANSFORM, SINK
-- Apply default payloads on node creation
-- Enables out-of-box scripted node functionality
-- Users can override defaults as needed"
-git push origin feature/template-default-payloads
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge feature/template-default-payloads --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d feature/template-default-payloads
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -923,21 +976,20 @@ git branch -d feature/template-default-payloads
 **Git Workflow:**
 ```bash
 git checkout main
-git checkout -b test/javascript-integration-examples
-# ... create example files ...
-git add examples/ JAVASCRIPT_API.md README.md
-git commit -m "docs: add comprehensive JavaScript integration examples
+git checkout -b refactor/ghost-edge-typed
+# ... make changes ...
+git add scene.h scene.cpp
+git commit -m "refactor: replace ghost-edge casts with typed lookup
 
-- Create examples/ directory with demonstration scripts
-- Document all Graph facade JavaScript API methods
-- Show payload, scripting, and expression capabilities
-- Provide data pipeline examples
-- Update README with JavaScript integration section"
-git push origin test/javascript-integration-examples
+- add Scene::socketAt() helper using typed collections
+- route ghost-edge hover/release through typed socket lookup
+- keep magnet snapping + state reset paths on typed sockets
+- eliminates final qgraphicsitem_cast occurrences"
+git push origin refactor/ghost-edge-typed
 git checkout main
-git merge test/javascript-integration-examples --no-ff
+git merge refactor/ghost-edge-typed --no-ff
 git push origin main
-git branch -d test/javascript-integration-examples
+git branch -d refactor/ghost-edge-typed
 ```
 
 ---
@@ -949,7 +1001,7 @@ git branch -d test/javascript-integration-examples
 - [x] Branch 1.2: refactor/node-typed-collections (commit: 8975361) - 2 casts eliminated
 - [x] Branch 1.3: refactor/scene-typed-collections (commit: 43b4ccb) - infrastructure, 0 casts (already clean)
 - [ ] Branch 1.4: refactor/delete-key-self-managed 🔥 (SKIP - risky, not required for final goal)
-- [ ] **Branch 1.5: refactor/ghost-edge-typed** ← NEXT - eliminates 2 remaining casts (scene.cpp:326, 504)
+- [x] **Branch 1.5: refactor/ghost-edge-typed** (this branch) - eliminated 2 remaining casts (scene.cpp:326, 504)
 - [ ] Branch 1.6: refactor/window-typed-queries (likely already done)
 - [x] Branch 1.7: refactor/factory-typed-serialization (commit: 542a5e8, 128a1b3) - 1 cast eliminated + VS debugger fix
 

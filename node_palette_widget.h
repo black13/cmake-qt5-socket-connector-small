@@ -88,10 +88,10 @@ private:
     
     // Custom node button class with drag and drop support
     class NodeButton : public QToolButton {
-    public:
-        NodeButton(const NodeTemplate& nodeTemplate, QWidget* parent = nullptr);
-        NodeTemplate getNodeTemplate() const { return m_nodeTemplate; }
-        bool matchesFilter(const QString& filter) const;
+        public:
+            NodeButton(const NodeTemplate& nodeTemplate, QWidget* parent = nullptr);
+            NodeTemplate getNodeTemplate() const { return m_nodeTemplate; }
+            bool matchesFilter(const QString& filter) const;
         
     protected:
         // Drag and drop support

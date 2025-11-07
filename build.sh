@@ -94,8 +94,34 @@ print_success "Build tools available"
 # 2. Check Qt5 installation
 print_status "Checking Qt5 installation..."
 
-# Auto-detect Qt installations in /opt/qt* (preferred) or /usr/local/qt-*
-QT_INSTALLS=($(find /opt /usr/local -maxdepth 1 -name "qt*" -type d 2>/dev/null | sort -V -r))
+# Auto-detect Qt installations in repo (preferred), then /opt and /usr/local
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+declare -a SEARCH_ROOTS
+SEARCH_ROOTS+=("$REPO_ROOT/third_party")
+SEARCH_ROOTS+=("$REPO_ROOT/.qt")
+SEARCH_ROOTS+=("/opt")
+SEARCH_ROOTS+=("/usr/local")
+
+QT_INSTALLS=()
+_candidates=()
+for root in "${SEARCH_ROOTS[@]}"; do
+    if [ -d "$root" ]; then
+        # common top-level dirs named like qt*, e.g., /opt/qt-5.15.16
+        while IFS= read -r -d '' dir; do
+            _candidates+=("$dir")
+        done < <(find "$root" -maxdepth 2 -type d -name "qt*" -print0 2>/dev/null)
+        # any directory that actually contains lib/cmake/Qt5 (handles .../debug, .../release)
+        while IFS= read -r -d '' cmakedir; do
+            instdir="$(dirname "$(dirname "$(dirname "$cmakedir")")")"
+            _candidates+=("$instdir")
+        done < <(find "$root" -maxdepth 5 -type d -path "*/lib/cmake/Qt5" -print0 2>/dev/null)
+    fi
+done
+
+# De-duplicate
+if [ ${#_candidates[@]} -gt 0 ]; then
+    mapfile -t QT_INSTALLS < <(printf "%s\n" "${_candidates[@]}" | awk '!seen[$0]++' | sort -V -r)
+fi
 
 if [ ${#QT_INSTALLS[@]} -eq 0 ]; then
     print_error "No Qt installations found in /opt/qt* or /usr/local/qt-*"
@@ -108,29 +134,39 @@ for qt_dir in "${QT_INSTALLS[@]}"; do
     echo "  - $qt_dir"
 done
 
-# Select best Qt installation based on build type
 QT_PATH=""
 
-# First try to find debug/release specific builds
-if [ "$BUILD_TYPE" = "Debug" ]; then
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 Debug build: $QT_PATH"
-            break
-        fi
-    done
-else
-    for qt_dir in "${QT_INSTALLS[@]}"; do
-        if [[ "$qt_dir" == *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
-            QT_PATH="$qt_dir"
-            print_success "Selected Qt5 Release build: $QT_PATH"
-            break
-        fi
-    done
+# Selection strategy: prefer repo local install, then generic, then -debug/-release
+for qt_dir in "${QT_INSTALLS[@]}"; do
+    if [[ "$qt_dir" != *"-debug"* && "$qt_dir" != *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+        QT_PATH="$qt_dir"
+        print_success "Selected Qt5 installation: $QT_PATH"
+        break
+    fi
+done
+
+# If not found, fall back to build-type-specific directories
+if [ -z "$QT_PATH" ]; then
+    if [ "$BUILD_TYPE" = "Debug" ]; then
+        for qt_dir in "${QT_INSTALLS[@]}"; do
+            if [[ "$qt_dir" == *"-debug"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+                QT_PATH="$qt_dir"
+                print_success "Selected Qt5 Debug build: $QT_PATH"
+                break
+            fi
+        done
+    else
+        for qt_dir in "${QT_INSTALLS[@]}"; do
+            if [[ "$qt_dir" == *"-release"* ]] && [ -d "$qt_dir/lib/cmake/Qt5" ]; then
+                QT_PATH="$qt_dir"
+                print_success "Selected Qt5 Release build: $QT_PATH"
+                break
+            fi
+        done
+    fi
 fi
 
-# Fallback to first available Qt installation
+# Final fallback to any available Qt installation
 if [ -z "$QT_PATH" ]; then
     for qt_dir in "${QT_INSTALLS[@]}"; do
         if [ -d "$qt_dir/lib/cmake/Qt5" ]; then

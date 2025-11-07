@@ -9,6 +9,9 @@
 #include <QFile>
 #include <QTextStream>
 #include <QGraphicsItem>
+// XML save support
+#include <libxml/tree.h>
+#include <libxml/xmlsave.h>
 
 Graph::Graph(Scene* scene, GraphFactory* factory, QObject* parent)
     : QObject(parent)
@@ -372,8 +375,41 @@ bool Graph::saveToFile(const QString& filePath)
 {
     qDebug() << "Graph::saveToFile:" << filePath;
 
-    // TODO: Implement proper save via GraphFactory
-    // For now, delegate to scene's XML autosave mechanism
+    // Create XML document
+    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+    if (!doc) {
+        qWarning() << "Graph::saveToFile: Failed to create XML document";
+        return false;
+    }
+
+    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+    if (!root) {
+        qWarning() << "Graph::saveToFile: Failed to create root node";
+        xmlFreeDoc(doc);
+        return false;
+    }
+    xmlDocSetRootElement(doc, root);
+    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
+
+    // Save all nodes
+    for (Node* node : m_scene->getNodes().values()) {
+        if (node) node->write(doc, root);
+    }
+
+    // Save all edges
+    for (Edge* edge : m_scene->getEdges().values()) {
+        if (edge) edge->write(doc, root);
+    }
+
+    // Write to file (pretty-printed, UTF-8)
+    int result = xmlSaveFormatFileEnc(filePath.toUtf8().constData(), doc, "UTF-8", 1);
+    xmlFreeDoc(doc);
+
+    if (result == -1) {
+        qWarning() << "Graph::saveToFile: xmlSaveFormatFileEnc failed for" << filePath;
+        return false;
+    }
+
     emit graphSaved(filePath);
     return true;
 }
