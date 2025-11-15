@@ -120,7 +120,15 @@ done
 
 # De-duplicate
 if [ ${#_candidates[@]} -gt 0 ]; then
-    mapfile -t QT_INSTALLS < <(printf "%s\n" "${_candidates[@]}" | awk '!seen[$0]++' | sort -V -r)
+    sorted_unique_candidates=$(printf "%s\n" "${_candidates[@]}" | awk '!seen[$0]++' | sort -V -r)
+    QT_INSTALLS=()
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            QT_INSTALLS+=("$line")
+        fi
+    done <<EOF
+$sorted_unique_candidates
+EOF
 fi
 
 if [ ${#QT_INSTALLS[@]} -eq 0 ]; then
@@ -231,7 +239,17 @@ print_success "CMake configuration completed"
 print_status "Building NodeGraph..."
 
 # Use modern CMake build command with all available cores
-CORES=$(nproc)
+if command -v nproc >/dev/null 2>&1; then
+    CORES=$(nproc)
+elif command -v getconf >/dev/null 2>&1; then
+    CORES=$(getconf _NPROCESSORS_ONLN)
+elif command -v sysctl >/dev/null 2>&1; then
+    CORES=$(sysctl -n hw.ncpu 2>/dev/null)
+fi
+
+if [ -z "$CORES" ]; then
+    CORES=4
+fi
 print_status "Building with $CORES cores..."
 
 cmake --build . --config $BUILD_TYPE --parallel $CORES || {
@@ -260,8 +278,13 @@ print_status "Build Summary"
 echo "=============="
 echo "Executable: $(pwd)/NodeGraph"
 echo "Build type: $BUILD_TYPE"
-echo "Qt5 version: $(qmake -version | grep Qt | cut -d' ' -f4)"
-echo "libxml2 source: FetchContent (built from source)"
+if command -v qmake >/dev/null 2>&1; then
+    QT_BUILD_VERSION=$(qmake -version | awk -F'Qt version ' 'NF>1 {print $2}' | head -n 1)
+else
+    QT_BUILD_VERSION="Unavailable (qmake not found in PATH)"
+fi
+echo "Qt5 version: $QT_BUILD_VERSION"
+echo "libxml2 source: Managed by CMake (system package or FetchContent)"
 echo ""
 
 if [ -f "NodeGraph" ]; then

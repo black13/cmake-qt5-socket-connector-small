@@ -140,6 +140,91 @@
 
 ---
 
+## UI Verification & Stability Plan (Nov 2025)
+
+**Goal:** Provide repeatable scenarios so every visible UI surface and script entry point can be validated quickly after merges or environment resets.
+
+### Component Coverage Map
+- **Window chrome & menus** – File (New, Open, Save, Save As), Edit shortcuts (Ctrl+Z placeholder), View controls (Zoom Fit/Reset), Help/About dialogs, status bar text.
+- **Node Palette Widget** – category filter/search, tooltip descriptions, drag-and-drop from every template button, keyboard navigation, scrollbar behavior when resized.
+- **Graph View / Scene** – node placement, rubber-band selection, Delete key handling, context menu disablement, zoom/pan gestures, ghost-edge snapping, socket hover highlights.
+- **Autosave & Logging** – autosave timer toggles, manual save triggers, log rolling per session, message consistency across UI actions.
+- **JavaScript Interface** – `--script` CLI path, startup script set via window, console logging, error propagation to log and UI dialogs.
+- **File IO dialogs** – Qt file pickers for open/save, overwrite prompts, handling of missing files, default directories.
+
+### Functional Verification Checklist
+1. **Baseline Start**
+   - [ ] Launch app without arguments; confirm empty scene, palette populated, log created.
+   - [ ] Cycle window resize, DPI scaling, and menubar shortcuts (Cmd vs Ctrl) on macOS/WSL.
+2. **Palette to Scene**
+   - [ ] Drag every built-in node (SOURCE/SINK/TRANSFORM/MERGE/SPLIT) into the scene; verify nodes land at cursor, tooltips match NodeTypeTemplates.
+   - [ ] Use palette search to isolate a node type and ensure filtering updates button grid.
+3. **Graph Editing**
+   - [ ] Create Source→Transform→Sink chain using drag-drop; connect sockets by dragging; confirm ghost edge highlights valid targets only.
+   - [ ] Multi-select (Shift+drag) and move nodes; ensure edges follow.
+   - [ ] Press Delete to remove selection; confirm graph stats/log updates.
+4. **Persistence**
+   - [ ] Save graph via Ctrl+S and File > Save As; inspect XML for node/edge count.
+   - [ ] Reopen saved file; confirm positions preserved; verify autosave writes between edits.
+   - [ ] Attempt open on invalid XML; ensure error dialog + scene remains clean.
+5. **JavaScript**
+   - [ ] Run `./NodeGraph --script hello.js` to verify console/log output, available node types, and stats API.
+   - [ ] Run regression scripts (`test_load_xmls.js`, `test_memory_leak.js`) and capture pass/fail counts in log.
+   - [ ] Set `Window::setStartupScript` (CLI `--script`) and confirm execution after UI shows (watch `=== Executing startup script` log marker).
+6. **Autosave**
+   - [ ] Confirm autosave toggles on startup (log line `Autosave: enabled`), writes on drag/drop, and produces valid `autosave.xml`.
+   - [ ] Simulate crash (force quit) and relaunch; ensure autosave prompt/resume path works (manual for now: inspect `autosave.xml` then load).
+
+### Stability & Stress Scenarios
+1. **Long Session Burn-in**
+   - Create/delete 200+ nodes via JS batch script; pan/zoom continuously for 10 minutes; monitor log for warnings and check memory footprint.
+2. **Repeated Load/Save Loop**
+   - Alternate between `tests_small.xml` and `tests_stress.xml` in a loop (scripted) to ensure `Graph::clearGraph()` leaves no orphaned items and autosave keeps up.
+3. **Autosave Pressure Test**
+   - Lower autosave interval to 1s, spam node movements, and verify file locking/errors don’t appear; check `autosave.xml` writes stay <1 KB for small scenes.
+4. **Invalid Input Fuzzing**
+   - Feed malformed XML and scripts that call `graph.connectNodes` with bad indices; ensure errors surface via `Graph::errorOccurred` and UI does not crash.
+5. **Script Flood**
+   - Execute back-to-back scripts (hello.js, test_load_xmls.js, custom create_graph.js) to verify QJSEngine context reuse and log readability.
+6. **Resource Cleanup**
+   - Open/close window repeatedly (automated via Qt test or manual) to confirm `Scene::prepareForShutdown()` frees objects and subsequent launches remain stable.
+
+### Integration Steps
+- [ ] Track completion of each scenario per release in PLAN.MD (append dated checklist entries).
+- [ ] Automate a subset via `scripts/` JS harness; aim to cover Palette→Scene, Save/Load, and Autosave flows first.
+- [ ] Add CI note: once headless mode exists, convert these manual tests into scripted regressions.
+
+---
+
+## Qt JavaScript Integration Roadmap
+
+**Branch Workflow Reminder**
+- Always create a named branch per feature (e.g., `feature/js-palette-hotkeys`).
+- Do **not** delete local branches after review; push them (`git push origin <branch>`), open PR/merge to `main`, then `git checkout main && git merge <branch>` locally.
+- After merging, push `main` (`git push origin main`) so history mirrors remote; keep branches around for traceability.
+
+### Planned Branches / Phases
+1. **Branch 4.1 – feature/node-javascript-behavior**
+   - Expose node payload + callbacks to scripts.
+   - Add JS examples for per-node logic.
+   - Verification: script toggles node colors/labels and persists via save/load.
+2. **Branch 4.2 – feature/edge-javascript-expressions**
+   - Allow edges to compute values or validation via JS.
+   - Provide Graph API hooks for reading edge metadata from scripts.
+3. **Branch 5.x – JS-driven UI actions**
+   - `graph.runFile()` helper, script-defined toolbar buttons, console pane.
+   - Stress-test QJSEngine with sequential scripts (reuse `Script Flood` scenario).
+4. **Branch 6.1 – test/javascript-integration-examples**
+   - Curated examples under `examples/` (01_basic_graph.js, 02_node_scripting.js, etc.).
+   - Integrate into documentation and README quick start.
+
+Each branch should land with:
+- Updated JS samples.
+- Notes in this roadmap marking completion date + verification steps executed.
+- Cross-link to UI Verification scenarios (especially JavaScript section) to keep manual and automated coverage aligned.
+
+---
+
 ## Completed Work ✅
 
 ### Facade Migration (100% Complete)
