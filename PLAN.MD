@@ -179,6 +179,13 @@
    - [ ] Save graph via Ctrl+S and File > Save As; inspect XML for node/edge count.
    - [ ] Reopen saved file; confirm positions preserved; verify autosave writes between edits.
    - [ ] Attempt open on invalid XML; ensure error dialog + scene remains clean.
+
+5. **JavaScript Behavior in Nodes (Future)**
+   - [ ] Introduce `ScriptedNode` that wraps `Node` but carries a `QString m_script` and uses a shared `QJSEngine` for evaluation.
+   - [ ] Define a JS interface `function(node, inputs)` and expose a `ScriptNodeApi` QObject (setOutput/input) to interact with sockets.
+   - [ ] Extend XML serialization with a `<script language="javascript">...</script>` child element per node; update `write/read` accordingly.
+   - [ ] Provide C++ hooks (evaluate on input change, on double-click, etc.) and consider UI integration for editing scripts.
+
 5. **JavaScript**
    - [ ] Run `./NodeGraph --script hello.js` to verify console/log output, available node types, and stats API.
    - [ ] Run regression scripts (`test_load_xmls.js`, `test_memory_leak.js`) and capture pass/fail counts in log.
