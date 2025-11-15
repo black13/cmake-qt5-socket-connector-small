@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "NodeGraph (LLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build_linux/NodeGraph",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "build debug",
+            "args": [],
+            "env": {
+                "DISPLAY": ":0"
+            }
+        }
+    ]
+}
