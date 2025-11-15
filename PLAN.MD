@@ -164,6 +164,17 @@
    - [ ] Multi-select via rubber-band drag (Qt modifiers Shift/Cmd/Ctrl supported); move selection and ensure edges follow.
    - [ ] Press Delete to remove selection; confirm graph stats/log updates and selection label refresh.
    - [ ] TODO: Add graticule/grid overlay toggle in View so node placement has visual reference; log when toggled for verification.
+   - [ ] Validate delete flow end-to-end:
+     - [ ] Rubber-band select multiple nodes/edges, hit Delete, and save to `rubberbanding1.xml` (see `logs/NodeGraph_2025-11-15_23-13-00.log` for `Window::deleteSelection` + `Graph::deleteSelection` entries).
+     - [ ] Reopen the saved file and repeat to ensure selection survives across load/save cycles.
+     - [ ] Add a JavaScript smoke test that uses `graph.getSelectedNodes`/`graph.deleteSelection()` to mirror the UI workflow.
+
+4. **Scriptable Nodes & Localization (Future)**
+   - [ ] Extend `NodeTypeTemplates` to carry arbitrary metadata (script module, localization keys) that gets stamped into each node instance.
+   - [ ] Expose Graph facade APIs to set/get script payloads per node/edge and to invoke hooks (e.g., `graph.runNodeScript(nodeId, "onDelete")`).
+   - [ ] Provide iteration helpers (`graph.forEachNode`, `graph.forEachEdge`) so JavaScript can walk the graph, update labels/tooltips, or inject runtime logic without new C++ subclasses.
+   - [ ] Prototype a localization script: traverse nodes, map labels via locale tables, log changes, and persist results alongside the graph.
+
 4. **Persistence**
    - [ ] Save graph via Ctrl+S and File > Save As; inspect XML for node/edge count.
    - [ ] Reopen saved file; confirm positions preserved; verify autosave writes between edits.
@@ -1263,3 +1274,9 @@ graph.saveToFile("my_program.xml");
 ---
 
 **Next Step:** Start Phase 1, Branch 1.1 - Socket Typed Parent (eliminate qgraphicsitem_cast)
+
+## CMake & Build System Follow-up (Nov 2025)
+- [] Replace hard-coded Qt Windows paths with user-configurable variables or documented environment overrides (QT_ROOT_DIR, Qt5_DIR, CMAKE_PREFIX_PATH).
+- [] Move away from global add_definitions()/BUILD_SHARED_LIBS; prefer target_compile_definitions and isolate FetchContent options.
+- [] Reintroduce a minimal test target (even a CLI smoke test) and wire add_test() back up.
+- [] Standardize CMAKE_BUILD_TYPE handling for MSVC/multi-config generators via generator expressions.
