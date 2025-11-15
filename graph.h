@@ -132,6 +132,12 @@ public:
     Q_INVOKABLE QVariantList getSelectedNodes() const;
 
     /**
+     * Get selected edges
+     * @return List of selected edge UUID strings
+     */
+    Q_INVOKABLE QVariantList getSelectedEdges() const;
+
+    /**
      * Get connected edges for a node
      * @param nodeId UUID string of node
      * @return List of edge UUID strings connected to this node
@@ -169,6 +175,12 @@ public:
      * Clear entire graph
      */
     Q_INVOKABLE void clearGraph();
+
+    /**
+     * Delete currently selected nodes and edges
+     * @return true if any selection was deleted
+     */
+    Q_INVOKABLE bool deleteSelection();
 
     /**
      * Save graph to XML file

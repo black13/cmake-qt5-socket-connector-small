@@ -161,8 +161,9 @@
    - [ ] Use palette search to isolate a node type and ensure filtering updates button grid.
 3. **Graph Editing**
    - [ ] Create Source→Transform→Sink chain using drag-drop; connect sockets by dragging; confirm ghost edge highlights valid targets only.
-   - [ ] Multi-select (Shift+drag) and move nodes; ensure edges follow.
-   - [ ] Press Delete to remove selection; confirm graph stats/log updates.
+   - [ ] Multi-select via rubber-band drag (Qt modifiers Shift/Cmd/Ctrl supported); move selection and ensure edges follow.
+   - [ ] Press Delete to remove selection; confirm graph stats/log updates and selection label refresh.
+   - [ ] TODO: Add graticule/grid overlay toggle in View so node placement has visual reference; log when toggled for verification.
 4. **Persistence**
    - [ ] Save graph via Ctrl+S and File > Save As; inspect XML for node/edge count.
    - [ ] Reopen saved file; confirm positions preserved; verify autosave writes between edits.
@@ -193,6 +194,82 @@
 - [ ] Track completion of each scenario per release in PLAN.MD (append dated checklist entries).
 - [ ] Automate a subset via `scripts/` JS harness; aim to cover Palette→Scene, Save/Load, and Autosave flows first.
 - [ ] Add CI note: once headless mode exists, convert these manual tests into scripted regressions.
+
+### UI → Graph Surface → JavaScript Validation Chain
+For every UI feature below, complete three passes in order: manual UI, Graph facade invocation, and JavaScript script.
+
+| Feature Area | UI Actions | Graph Surface Checks | JavaScript Mirror |
+|--------------|-----------|----------------------|-------------------|
+| Palette drag/drop | Drag SOURCE/SINK into scene, confirm placement + autosave | Call `graph.createNode` for each type, compare `graph.getNodeData` to UI coords | Script `create_nodes.js` that calls `graph.createNode` with varying positions and logs stats |
+| Selection + move | Shift+drag multi-select, move, verify edges follow | `graph.getSelectedNodes`, `graph.moveNode`, `graph.setNodePosition` maintain layout | Script `move_nodes.js` applies deterministic offsets via Graph API |
+| Edge connections | Mouse drag between sockets, ensure ghost-edge + snap | `graph.connectNodes`, `graph.getNodeEdges`, `graph.deleteEdge` produce same topology | Script `connect_chain.js` creates chain and asserts stats |
+| Persistence | File > Save/Load plus autosave recovery | `graph.saveToFile`, `graph.loadFromFile`, `graph.clearGraph`, `graph.toXml` (future) | Script `roundtrip.js` saves to temp file, clears, reloads, compares stats |
+| Logging & errors | Trigger load failure/open invalid file, confirm dialogs/log entries | Watch `Graph::errorOccurred` signal or log output when calling facade with bad data | Script `bad_inputs.js` purposefully calls APIs with invalid IDs/indices |
+| Startup script | Set CLI `--script`, confirm executes after UI shows | `Window::setStartupScript` uses `Graph::evalFile` | Self-test: script writes nodes then UI verifies presence |
+
+Execution order:
+1. Run through UI scenarios to confirm behavior manually.
+2. Immediately run equivalent Graph-surface Qt test (can be via REPL or small harness) to ensure facade alone reproduces results.
+3. Capture the same steps in `.js` scripts under `scripts/` so regressions can be automated later.
+
+**Clean-state rule:** No leftovers—after each pass, clear the graph (`graph.clearGraph()` / File > New) so the next scenario begins in a pristine scene and autosave/logs are easy to audit.
+
+**Palette expansion ideas:** When new node concepts emerge (custom templates, JS-driven nodes), register them via `NodeTypeTemplates` and add matching palette buttons as part of the verification chain above (UI → Graph → JS); the plan’s table doubles as the checklist for onboarding future palette entries.
+
+### Verification Run Checklist (with Logging Evidence)
+For each release or major change, run the following sequence; attach log timestamps or excerpts so results are auditable.
+
+1. **Baseline Startup**
+   - Launch app, note log lines `=== NodeGraph Application Started ===` and `NodePalette: Starting population...`.
+   - Verify logfile path (logs/NodeGraph_*.log) is created and writable.
+2. **Palette Drag/Drop**
+   - Drag each node type once; capture log lines showing drag/drop (e.g., `NodeButton: Starting drag operation` & autosave write).
+   - Record node IDs from `Graph::createNode` debug statements if available.
+3. **Selection & Move**
+   - Multi-select + move nodes; confirm log entries (`Graph::setNodePosition` or movement traces) and autosave flushes at new positions.
+4. **Edge Connection**
+   - Connect/disconnect edges; capture log lines `Graph::connectNodes` and `[AUTOSAVE]` summarizing node/edge counts.
+5. **Persistence**
+   - Save via UI (log `Saving graph to:`) and load the same file (log `Graph::loadFromFile: Successfully loaded`); inspect resulting XML and reference in notes.
+6. **Error Handling**
+   - Attempt to open invalid XML or connect invalid sockets via Graph API; ensure `Graph::errorOccurred` emits a message and log shows warning without crashing.
+7. **JavaScript Mirror**
+   - Run the companion script(s) (e.g., `scripts/create_nodes.js`, `scripts/connect_chain.js`); verify log entries `=== Executing startup script:` and `Script executed successfully`.
+8. **Clean State**
+   - Clear graph (UI or `graph.clearGraph()`), confirm log `Graph::clearGraph` and autosave `nodes=0`, then close the app with `=== NodeGraph Application Ending ===`.
+
+Document the log file name plus timestamps for each checklist item so reviewers can cross-check behavior without rerunning.
+
+### Scenario A – Save → Load → Edit → Save → Delete (UI + Graph + JS)
+**Purpose:** Prove the full workflow (create node, save, reload, keep editing, clean shutdown) works through every surface.
+
+**UI Path**
+1. Launch app (empty scene).
+2. Drag a SOURCE node into the scene.
+3. File → Save As… (or Ctrl+S) → write `scenario_a_step1.xml`; note log lines (`Saving graph to:` etc.).
+4. File → New (or `graph.clearGraph()` via command palette) to clear; confirm autosave nodes=0.
+5. File → Open… → load `scenario_a_step1.xml`.
+6. Drag an additional node (e.g., SINK) into the scene.
+7. Ctrl+S to overwrite the same file; confirm log shows nodes incremented.
+8. File → Open… (same file) to verify both nodes reappear.
+9. Select all nodes (Shift+drag) and Delete; ensure autosave nodes=0 and log records `Graph::deleteNode` or observer events.
+
+**Graph Facade Path**
+1. From a Qt/CLI harness (or via script console), call:
+   - `graph.clearGraph()`
+   - `const id1 = graph.createNode("SOURCE", -100, -50);`
+   - `graph.saveToFile("scenario_a_facade.xml");`
+   - `graph.clearGraph(); graph.loadFromFile("scenario_a_facade.xml");`
+   - `const id2 = graph.createNode("SINK", 150, 25);`
+   - `graph.saveToFile("scenario_a_facade.xml");`
+   - `graph.clearGraph(); graph.loadFromFile("scenario_a_facade.xml");`
+   - `graph.deleteNode(id1); graph.deleteNode(id2); graph.saveToFile("scenario_a_facade.xml");`
+2. Verify `graph.getGraphStats()` matches expectations after each step (log or console).
+
+**JavaScript Path**
+1. Create `scripts/scenario_a.js` replicating the facade steps above (use `console.log` for checkpoints).
+2. Run `./NodeGraph --script scripts/scenario_a.js` and confirm log shows script execution, Graph API calls, and save/load cycle without UI interaction.
+3. Keep the resulting log file references next to the checklist entry.
 
 ---
 

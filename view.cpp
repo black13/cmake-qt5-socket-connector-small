@@ -8,6 +8,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QDebug>
+#include <QApplication>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -15,7 +16,8 @@ View::View(Scene* scene, QWidget* parent)
 {
     setRenderHint(QPainter::Antialiasing);
     setRenderHint(QPainter::SmoothPixmapTransform);
-    setDragMode(QGraphicsView::NoDrag);  // Temporarily disable rubber band
+    setDragMode(QGraphicsView::RubberBandDrag);
+    setRubberBandSelectionMode(Qt::IntersectsItemShape);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     
     // Disable any debug drawing of item bounding rectangles
@@ -31,17 +33,40 @@ View::View(Scene* scene, QWidget* parent)
 
 void View::mousePressEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::LeftButton && dragMode() == QGraphicsView::RubberBandDrag) {
+        m_rubberBandSelecting = true;
+        m_rubberBandActive = false;
+        m_rubberBandMoveCounter = 0;
+        m_rubberBandStartViewport = event->pos();
+        m_rubberBandStartScene = mapToScene(event->pos());
+    }
     QGraphicsView::mousePressEvent(event);
 }
 
 void View::mouseMoveEvent(QMouseEvent* event)
 {
+    if (m_rubberBandSelecting && !m_rubberBandActive) {
+        if ((event->pos() - m_rubberBandStartViewport).manhattanLength() >= QApplication::startDragDistance()) {
+            m_rubberBandActive = true;
+            qDebug() << "View: Rubber band selection started at" << m_rubberBandStartScene;
+        }
+    } else if (m_rubberBandActive) {
+        if (++m_rubberBandMoveCounter % 15 == 0) {
+            QPointF current = mapToScene(event->pos());
+            qDebug() << "View: Rubber band update, current scene pos" << current;
+        }
+    }
     QGraphicsView::mouseMoveEvent(event);
 }
 
 void View::mouseReleaseEvent(QMouseEvent* event)
 {
     QGraphicsView::mouseReleaseEvent(event);
+    if (m_rubberBandSelecting) {
+        m_rubberBandActive = false;
+        m_rubberBandMoveCounter = 0;
+        m_rubberBandSelecting = false;
+    }
 }
 
 void View::wheelEvent(QWheelEvent* event)

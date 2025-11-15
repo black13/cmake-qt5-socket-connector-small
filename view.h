@@ -43,4 +43,9 @@ signals:
 
 private:
     Scene* m_scene;
+    bool m_rubberBandSelecting = false;
+    bool m_rubberBandActive = false;
+    int m_rubberBandMoveCounter = 0;
+    QPoint m_rubberBandStartViewport;
+    QPointF m_rubberBandStartScene;
 };

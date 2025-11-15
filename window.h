@@ -11,6 +11,7 @@
 #include <QProgressBar>
 #include <QSpinBox>
 #include <QComboBox>
+#include <QShortcut>
 
 class View;
 class Scene;
@@ -117,6 +118,8 @@ protected:
     
     // Setup that depends on m_factory
     void initializeWithFactory();
+
+    bool deleteSelection();
 
 private:
     Scene* m_scene;

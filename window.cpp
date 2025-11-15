@@ -8,6 +8,7 @@
 #include "xml_autosave_observer.h"
 #include "node_palette_widget.h"
 #include <QKeyEvent>
+#include <QGraphicsScene>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDebug>
@@ -28,6 +29,7 @@
 #include <QFileInfo>
 #include <QStatusBar>
 #include <QImage>
+#include <QVariantList>
 #include <QPainter>
 #include <QStandardPaths>
 #include <QDir>
@@ -111,8 +113,9 @@ void Window::initializeUi()
     setupStatusBar();
     setupDockWidgets();
     
-    // Connect scene signals for status updates
+    // Connect scene signals for status/selection updates
     connect(m_scene, &Scene::sceneChanged, this, &Window::onSceneChanged);
+    connect(m_scene, &QGraphicsScene::selectionChanged, this, &Window::onSelectionChanged);
     
     // Connect view signals for drag-and-drop
     connect(m_view, &View::nodeDropped, this, &Window::createNodeFromPalette);
@@ -147,11 +150,25 @@ void Window::setupActions()
     m_addProcessorAction->setToolTip("Add Processor Node (Ctrl+3)");
     m_addProcessorAction->setShortcut(QKeySequence("Ctrl+3"));
     connect(m_addProcessorAction, &QAction::triggered, this, &Window::createProcessorNode);
+
+    QShortcut* deleteShortcut = new QShortcut(QKeySequence::Delete, this);
+    deleteShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(deleteShortcut, &QShortcut::activated, this, [this]() {
+        deleteSelection();
+    });
+
+    QShortcut* backspaceShortcut = new QShortcut(QKeySequence::Backspace, this);
+    backspaceShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(backspaceShortcut, &QShortcut::activated, this, [this]() {
+        deleteSelection();
+    });
 }
 
 
 void Window::keyPressEvent(QKeyEvent* event)
 {
+    qDebug() << "Window::keyPressEvent key" << event->key()
+             << "modifiers" << event->modifiers();
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
             case Qt::Key_1:
@@ -216,8 +233,10 @@ void Window::keyPressEvent(QKeyEvent* event)
                 break;
         }
     } else if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        // Delete key handled by individual QGraphicsItems (proper Qt architecture)
-        qDebug() << "Delete key pressed - items will handle their own deletion";
+        if (deleteSelection()) {
+            event->accept();
+            return;
+        }
     }
     QMainWindow::keyPressEvent(event);
 }
@@ -807,6 +826,32 @@ void Window::updateSelectionInfo()
     }
 
     m_selectionLabel->setText(selectionText);
+}
+
+bool Window::deleteSelection()
+{
+    if (!m_graph) {
+        qWarning() << "Delete key pressed but graph not available";
+        return false;
+    }
+
+    const QVariantList nodes = m_graph->getSelectedNodes();
+    const QVariantList edges = m_graph->getSelectedEdges();
+
+    if (edges.isEmpty() && nodes.isEmpty()) {
+        qDebug() << "Delete key pressed - nothing selected";
+        return false;
+    }
+
+    qDebug() << "Delete key pressed - deleting" << nodes.size() << "nodes and" << edges.size() << "edges";
+
+    const bool deleted = m_graph->deleteSelection();
+    if (!deleted) {
+        qWarning() << "Delete key pressed - graph.deleteSelection() reported failure";
+    }
+    updateSelectionInfo();
+    updateStatusBar();
+    return deleted;
 }
 
 // ============================================================================

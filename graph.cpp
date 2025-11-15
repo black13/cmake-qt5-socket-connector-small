@@ -5,6 +5,7 @@
 #include "edge.h"
 #include "socket.h"
 #include "node_templates.h"
+#include "graph_observer.h"
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -306,6 +307,20 @@ QVariantList Graph::getSelectedNodes() const
     return selectedList;
 }
 
+QVariantList Graph::getSelectedEdges() const
+{
+    QVariantList selectedList;
+    const QHash<QUuid, Edge*>& edges = m_scene->getEdges();
+
+    for (auto it = edges.constBegin(); it != edges.constEnd(); ++it) {
+        if (it.value()->isSelected()) {
+            selectedList.append(it.key().toString());
+        }
+    }
+
+    return selectedList;
+}
+
 QVariantList Graph::getNodeEdges(const QString& nodeId) const
 {
     Node* node = findNode(nodeId);
@@ -369,6 +384,40 @@ void Graph::clearGraph()
     qDebug() << "Graph::clearGraph";
     m_scene->clearGraph();
     emit graphCleared();
+}
+
+bool Graph::deleteSelection()
+{
+    QVariantList selectedEdges = getSelectedEdges();
+    QVariantList selectedNodes = getSelectedNodes();
+
+    if (selectedEdges.isEmpty() && selectedNodes.isEmpty()) {
+        qDebug() << "Graph::deleteSelection: nothing selected";
+        return false;
+    }
+
+    qDebug() << "Graph::deleteSelection: deleting" << selectedNodes.size()
+             << "nodes and" << selectedEdges.size() << "edges";
+
+    GraphSubject::beginBatch();
+
+    bool deletedAnything = false;
+    for (const QVariant& edgeVar : selectedEdges) {
+        const QString edgeId = edgeVar.toString();
+        if (!edgeId.isEmpty() && deleteEdge(edgeId)) {
+            deletedAnything = true;
+        }
+    }
+
+    for (const QVariant& nodeVar : selectedNodes) {
+        const QString nodeId = nodeVar.toString();
+        if (!nodeId.isEmpty() && deleteNode(nodeId)) {
+            deletedAnything = true;
+        }
+    }
+
+    GraphSubject::endBatch();
+    return deletedAnything;
 }
 
 bool Graph::saveToFile(const QString& filePath)
