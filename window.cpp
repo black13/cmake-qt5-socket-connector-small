@@ -167,8 +167,6 @@ void Window::setupActions()
 
 void Window::keyPressEvent(QKeyEvent* event)
 {
-    qDebug() << "Window::keyPressEvent key" << event->key()
-             << "modifiers" << event->modifiers();
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
             case Qt::Key_1:
@@ -839,15 +837,18 @@ bool Window::deleteSelection()
     const QVariantList edges = m_graph->getSelectedEdges();
 
     if (edges.isEmpty() && nodes.isEmpty()) {
-        qDebug() << "Delete key pressed - nothing selected";
+        qDebug() << "Window::deleteSelection - nothing selected";
         return false;
     }
 
-    qDebug() << "Delete key pressed - deleting" << nodes.size() << "nodes and" << edges.size() << "edges";
+    qDebug() << "Window::deleteSelection - deleting" << nodes.size()
+             << "nodes and" << edges.size() << "edges";
 
     const bool deleted = m_graph->deleteSelection();
     if (!deleted) {
-        qWarning() << "Delete key pressed - graph.deleteSelection() reported failure";
+        qWarning() << "Window::deleteSelection - graph.deleteSelection() reported failure";
+    } else {
+        qDebug() << "Window::deleteSelection - graph.deleteSelection() removed selection";
     }
     updateSelectionInfo();
     updateStatusBar();
