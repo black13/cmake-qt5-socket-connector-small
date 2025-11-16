@@ -170,6 +170,9 @@
      - [ ] Add a JavaScript smoke test that uses `graph.getSelectedNodes`/`graph.deleteSelection()` to mirror the UI workflow.
 
 4. **Scriptable Nodes & Localization (Future)**
+   - [ ] Ensure every node type (including Source/Sink) can carry a script payload so behavior (start/stop triggers, processing) is injectable end-to-end.
+
+   - [ ] Add a dummy script payload (e.g., placeholder JS) per ScriptNode so serialization + execution can be wired before real behaviors exist.
    - [ ] Extend `NodeTypeTemplates` to carry arbitrary metadata (script module, localization keys) that gets stamped into each node instance.
    - [ ] Expose Graph facade APIs to set/get script payloads per node/edge and to invoke hooks (e.g., `graph.runNodeScript(nodeId, "onDelete")`).
    - [ ] Provide iteration helpers (`graph.forEachNode`, `graph.forEachEdge`) so JavaScript can walk the graph, update labels/tooltips, or inject runtime logic without new C++ subclasses.
