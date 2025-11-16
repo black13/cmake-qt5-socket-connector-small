@@ -1293,6 +1293,7 @@ graph.saveToFile("my_program.xml");
 
 
 ## UI Workflow Improvements (branches)
+- [] Define a shared selection stack (scratchpad) that receives copies/deletes so undo/redo and copy/paste work off the same structure; document workflow for contributors.
 - [] `feature/ui-undo-redo`: integrate a QUndoStack (or custom command pattern) so Delete/Insert operations can be undone/redone.
 - [] `feature/ui-copy-paste`: implement selection copy/paste plus a scratchpad flow for storing/restoring mini-graphs.
 - [] `feature/ui-graticule`: add a grid overlay toggle, persistent preference, and log entry when toggled.
