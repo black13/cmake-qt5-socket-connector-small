@@ -1290,3 +1290,10 @@ graph.saveToFile("my_program.xml");
 - [] Move away from global add_definitions()/BUILD_SHARED_LIBS; prefer target_compile_definitions and isolate FetchContent options.
 - [] Reintroduce a minimal test target (even a CLI smoke test) and wire add_test() back up.
 - [] Standardize CMAKE_BUILD_TYPE handling for MSVC/multi-config generators via generator expressions.
+
+
+## UI Workflow Improvements (branches)
+- [] `feature/ui-undo-redo`: integrate a QUndoStack (or custom command pattern) so Delete/Insert operations can be undone/redone.
+- [] `feature/ui-copy-paste`: implement selection copy/paste plus a scratchpad flow for storing/restoring mini-graphs.
+- [] `feature/ui-graticule`: add a grid overlay toggle, persistent preference, and log entry when toggled.
+- [] `feature/ui-polish`: selection highlighting, status bar cues, better tooltips, and professional theming.
