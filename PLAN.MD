@@ -170,6 +170,9 @@
      - [ ] Add a JavaScript smoke test that uses `graph.getSelectedNodes`/`graph.deleteSelection()` to mirror the UI workflow.
 
 4. **Scriptable Nodes & Localization (Future)**
+   - [ ] Ensure every node type (including Source/Sink) can carry a script payload so behavior (start/stop triggers, processing) is injectable end-to-end.
+
+   - [ ] Add a dummy script payload (e.g., placeholder JS) per ScriptNode so serialization + execution can be wired before real behaviors exist.
    - [ ] Extend `NodeTypeTemplates` to carry arbitrary metadata (script module, localization keys) that gets stamped into each node instance.
    - [ ] Expose Graph facade APIs to set/get script payloads per node/edge and to invoke hooks (e.g., `graph.runNodeScript(nodeId, "onDelete")`).
    - [ ] Provide iteration helpers (`graph.forEachNode`, `graph.forEachEdge`) so JavaScript can walk the graph, update labels/tooltips, or inject runtime logic without new C++ subclasses.
@@ -1287,3 +1290,11 @@ graph.saveToFile("my_program.xml");
 - [] Move away from global add_definitions()/BUILD_SHARED_LIBS; prefer target_compile_definitions and isolate FetchContent options.
 - [] Reintroduce a minimal test target (even a CLI smoke test) and wire add_test() back up.
 - [] Standardize CMAKE_BUILD_TYPE handling for MSVC/multi-config generators via generator expressions.
+
+
+## UI Workflow Improvements (branches)
+- [] Define a shared selection stack (scratchpad) that receives copies/deletes so undo/redo and copy/paste work off the same structure; document workflow for contributors.
+- [] `feature/ui-undo-redo`: integrate a QUndoStack (or custom command pattern) so Delete/Insert operations can be undone/redone.
+- [] `feature/ui-copy-paste`: implement selection copy/paste plus a scratchpad flow for storing/restoring mini-graphs.
+- [] `feature/ui-graticule`: add a grid overlay toggle, persistent preference, and log entry when toggled.
+- [] `feature/ui-polish`: selection highlighting, status bar cues, better tooltips, and professional theming.
