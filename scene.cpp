@@ -188,6 +188,54 @@ Socket* Scene::socketAt(const QPointF& scenePos) const
     return best;
 }
 
+void Scene::logSceneState(const QString& context) const
+{
+    qDebug() << "\n=== Scene State:" << context << "===";
+    const QList<QGraphicsItem*> currentItems = items();
+    qDebug() << "QGraphicsScene items:" << currentItems.size();
+    qDebug() << "m_nodes hash size:" << m_nodes.size();
+    qDebug() << "m_edges hash size:" << m_edges.size();
+
+    int validNodes = 0;
+    int invalidNodes = 0;
+    for (auto it = m_nodes.constBegin(); it != m_nodes.constEnd(); ++it) {
+        bool found = false;
+        for (QGraphicsItem* item : currentItems) {
+            if (item == it.value()) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            ++validNodes;
+        } else {
+            ++invalidNodes;
+        }
+    }
+    qDebug() << "Valid node pointers:" << validNodes;
+    qDebug() << "INVALID node pointers:" << invalidNodes;
+    qDebug() << "========================\n";
+}
+
+int Scene::validatePointers() const
+{
+    const QList<QGraphicsItem*> currentItems = items();
+    int invalidNodes = 0;
+    for (auto it = m_nodes.constBegin(); it != m_nodes.constEnd(); ++it) {
+        bool found = false;
+        for (QGraphicsItem* item : currentItems) {
+            if (item == it.value()) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            ++invalidNodes;
+        }
+    }
+    return invalidNodes;
+}
+
 void Scene::deleteNode(const QUuid& nodeId)
 {
     Node* node = getNode(nodeId);
@@ -260,6 +308,7 @@ void Scene::deleteEdge(const QUuid& edgeId)
 
 void Scene::clearGraph()
 {
+    logSceneState("Before clearGraph");
     ScopedClearing _guard(s_clearingGraph);
     
     qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
@@ -278,6 +327,7 @@ void Scene::clearGraph()
     emit sceneChanged();
     
     qDebug() << "SIMPLE_FIX: Graph cleared safely - hash cleared before Qt cleanup";
+    logSceneState("After clearGraph");
 }
 
 // ============================================================================

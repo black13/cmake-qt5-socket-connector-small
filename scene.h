@@ -62,6 +62,10 @@ public:
 
     // Typed hit-testing helper for sockets (no itemAt/casts)
     [[nodiscard]] Socket* socketAt(const QPointF& scenePos) const;
+
+    // Diagnostic helpers for memory safety investigation
+    void logSceneState(const QString& context) const;
+    int validatePointers() const;
     
     // Deletion methods - maintain integrity
     void deleteNode(const QUuid& nodeId);
