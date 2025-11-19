@@ -1285,6 +1285,7 @@ graph.saveToFile("my_program.xml");
 
 **Next Step:** Start Phase 1, Branch 1.1 - Socket Typed Parent (eliminate qgraphicsitem_cast)
 
+- [] `fix/memory-safety-step-2`: temporarily instrument node/edge constructors/destructors to log instance counts and warn when items are destroyed while still registered; remove once cleanup notifications land.
 ## CMake & Build System Follow-up (Nov 2025)
 - [] Replace hard-coded Qt Windows paths with user-configurable variables or documented environment overrides (QT_ROOT_DIR, Qt5_DIR, CMAKE_PREFIX_PATH).
 - [] Move away from global add_definitions()/BUILD_SHARED_LIBS; prefer target_compile_definitions and isolate FetchContent options.
