@@ -4,6 +4,11 @@
 #include "edge.h"
 #include "graph_observer.h"
 #include <QTimer>
+#include <QGraphicsItem>
+
+#ifndef NG_ENABLE_AUTOSAVE_VALIDATION
+#define NG_ENABLE_AUTOSAVE_VALIDATION 0
+#endif
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -191,11 +196,35 @@ QString XmlAutosaveObserver::generateFullXml() const
     // Add nodes section
     xmlNodePtr nodesNode = xmlNewChild(root, nullptr, BAD_CAST "nodes", nullptr);
     
-    // CRASH VALIDATION: Report collection state before serialization
-    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: About to serialize" << m_scene->getNodes().size() << "nodes from hash map";
-    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: Qt scene currently has" << m_scene->items().size() << "total items";
-    
-    int validNodes = 0, invalidNodes = 0;
+#if NG_ENABLE_AUTOSAVE_VALIDATION
+    // Optional CRASH VALIDATION: compare hashes to current scene items (O(n^2))
+    const QList<QGraphicsItem*> sceneItems = m_scene->items();
+    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: About to serialize"
+             << m_scene->getNodes().size() << "nodes from hash map";
+    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: Qt scene currently has"
+             << sceneItems.size() << "total items";
+
+    int validNodes = 0;
+    int invalidNodes = 0;
+    for (auto it = m_scene->getNodes().cbegin(); it != m_scene->getNodes().cend(); ++it) {
+        Node* node = it.value();
+        bool found = false;
+        for (QGraphicsItem* item : sceneItems) {
+            if (item == node) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            ++validNodes;
+        } else {
+            ++invalidNodes;
+        }
+    }
+    qDebug() << __FUNCTION__ << "- AUTOSAVE VALIDATION: valid nodes =" << validNodes
+             << "invalid nodes =" << invalidNodes;
+#endif
+
     for (auto it = m_scene->getNodes().begin(); it != m_scene->getNodes().end(); ++it) {
         Node* node = it.value();
         if (node) {

@@ -236,6 +236,42 @@ int Scene::validatePointers() const
     return invalidNodes;
 }
 
+void Scene::notifyNodeDestroyed(Node* node)
+{
+    if (!node) {
+        return;
+    }
+
+    const QUuid nodeId = node->getId();
+    if (m_nodes.remove(nodeId) > 0) {
+        qDebug() << "Scene::notifyNodeDestroyed removed node"
+                 << nodeId.toString(QUuid::WithoutBraces).left(8)
+                 << "- remaining nodes:" << m_nodes.size();
+    } else {
+        qDebug() << "Scene::notifyNodeDestroyed - node"
+                 << nodeId.toString(QUuid::WithoutBraces).left(8)
+                 << "already absent from registry";
+    }
+}
+
+void Scene::notifyEdgeDestroyed(Edge* edge)
+{
+    if (!edge) {
+        return;
+    }
+
+    const QUuid edgeId = edge->getId();
+    if (m_edges.remove(edgeId) > 0) {
+        qDebug() << "Scene::notifyEdgeDestroyed removed edge"
+                 << edgeId.toString(QUuid::WithoutBraces).left(8)
+                 << "- remaining edges:" << m_edges.size();
+    } else {
+        qDebug() << "Scene::notifyEdgeDestroyed - edge"
+                 << edgeId.toString(QUuid::WithoutBraces).left(8)
+                 << "already absent from registry";
+    }
+}
+
 void Scene::deleteNode(const QUuid& nodeId)
 {
     Node* node = getNode(nodeId);
@@ -306,28 +342,36 @@ void Scene::deleteEdge(const QUuid& edgeId)
 // Reason: Violates Qt architecture - items should handle their own delete events
 // New approach: Each QGraphicsItem handles keyPressEvent directly
 
+void Scene::clear()
+{
+    ScopedClearing guard(s_clearingGraph);
+
+    qDebug() << "Scene::clear override - items:" << items().size()
+             << "nodes:" << m_nodes.size()
+             << "edges:" << m_edges.size();
+    logSceneState("Scene::clear (before QGraphicsScene::clear)");
+
+    QGraphicsScene::clear();
+
+    if (!m_nodes.isEmpty() || !m_edges.isEmpty()) {
+        qWarning() << "Scene::clear: registries not empty after clear!"
+                   << "nodes:" << m_nodes.size()
+                   << "edges:" << m_edges.size();
+        m_nodes.clear();
+        m_edges.clear();
+    }
+
+    notifyGraphCleared();
+    emit sceneChanged();
+
+    logSceneState("Scene::clear (after QGraphicsScene::clear)");
+    qDebug() << "Scene::clear complete - registries synced";
+}
+
 void Scene::clearGraph()
 {
-    logSceneState("Before clearGraph");
-    ScopedClearing _guard(s_clearingGraph);
-    
-    qDebug() << "SIMPLE_FIX: Clearing graph - removing" << m_nodes.size() << "nodes and" << m_edges.size() << "edges";
-    
-    qDebug() << "SIMPLE_FIX: Clearing hash registries first";
-    m_nodes.clear();
-    m_edges.clear();
-    
-    qDebug() << "SIMPLE_FIX: Clearing Qt scene items";
-    QGraphicsScene::clear();
-    
-    // Notify observers of graph clearing
-    notifyGraphCleared();
-    
-    // Emit signal for UI updates
-    emit sceneChanged();
-    
-    qDebug() << "SIMPLE_FIX: Graph cleared safely - hash cleared before Qt cleanup";
-    logSceneState("After clearGraph");
+    qDebug() << "Scene::clearGraph requested";
+    clear();
 }
 
 // ============================================================================

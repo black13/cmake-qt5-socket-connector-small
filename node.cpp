@@ -34,6 +34,10 @@ Node::Node(const QUuid& id, const QPointF& position)
 
 Node::~Node()
 {
+    if (Scene* nodeScene = qobject_cast<Scene*>(scene())) {
+        nodeScene->notifyNodeDestroyed(this);
+    }
+
     // SAFETY: Invalidate all connected edges before destruction
     // Copy the set to avoid modification during iteration
     QSet<Edge*> edgesCopy = m_incidentEdges;
@@ -44,14 +48,6 @@ Node::~Node()
     ++s_destroyedCount;
     qDebug() << "Node destroyed:" << m_id.toString()
              << "Remaining:" << (s_instanceCount - s_destroyedCount);
-    if (scene()) {
-        if (Scene* nodeScene = qobject_cast<Scene*>(scene())) {
-            if (nodeScene->getNodes().contains(m_id)) {
-                qWarning() << "WARNING: Node destroyed while still in Scene hash!"
-                           << m_id.toString();
-            }
-        }
-    }
 }
 
 QRectF Node::boundingRect() const

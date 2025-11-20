@@ -48,17 +48,13 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
 
 Edge::~Edge()
 {
+    if (Scene* edgeScene = qobject_cast<Scene*>(scene())) {
+        edgeScene->notifyEdgeDestroyed(this);
+    }
+
     ++s_destroyedCount;
     qDebug() << "Edge destroyed:" << m_id.toString()
              << "Remaining:" << (s_instanceCount - s_destroyedCount);
-    if (scene()) {
-        if (Scene* edgeScene = qobject_cast<Scene*>(scene())) {
-            if (edgeScene->getEdges().contains(m_id)) {
-                qWarning() << "WARNING: Edge destroyed while still in Scene hash!"
-                           << m_id.toString();
-            }
-        }
-    }
     qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
              << "start cleanup";
 

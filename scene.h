@@ -66,6 +66,10 @@ public:
     // Diagnostic helpers for memory safety investigation
     void logSceneState(const QString& context) const;
     int validatePointers() const;
+
+    // Notification hooks so Scene can keep registries in sync with Qt ownership
+    void notifyNodeDestroyed(Node* node);
+    void notifyEdgeDestroyed(Edge* edge);
     
     // Deletion methods - maintain integrity
     void deleteNode(const QUuid& nodeId);
@@ -103,6 +107,9 @@ protected:
     
     // Centralized key handling for consistent multi-selection deletion
     void keyPressEvent(QKeyEvent* event) override;
+
+    // Intercept clear() so QGraphicsScene ownership stays synchronized
+    void clear();
 
 private:
     // QElectroTech-style typed collections with UUID keys
