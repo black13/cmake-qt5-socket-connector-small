@@ -41,6 +41,10 @@ public:
     Node(const QUuid& id = QUuid::createUuid(), 
          const QPointF& position = QPointF(100, 100));
     ~Node(); // Destructor for safe edge invalidation
+
+    // Temporary diagnostics
+    static int s_instanceCount;
+    static int s_destroyedCount;
     
     // Core identity
     [[nodiscard]] const QUuid& getId() const { return m_id; }

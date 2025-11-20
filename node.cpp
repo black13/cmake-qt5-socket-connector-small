@@ -9,6 +9,9 @@
 #include <QTimer>
 #include <libxml/tree.h>
 
+int Node::s_instanceCount = 0;
+int Node::s_destroyedCount = 0;
+
 Node::Node(const QUuid& id, const QPointF& position)
     : m_id(id)
     , m_nodeType("DEFAULT")
@@ -24,7 +27,9 @@ Node::Node(const QUuid& id, const QPointF& position)
     setFlag(QGraphicsItem::ItemIsFocusable, true); // Enable keyboard events
     setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
     
-    // Node creation logging removed - working correctly
+    ++s_instanceCount;
+    qDebug() << "Node created. Total instances:" << s_instanceCount
+             << "Destroyed:" << s_destroyedCount;
 }
 
 Node::~Node()
@@ -36,7 +41,17 @@ Node::~Node()
         edge->invalidateNode(this);
     }
     
-    // Node destruction logging removed - working correctly
+    ++s_destroyedCount;
+    qDebug() << "Node destroyed:" << m_id.toString()
+             << "Remaining:" << (s_instanceCount - s_destroyedCount);
+    if (scene()) {
+        if (Scene* nodeScene = qobject_cast<Scene*>(scene())) {
+            if (nodeScene->getNodes().contains(m_id)) {
+                qWarning() << "WARNING: Node destroyed while still in Scene hash!"
+                           << m_id.toString();
+            }
+        }
+    }
 }
 
 QRectF Node::boundingRect() const

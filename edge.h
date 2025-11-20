@@ -38,6 +38,9 @@ public:
          const QUuid& fromSocketId = QUuid(),
          const QUuid& toSocketId = QUuid());
     ~Edge(); // Destructor for node unregistration
+
+    static int s_instanceCount;
+    static int s_destroyedCount;
     
     // Core identity
     [[nodiscard]] const QUuid& getId() const { return m_id; }

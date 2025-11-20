@@ -9,6 +9,9 @@
 #include <libxml/tree.h>
 #include <cmath>
 
+int Edge::s_instanceCount = 0;
+int Edge::s_destroyedCount = 0;
+
 Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     : m_id(id)
     , m_fromNodeId()
@@ -37,12 +40,25 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     // Edges appear on top of sockets for "plugged-in" visual effect
     setZValue(2);
     
-    qDebug() << "+Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    ++s_instanceCount;
+    qDebug() << "Edge created. Total instances:" << s_instanceCount
+             << "Destroyed:" << s_destroyedCount;
     // Don't call updatePath() here - sockets not resolved yet
 }
 
 Edge::~Edge()
 {
+    ++s_destroyedCount;
+    qDebug() << "Edge destroyed:" << m_id.toString()
+             << "Remaining:" << (s_instanceCount - s_destroyedCount);
+    if (scene()) {
+        if (Scene* edgeScene = qobject_cast<Scene*>(scene())) {
+            if (edgeScene->getEdges().contains(m_id)) {
+                qWarning() << "WARNING: Edge destroyed while still in Scene hash!"
+                           << m_id.toString();
+            }
+        }
+    }
     qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
              << "start cleanup";
 
