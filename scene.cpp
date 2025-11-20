@@ -217,25 +217,6 @@ void Scene::logSceneState(const QString& context) const
     qDebug() << "========================\n";
 }
 
-int Scene::validatePointers() const
-{
-    const QList<QGraphicsItem*> currentItems = items();
-    int invalidNodes = 0;
-    for (auto it = m_nodes.constBegin(); it != m_nodes.constEnd(); ++it) {
-        bool found = false;
-        for (QGraphicsItem* item : currentItems) {
-            if (item == it.value()) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            ++invalidNodes;
-        }
-    }
-    return invalidNodes;
-}
-
 void Scene::notifyNodeDestroyed(Node* node)
 {
     if (!node) {

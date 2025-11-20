@@ -65,7 +65,6 @@ public:
 
     // Diagnostic helpers for memory safety investigation
     void logSceneState(const QString& context) const;
-    int validatePointers() const;
 
     // Notification hooks so Scene can keep registries in sync with Qt ownership
     void notifyNodeDestroyed(Node* node);
