@@ -8,6 +8,7 @@
 #include <QDropEvent>
 
 class Scene;
+class Node;
 
 /**
  * View - Custom graphics view for node editor
@@ -27,6 +28,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
     
     // Drag and drop support
     void dragEnterEvent(QDragEnterEvent* event) override;
@@ -40,6 +42,7 @@ signals:
     // Signal emitted when a node is dropped
     void nodeDropped(const QPointF& scenePos, const QString& nodeType, const QString& name, 
                     int inputSockets, int outputSockets);
+    void contextMenuRequested(Node* node, const QPoint& screenPos, const QPointF& scenePos);
 
 private:
     Scene* m_scene;

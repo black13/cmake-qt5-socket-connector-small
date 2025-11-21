@@ -16,6 +16,7 @@
 class View;
 class Scene;
 class Graph;
+class Node;
 
 // Forward declarations for libxml types (reduces header pollution)
 typedef struct _xmlNode xmlNode;
@@ -72,6 +73,7 @@ public slots:
     // Scene event handlers
     void onSceneChanged();
     void onSelectionChanged();
+    void showContextMenu(Node* node, const QPoint& screenPos, const QPointF& scenePos);
     
     // Basic XML saving functionality
     bool saveGraph(const QString& filename);
@@ -181,6 +183,9 @@ private:
     // Helpers for visual tests
     void restoreCurrentFile();     // reload m_currentFile if set, else clear
     void restoreJustLoadedFile();
+    bool runScriptForNode(Node* node);
+    void runScriptsForNodes(const QList<Node*>& nodes, const QString& contextLabel);
+    bool nodeHasScript(Node* node) const;
 
     // JavaScript integration will be added via Graph facade
 };

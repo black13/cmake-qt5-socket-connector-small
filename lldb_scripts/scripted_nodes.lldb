@@ -1,0 +1,21 @@
+# LLDB scripted-node helper
+file ./build_linux/NodeGraph
+run --script scripts/scripted_node_demo.js
+
+breakpoint set --name ScriptedNode::evaluate
+breakpoint command add
+expr (void)printf("[LLDB] ScriptedNode::evaluate id=%s\n", this->getId().toString().toUtf8().constData());
+continue
+END
+
+breakpoint set --name SyntheticWork::run
+breakpoint command add
+expr (void)printf("[LLDB] SyntheticWork::run task=%s\n", request[QStringLiteral("task")].toString().toUtf8().constData());
+continue
+END
+
+breakpoint set --name Graph::runSyntheticWork
+breakpoint command add
+expr (void)printf("[LLDB] Graph::runSyntheticWork called\n");
+continue
+END

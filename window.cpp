@@ -21,6 +21,7 @@
 #include <QLabel>
 #include <QStatusBar>
 #include <QMenuBar>
+#include <QMenu>
 #include <QProgressBar>
 #include <QApplication>
 #include <QDesktopServices>
@@ -35,6 +36,7 @@
 #include <QDir>
 #include <QDateTime>
 #include <QFileDialog>
+#include <QSet>
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
 
@@ -119,6 +121,7 @@ void Window::initializeUi()
     
     // Connect view signals for drag-and-drop
     connect(m_view, &View::nodeDropped, this, &Window::createNodeFromPalette);
+    connect(m_view, &View::contextMenuRequested, this, &Window::showContextMenu);
 
     // Initial status update moved to adoptFactory() after m_graph is created
     // (updateStatusBar() now requires m_graph to exist)
@@ -853,6 +856,152 @@ bool Window::deleteSelection()
     updateSelectionInfo();
     updateStatusBar();
     return deleted;
+}
+
+void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF& scenePos)
+{
+    Q_UNUSED(scenePos);
+    if (!m_graph) {
+        return;
+    }
+
+    QMenu menu(this);
+    bool actionsAdded = false;
+
+    QAction* runNodeAction = nullptr;
+    if (node) {
+        runNodeAction = menu.addAction("Run Script");
+        runNodeAction->setEnabled(nodeHasScript(node));
+        actionsAdded = true;
+    }
+
+    QAction* runSelectionAction = nullptr;
+    const QList<Node*> selectedNodes = m_scene->selectedNodes();
+    if (!selectedNodes.isEmpty()) {
+        runSelectionAction = menu.addAction("Run Scripts for Selection");
+        bool hasScriptInSelection = false;
+        for (Node* candidate : selectedNodes) {
+            if (nodeHasScript(candidate)) {
+                hasScriptInSelection = true;
+                break;
+            }
+        }
+        runSelectionAction->setEnabled(hasScriptInSelection);
+        actionsAdded = true;
+    }
+
+    QAction* runAllAction = nullptr;
+    const QHash<QUuid, Node*>& nodesHash = m_scene->getNodes();
+    if (!nodesHash.isEmpty()) {
+        runAllAction = menu.addAction("Run Scripts (All Nodes)");
+        bool hasScript = false;
+        for (Node* candidate : nodesHash) {
+            if (nodeHasScript(candidate)) {
+                hasScript = true;
+                break;
+            }
+        }
+        runAllAction->setEnabled(hasScript);
+        actionsAdded = true;
+    }
+
+    if (!actionsAdded) {
+        return;
+    }
+
+    QAction* chosenAction = menu.exec(screenPos);
+    if (!chosenAction) {
+        return;
+    }
+
+    if (chosenAction == runNodeAction && node) {
+        runScriptForNode(node);
+        return;
+    }
+
+    if (chosenAction == runSelectionAction) {
+        runScriptsForNodes(selectedNodes, QStringLiteral("selection"));
+        return;
+    }
+
+    if (chosenAction == runAllAction) {
+        runScriptsForNodes(nodesHash.values(), QStringLiteral("graph"));
+        return;
+    }
+}
+
+bool Window::nodeHasScript(Node* node) const
+{
+    if (!node || !m_graph) {
+        return false;
+    }
+    const QString script = m_graph->getNodeScript(node->getId().toString());
+    return !script.trimmed().isEmpty();
+}
+
+bool Window::runScriptForNode(Node* node)
+{
+    if (!node || !m_graph) {
+        return false;
+    }
+
+    if (!nodeHasScript(node)) {
+        qDebug() << "[ScriptRunner] Node has no script:" << node->getId().toString(QUuid::WithoutBraces);
+        if (statusBar()) {
+            statusBar()->showMessage("Node has no script", 2000);
+        }
+        return false;
+    }
+
+    const QString nodeId = node->getId().toString();
+    QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
+    QString label = QString("%1 [%2]").arg(node->getNodeType(),
+                                           node->getId().toString(QUuid::WithoutBraces).left(8));
+    QString message = QString("Script executed on %1").arg(label);
+    qDebug() << "[ScriptRunner]" << message << "result:" << result;
+    if (statusBar()) {
+        statusBar()->showMessage(message, 3000);
+    }
+    return true;
+}
+
+void Window::runScriptsForNodes(const QList<Node*>& nodes, const QString& contextLabel)
+{
+    if (!m_graph) {
+        return;
+    }
+
+    QSet<Node*> visited;
+    int attempted = 0;
+    int succeeded = 0;
+
+    for (Node* node : nodes) {
+        if (!node || visited.contains(node)) {
+            continue;
+        }
+        visited.insert(node);
+        if (!nodeHasScript(node)) {
+            continue;
+        }
+        ++attempted;
+        if (runScriptForNode(node)) {
+            ++succeeded;
+        }
+    }
+
+    QString summary;
+    if (attempted == 0) {
+        summary = QString("No scripted nodes in %1").arg(contextLabel);
+    } else {
+        summary = QString("Scripts executed for %1 (%2/%3 succeeded)")
+                      .arg(contextLabel)
+                      .arg(succeeded)
+                      .arg(attempted);
+    }
+    qDebug() << "[ScriptRunner]" << summary;
+    if (statusBar()) {
+        statusBar()->showMessage(summary, 4000);
+    }
 }
 
 // ============================================================================

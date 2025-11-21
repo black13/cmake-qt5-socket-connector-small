@@ -1,5 +1,6 @@
 #include "view.h"
 #include "scene.h"
+#include "node.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QDragEnterEvent>
@@ -9,6 +10,7 @@
 #include <QPainter>
 #include <QDebug>
 #include <QApplication>
+#include <QContextMenuEvent>
 
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -168,4 +170,12 @@ void View::drawBackground(QPainter* painter, const QRectF& rect)
 {
     // Simple grid background
     QGraphicsView::drawBackground(painter, rect);
+}
+
+void View::contextMenuEvent(QContextMenuEvent* event)
+{
+    QPointF scenePos = mapToScene(event->pos());
+    QGraphicsItem* graphicsItem = itemAt(event->pos());
+    Node* node = dynamic_cast<Node*>(graphicsItem);
+    emit contextMenuRequested(node, event->globalPos(), scenePos);
 }
