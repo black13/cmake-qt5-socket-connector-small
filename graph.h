@@ -90,6 +90,7 @@ public:
     Q_INVOKABLE QVariant executeNodeScript(const QString& nodeId, const QVariantMap& context = QVariantMap());
     Q_INVOKABLE bool setNodePayload(const QString& nodeId, const QVariantMap& payload);
     Q_INVOKABLE QVariantMap getNodePayload(const QString& nodeId) const;
+    Q_INVOKABLE QVariantMap runSyntheticWork(const QVariantMap& request) const;
 
     // ========== Edge Operations ==========
 

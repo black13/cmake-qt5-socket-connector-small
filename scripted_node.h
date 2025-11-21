@@ -9,8 +9,9 @@
  * ScriptedNode - Node subclass that executes embedded JavaScript.
  *
  * Stores a JavaScript snippet, payload key/value data, and exposes a thin API
- * to scripts via ScriptNodeApi. Scripts are compiled once per node using a
- * shared QJSEngine supplied by the Graph facade.
+ * to scripts via ScriptNodeApi (payload helpers + SyntheticWork hook).
+ * Scripts are compiled once per node using a shared QJSEngine supplied by the
+ * Graph facade.
  */
 class ScriptedNode : public Node
 {

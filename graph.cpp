@@ -7,6 +7,7 @@
 #include "socket.h"
 #include "node_templates.h"
 #include "graph_observer.h"
+#include "synthetic_work.h"
 #include <QDebug>
 #include <QFile>
 #include <QGraphicsItem>
@@ -228,6 +229,11 @@ QVariantMap Graph::getNodePayload(const QString& nodeId) const
 {
     const ScriptedNode* scripted = asScripted(findNode(nodeId));
     return scripted ? scripted->payload() : QVariantMap();
+}
+
+QVariantMap Graph::runSyntheticWork(const QVariantMap& request) const
+{
+    return SyntheticWork::run(request);
 }
 
 // ========== Edge Operations ==========

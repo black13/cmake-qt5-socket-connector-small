@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QPainter>
 #include <QPen>
+#include "synthetic_work.h"
 #include <QStyleOptionGraphicsItem>
 #include <libxml/tree.h>
 
@@ -61,6 +62,11 @@ public slots:
     void log(const QString& message)
     {
         qDebug().noquote() << "[ScriptNode]" << message;
+    }
+
+    QVariant runWork(const QVariantMap& request)
+    {
+        return SyntheticWork::run(request);
     }
 
 private:
