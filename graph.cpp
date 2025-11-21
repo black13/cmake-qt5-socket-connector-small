@@ -2,17 +2,32 @@
 #include "scene.h"
 #include "graph_factory.h"
 #include "node.h"
+#include "scripted_node.h"
 #include "edge.h"
 #include "socket.h"
 #include "node_templates.h"
 #include "graph_observer.h"
 #include <QDebug>
 #include <QFile>
-#include <QTextStream>
 #include <QGraphicsItem>
+#include <QTextStream>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
+
+namespace {
+
+ScriptedNode* asScripted(Node* node)
+{
+    return dynamic_cast<ScriptedNode*>(node);
+}
+
+const ScriptedNode* asScripted(const Node* node)
+{
+    return dynamic_cast<const ScriptedNode*>(node);
+}
+
+} // namespace
 
 Graph::Graph(Scene* scene, GraphFactory* factory, QObject* parent)
     : QObject(parent)
@@ -28,6 +43,7 @@ Graph::Graph(Scene* scene, GraphFactory* factory, QObject* parent)
 
     // Initialize JavaScript engine and expose this Graph object
     initializeJavaScript();
+    ScriptedNode::setSharedEngine(m_jsEngine);
 }
 
 Graph::~Graph()
@@ -160,8 +176,58 @@ QVariantMap Graph::getNodeData(const QString& nodeId) const
     data["type"] = node->getNodeType();
     data["x"] = node->pos().x();
     data["y"] = node->pos().y();
+    if (auto scripted = asScripted(node)) {
+        data["script"] = scripted->script();
+        data["payload"] = scripted->payload();
+    }
 
     return data;
+}
+
+bool Graph::setNodeScript(const QString& nodeId, const QString& scriptCode)
+{
+    ScriptedNode* scripted = asScripted(findNode(nodeId));
+    if (!scripted) {
+        qWarning() << "Graph::setNodeScript: node is not SCRIPT type" << nodeId;
+        return false;
+    }
+
+    scripted->setScript(scriptCode);
+    return true;
+}
+
+QString Graph::getNodeScript(const QString& nodeId) const
+{
+    const ScriptedNode* scripted = asScripted(findNode(nodeId));
+    return scripted ? scripted->script() : QString();
+}
+
+QVariant Graph::executeNodeScript(const QString& nodeId, const QVariantMap& context)
+{
+    ScriptedNode* scripted = asScripted(findNode(nodeId));
+    if (!scripted) {
+        qWarning() << "Graph::executeNodeScript: node is not SCRIPT type" << nodeId;
+        return QVariant();
+    }
+
+    return scripted->evaluate(context);
+}
+
+bool Graph::setNodePayload(const QString& nodeId, const QVariantMap& payload)
+{
+    ScriptedNode* scripted = asScripted(findNode(nodeId));
+    if (!scripted) {
+        qWarning() << "Graph::setNodePayload: node is not SCRIPT type" << nodeId;
+        return false;
+    }
+    scripted->setPayload(payload);
+    return true;
+}
+
+QVariantMap Graph::getNodePayload(const QString& nodeId) const
+{
+    const ScriptedNode* scripted = asScripted(findNode(nodeId));
+    return scripted ? scripted->payload() : QVariantMap();
 }
 
 // ========== Edge Operations ==========

@@ -1,5 +1,6 @@
 #include "graph_factory.h"
 #include "node.h"
+#include "scripted_node.h"
 #include "socket.h"
 #include "edge.h"
 #include "scene.h"
@@ -38,9 +39,8 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode, bool addToScene)
         qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
         return nullptr;
     }
-    
-    // Create node directly - template system is the authority
-    Node* node = new Node();
+
+    Node* node = new ScriptedNode();
     node->setNodeType(nodeType);
     
     // Attach observer before reading XML - contract requirement

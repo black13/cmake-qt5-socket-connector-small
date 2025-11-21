@@ -84,6 +84,13 @@ public:
      */
     Q_INVOKABLE QVariantMap getNodeData(const QString& nodeId) const;
 
+    // ========== Scripted Nodes ==========
+    Q_INVOKABLE bool setNodeScript(const QString& nodeId, const QString& scriptCode);
+    Q_INVOKABLE QString getNodeScript(const QString& nodeId) const;
+    Q_INVOKABLE QVariant executeNodeScript(const QString& nodeId, const QVariantMap& context = QVariantMap());
+    Q_INVOKABLE bool setNodePayload(const QString& nodeId, const QVariantMap& payload);
+    Q_INVOKABLE QVariantMap getNodePayload(const QString& nodeId) const;
+
     // ========== Edge Operations ==========
 
     /**

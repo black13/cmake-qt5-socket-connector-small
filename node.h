@@ -50,7 +50,7 @@ public:
     [[nodiscard]] const QUuid& getId() const { return m_id; }
     
     // Self-serialization interface
-    xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const;
+    virtual xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const;
     virtual void read(xmlNodePtr node);
     
     // QGraphicsItem interface

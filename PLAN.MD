@@ -133,7 +133,7 @@
 
 **JavaScript Integration:**
 - [x] Graph operations callable from JavaScript (Graph facade with QJSEngine)
-- [ ] Individual nodes have custom JavaScript behavior
+- [x] Individual nodes have custom JavaScript behavior (any node may persist a `<script>` block + payload via `graph.setNodeScript`, `graph.setNodePayload`, `graph.executeNodeScript`)
 - [ ] Nodes/edges have dynamic payloads (properties, weights, metadata)
 - [ ] Users script node logic without recompiling C++
 - [ ] Complete application scriptable end-to-end
@@ -291,6 +291,7 @@ Document the log file name plus timestamps for each checklist item so reviewers 
 1. Create `scripts/scenario_a.js` replicating the facade steps above (use `console.log` for checkpoints).
 2. Run `./NodeGraph --script scripts/scenario_a.js` and confirm log shows script execution, Graph API calls, and save/load cycle without UI interaction.
 3. Keep the resulting log file references next to the checklist entry.
+4. Use `scripts/scripted_node_demo.js` to exercise per-node scripting (payload mutations, label updates, save/load) and capture logs for regression tracking.
 
 ---
 
@@ -1288,6 +1289,9 @@ graph.saveToFile("my_program.xml");
 - [x] `fix/memory-safety-step-2`: temporarily instrument node/edge constructors/destructors to log instance counts and warn when items are destroyed while still registered; remove once cleanup notifications land.
 - [x] `fix/memory-safety-step-3`: route all destruction through `Scene::notifyNodeDestroyed/notifyEdgeDestroyed`, let `Scene::clear()` rely on those callbacks instead of pre-clearing hashes, and verify logs stay clean before removing the stop-gap validation.
 - [x] `fix/memory-safety-step-4`: remove (or permanently disable) the O(n^2) autosave validation loop, rely on the new notifications for integrity, and keep a compile-time switch only for emergency diagnostics.
+- [x] `fix/memory-safety-step-5`: keep the UUID hash maps (documented decision) because they provide O(1) lookups for scripts/undo; no further refactor needed now that destruction notifications keep them consistent.
+- [ ] `fix/memory-safety-step-6`: documentation & cleanup pass—remove temporary diagnostics once scripting scenarios prove stability, describe the destruction/observer model in README/PLAN, and note the optional autosave guard.
+- Static `Node::s_instanceCount` / `Edge::s_instanceCount` diagnostics stay enabled until we have long-running scripted tests; do not remove them without replacing with an equivalent leak detector.
 ## CMake & Build System Follow-up (Nov 2025)
 - [] Replace hard-coded Qt Windows paths with user-configurable variables or documented environment overrides (QT_ROOT_DIR, Qt5_DIR, CMAKE_PREFIX_PATH).
 - [] Move away from global add_definitions()/BUILD_SHARED_LIBS; prefer target_compile_definitions and isolate FetchContent options.

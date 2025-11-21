@@ -141,7 +141,8 @@ QHash<QString, QString> NodeTypeTemplates::getBuiltinTemplates()
         {"SINK",   R"(<node type="SINK" inputs="1" outputs="0"/>)"},
         {"SPLIT",  R"(<node type="SPLIT" inputs="1" outputs="2"/>)"},
         {"MERGE",  R"(<node type="MERGE" inputs="2" outputs="1"/>)"},
-        {"TRANSFORM", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"}
+        {"TRANSFORM", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"},
+        {"SCRIPT", R"(<node type="SCRIPT" inputs="1" outputs="1"><script language="javascript"></script></node>)"}
     };
     
     return templates;
