@@ -237,12 +237,16 @@ set(CORE_SOURCES
     # Self-serializing architecture
     node.h
     node.cpp
+    scripted_node.h
+    scripted_node.cpp
     socket.h
     socket.cpp
     edge.h
     edge.cpp
     ghost_edge.h
     ghost_edge.cpp
+    synthetic_work.h
+    synthetic_work.cpp
     
     
     # XML-first factory
