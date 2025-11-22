@@ -135,7 +135,8 @@
 - [x] Graph operations callable from JavaScript (Graph facade with QJSEngine)
 - [x] Individual nodes have custom JavaScript behavior (any node may persist a `<script>` block + payload via `graph.setNodeScript`, `graph.setNodePayload`, `graph.executeNodeScript`)
 - [x] Synthetic workload helper: expose a C++ `SyntheticWork::run(request)` utility so scripts can trigger deterministic “heavy” tasks (hashing, math loops, sleeps) without reimplementing them in JS; wire it through `graph.runSyntheticWork()` and the ScriptNode API so both nodes and edges share the same pathway.
-- [x] Context menu tooling: from the graph view you can right-click a node (or selection) to run its script via the Graph facade; logs show `[ScriptRunner]` entries for every invocation, and the status bar surfaces a short summary.
+- [x] Context menu tooling: from the graph view you can right-click a node (or selection) (or Shift+Left click for quick access) to run its script via the Graph facade; logs show `[ScriptRunner]` entries for every invocation, and the status bar surfaces a short summary.
+- [x] Window instrumentation: `Window::showContextMenu` now logs which node/selection triggered the action so scripted-node debugging has traceable context in the main log (easily stripped/macro'd later).
 - [ ] Nodes/edges have dynamic payloads (properties, weights, metadata)
 - [ ] Users script node logic without recompiling C++
 - [ ] Complete application scriptable end-to-end

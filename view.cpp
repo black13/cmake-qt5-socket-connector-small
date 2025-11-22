@@ -35,6 +35,15 @@ View::View(Scene* scene, QWidget* parent)
 
 void View::mousePressEvent(QMouseEvent* event)
 {
+    if ((event->modifiers() & Qt::ShiftModifier) && event->button() == Qt::LeftButton) {
+        QPointF scenePos = mapToScene(event->pos());
+        QGraphicsItem* graphicsItem = itemAt(event->pos());
+        Node* node = dynamic_cast<Node*>(graphicsItem);
+        emit contextMenuRequested(node, event->globalPos(), scenePos);
+        event->accept();
+        return;
+    }
+
     if (event->button() == Qt::LeftButton && dragMode() == QGraphicsView::RubberBandDrag) {
         m_rubberBandSelecting = true;
         m_rubberBandActive = false;

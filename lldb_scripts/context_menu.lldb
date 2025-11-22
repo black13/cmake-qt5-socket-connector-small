@@ -1,0 +1,6 @@
+command script import lldb_scripts/context_menu.py
+breakpoint set --name View::contextMenuEvent
+breakpoint command add
+print_context_menu
+continue
+END

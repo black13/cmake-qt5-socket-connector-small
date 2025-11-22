@@ -868,15 +868,30 @@ void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF&
     QMenu menu(this);
     bool actionsAdded = false;
 
+    QAction* runSelectionAction = nullptr;
+    const QList<Node*> selectedNodes = m_scene->selectedNodes();
+    Node* targetNode = node;
+    if (!targetNode && selectedNodes.size() == 1) {
+        targetNode = selectedNodes.first();
+    }
+
+    if (targetNode) {
+        qDebug() << "[ContextMenu] Target node"
+                 << targetNode->getId().toString(QUuid::WithoutBraces)
+                 << "type" << targetNode->getNodeType()
+                 << "scripted=" << nodeHasScript(targetNode);
+    } else {
+        qDebug() << "[ContextMenu] No direct node under cursor; selection count="
+                 << selectedNodes.size();
+    }
+
     QAction* runNodeAction = nullptr;
-    if (node) {
+    if (targetNode) {
         runNodeAction = menu.addAction("Run Script");
-        runNodeAction->setEnabled(nodeHasScript(node));
+        runNodeAction->setEnabled(nodeHasScript(targetNode));
         actionsAdded = true;
     }
 
-    QAction* runSelectionAction = nullptr;
-    const QList<Node*> selectedNodes = m_scene->selectedNodes();
     if (!selectedNodes.isEmpty()) {
         runSelectionAction = menu.addAction("Run Scripts for Selection");
         bool hasScriptInSelection = false;
@@ -911,20 +926,25 @@ void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF&
 
     QAction* chosenAction = menu.exec(screenPos);
     if (!chosenAction) {
+        qDebug() << "[ContextMenu] Menu dismissed without action";
         return;
     }
 
-    if (chosenAction == runNodeAction && node) {
-        runScriptForNode(node);
+    if (chosenAction == runNodeAction && targetNode) {
+        qDebug() << "[ContextMenu] Run Script chosen for"
+                 << targetNode->getId().toString(QUuid::WithoutBraces);
+        runScriptForNode(targetNode);
         return;
     }
 
     if (chosenAction == runSelectionAction) {
+        qDebug() << "[ContextMenu] Run Scripts for Selection chosen (" << selectedNodes.size() << "nodes )";
         runScriptsForNodes(selectedNodes, QStringLiteral("selection"));
         return;
     }
 
     if (chosenAction == runAllAction) {
+        qDebug() << "[ContextMenu] Run Scripts (All Nodes) chosen";
         runScriptsForNodes(nodesHash.values(), QStringLiteral("graph"));
         return;
     }
