@@ -152,6 +152,16 @@ void ScriptedNode::setPayload(const QVariantMap& payload)
     m_payload = payload;
 }
 
+/**
+ * @brief Run the node's JavaScript snippet synchronously.
+ *
+ * Invoked via Graph::executeNodeScript (context menu, CLI scripts, autosave
+ * validations). The work happens on the UI thread, so scripts must be quick;
+ * long-running operations will block the UI until the script returns.
+ *
+ * @param context Key/value map passed from the caller (currently unused).
+ * @return QVariant result provided by the script (cached in m_lastResult).
+ */
 QVariant ScriptedNode::evaluate(const QVariantMap& context)
 {
     QJSValue result = callScript(context);

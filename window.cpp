@@ -858,6 +858,16 @@ bool Window::deleteSelection()
     return deleted;
 }
 
+/**
+ * @brief Surface context actions for scripted nodes.
+ *
+ * Triggered from View::contextMenuEvent, which requires Shift+Right-click so
+ * ghost-edge drag continues to use plain right-click. Offers three actions:
+ *   - Direct node (under cursor) → Run Script
+ *   - Current selection (multi-node) → Run Scripts for Selection
+ *   - Entire graph → Run Scripts (All Nodes)
+ * All actions ultimately call Graph::executeNodeScript so CLI/UI remain in sync.
+ */
 void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF& scenePos)
 {
     Q_UNUSED(scenePos);
