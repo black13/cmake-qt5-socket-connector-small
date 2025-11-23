@@ -7,10 +7,14 @@
 #include <QPainter>
 #include <QPen>
 #include "synthetic_work.h"
+#include "socket.h"
 #include <QStyleOptionGraphicsItem>
 #include <libxml/tree.h>
 
 // QObject wrapper exposed to JavaScript so scripts interact with C++ safely.
+// Every method here is intentional: keep the surface area tight so scripts
+// can read/write payloads, log, run synthetic workloads, and inspect basic
+// metadata (id/type/sockets/edges) without poking raw C++ pointers.
 class ScriptNodeApi : public QObject
 {
     Q_OBJECT
@@ -69,6 +73,56 @@ public slots:
         return SyntheticWork::run(request);
     }
 
+    QString nodeId() const
+    {
+        if (!m_node) {
+            return {};
+        }
+        return m_node->getId().toString(QUuid::WithoutBraces);
+    }
+
+    QString nodeType() const
+    {
+        if (!m_node) {
+            return {};
+        }
+        return m_node->getNodeType();
+    }
+
+    int socketCount(int role) const
+    {
+        if (!m_node) {
+            return 0;
+        }
+        const Socket::Role socketRole = (role == Socket::Input) ? Socket::Input : Socket::Output;
+        if (socketRole == Socket::Input) {
+            return m_node->getInputSockets().size();
+        }
+        return m_node->getOutputSockets().size();
+    }
+
+    int edgeCount() const
+    {
+        if (!m_node) {
+            return 0;
+        }
+        return m_node->getIncidentEdges().size();
+    }
+
+    QVariantMap info() const
+    {
+        QVariantMap map;
+        if (!m_node) {
+            return map;
+        }
+        map.insert(QStringLiteral("id"), nodeId());
+        map.insert(QStringLiteral("type"), nodeType());
+        map.insert(QStringLiteral("inputCount"), m_node->getInputSockets().size());
+        map.insert(QStringLiteral("outputCount"), m_node->getOutputSockets().size());
+        map.insert(QStringLiteral("edgeCount"), m_node->getIncidentEdges().size());
+        return map;
+    }
+
 private:
     ScriptedNode* m_node;
 };
@@ -122,6 +176,9 @@ void ScriptedNode::setDisplayLabel(const QString& text)
     update();
 }
 
+// Serialize the node and embed <script> / <payload> children so behavior
+// persists through save/load. Called whenever the graph is saved (including
+// immediately after palette drop, so new nodes carry their starter script).
 xmlNodePtr ScriptedNode::write(xmlDocPtr doc, xmlNodePtr repr) const
 {
     xmlNodePtr nodeElement = Node::write(doc, repr);

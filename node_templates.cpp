@@ -136,12 +136,52 @@ int NodeTypeTemplates::loadFromFile(const QString& templateFilePath)
 QHash<QString, QString> NodeTypeTemplates::getBuiltinTemplates()
 {
     static QHash<QString, QString> templates = {
-        // Core node types with socket configurations
-        {"SOURCE", R"(<node type="SOURCE" inputs="0" outputs="1"/>)"},
-        {"SINK",   R"(<node type="SINK" inputs="1" outputs="0"/>)"},
-        {"SPLIT",  R"(<node type="SPLIT" inputs="1" outputs="2"/>)"},
-        {"MERGE",  R"(<node type="MERGE" inputs="2" outputs="1"/>)"},
-        {"TRANSFORM", R"(<node type="TRANSFORM" inputs="1" outputs="1"/>)"},
+        // Core node types with socket configurations and starter scripts
+        {"SOURCE", R"(
+            <node type="SOURCE" inputs="0" outputs="1">
+                <script language="javascript">
+                    <![CDATA[
+                        var info = node.info();
+                        node.log("SOURCE ready id=" + info.id + " outs=" + info.outputCount);
+                    ]]>
+                </script>
+            </node>)"},
+        {"SINK", R"(
+            <node type="SINK" inputs="1" outputs="0">
+                <script language="javascript">
+                    <![CDATA[
+                        var info = node.info();
+                        node.log("SINK ready id=" + info.id + " ins=" + info.inputCount);
+                    ]]>
+                </script>
+            </node>)"},
+        {"SPLIT", R"(
+            <node type="SPLIT" inputs="1" outputs="2">
+                <script language="javascript">
+                    <![CDATA[
+                        var info = node.info();
+                        node.log("SPLIT ready sockets=" + info.inputCount + "/" + info.outputCount);
+                    ]]>
+                </script>
+            </node>)"},
+        {"MERGE", R"(
+            <node type="MERGE" inputs="2" outputs="1">
+                <script language="javascript">
+                    <![CDATA[
+                        var info = node.info();
+                        node.log("MERGE ready sockets=" + info.inputCount + "/" + info.outputCount);
+                    ]]>
+                </script>
+            </node>)"},
+        {"TRANSFORM", R"(
+            <node type="TRANSFORM" inputs="1" outputs="1">
+                <script language="javascript">
+                    <![CDATA[
+                        var info = node.info();
+                        node.log("TRANSFORM ready edges=" + info.edgeCount);
+                    ]]>
+                </script>
+            </node>)"},
         {"SCRIPT", R"(<node type="SCRIPT" inputs="1" outputs="1"><script language="javascript"></script></node>)"}
     };
     

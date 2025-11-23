@@ -103,6 +103,7 @@ public:
     
     // Debug/testing helper
     [[nodiscard]] int getIncidentEdgeCount() const { return m_incidentEdges.size(); }
+    [[nodiscard]] const QSet<Edge*>& getIncidentEdges() const { return m_incidentEdges; }
 
     // Typed socket access (eliminates qgraphicsitem_cast)
     [[nodiscard]] const QVector<Socket*>& inputSockets() const { return m_inputSockets; }

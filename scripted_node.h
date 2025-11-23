@@ -6,12 +6,19 @@
 #include <QVariantMap>
 
 /**
- * ScriptedNode - Node subclass that executes embedded JavaScript.
- *
- * Stores a JavaScript snippet, payload key/value data, and exposes a thin API
- * to scripts via ScriptNodeApi (payload helpers + SyntheticWork hook).
- * Scripts are compiled once per node using a shared QJSEngine supplied by the
- * Graph facade.
+ * ============================================================================
+ * ScriptedNode – Lightweight scripting surface for each visual node
+ * ----------------------------------------------------------------------------
+ *  - Every node instance is created as a ScriptedNode; no special “script” type
+ *  - Stores a per-node JavaScript snippet plus payload key/value map
+ *  - Exposes a guarded API (ScriptNodeApi) to scripts: payload helpers, runWork,
+ *    metadata (id/type/socket counts/edge counts) so scripts can inspect their
+ *    C++ host safely
+ *  - Scripts are compiled lazily with a shared QJSEngine owned by Graph
+ *  - Serialized via `<script>` / `<payload>` children so behavior survives save/load.
+ *    (Autosave runs immediately after palette drops, so starter scripts are persisted
+ *     as soon as a node lands on the scene.)
+ * ============================================================================
  */
 class ScriptedNode : public Node
 {

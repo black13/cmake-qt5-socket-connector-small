@@ -183,6 +183,11 @@ void View::drawBackground(QPainter* painter, const QRectF& rect)
 
 void View::contextMenuEvent(QContextMenuEvent* event)
 {
+    if (!(event->modifiers() & Qt::ShiftModifier)) {
+        event->ignore();
+        return;
+    }
+
     QPointF scenePos = mapToScene(event->pos());
     QGraphicsItem* graphicsItem = itemAt(event->pos());
     Node* node = dynamic_cast<Node*>(graphicsItem);

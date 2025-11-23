@@ -965,6 +965,7 @@ bool Window::runScriptForNode(Node* node)
         return false;
     }
 
+    // Operate through Graph facade so JavaScript + logging stay consistent.
     if (!nodeHasScript(node)) {
         qDebug() << "[ScriptRunner] Node has no script:" << node->getId().toString(QUuid::WithoutBraces);
         if (statusBar()) {
@@ -974,6 +975,8 @@ bool Window::runScriptForNode(Node* node)
     }
 
     const QString nodeId = node->getId().toString();
+    // Scripts always run via Graph::executeNodeScript so autosave/logging hooks
+    // remain centralized (context menu, CLI, future editor all share the pathway).
     QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
     QString label = QString("%1 [%2]").arg(node->getNodeType(),
                                            node->getId().toString(QUuid::WithoutBraces).left(8));
