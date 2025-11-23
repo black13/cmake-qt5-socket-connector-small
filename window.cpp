@@ -885,6 +885,11 @@ void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF&
         targetNode = selectedNodes.first();
     }
 
+    qDebug() << "[ContextMenu] invoked at" << screenPos
+             << "scene" << scenePos
+             << "hoveredNode=" << (node ? node->getId().toString(QUuid::WithoutBraces) : "<none>")
+             << "selectionCount=" << selectedNodes.size();
+
     if (targetNode) {
         qDebug() << "[ContextMenu] Target node"
                  << targetNode->getId().toString(QUuid::WithoutBraces)
@@ -960,6 +965,13 @@ void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF&
     }
 }
 
+/**
+ * @brief Helper to check if a node currently has a script attached.
+ *
+ * Ensures both the node and Graph facade exist, then queries the facade for the
+ * stored JavaScript snippet. Used by context-menu code to enable/disable script
+ * actions.
+ */
 bool Window::nodeHasScript(Node* node) const
 {
     if (!node || !m_graph) {
@@ -969,15 +981,22 @@ bool Window::nodeHasScript(Node* node) const
     return !script.trimmed().isEmpty();
 }
 
+/**
+ * @brief Execute a node's script via Graph::executeNodeScript.
+ *
+ * Runs synchronously on the UI thread, so long-running scripts will block the
+ * interface. Logs before/after execution so context menu/CLI actions are easy
+ * to trace.
+ */
 bool Window::runScriptForNode(Node* node)
 {
     if (!node || !m_graph) {
         return false;
     }
 
-    // Operate through Graph facade so JavaScript + logging stay consistent.
     if (!nodeHasScript(node)) {
-        qDebug() << "[ScriptRunner] Node has no script:" << node->getId().toString(QUuid::WithoutBraces);
+        const QString nodeLabel = node->getId().toString(QUuid::WithoutBraces);
+        qDebug() << "[ScriptRunner] Node has no script:" << nodeLabel;
         if (statusBar()) {
             statusBar()->showMessage("Node has no script", 2000);
         }
@@ -985,15 +1004,15 @@ bool Window::runScriptForNode(Node* node)
     }
 
     const QString nodeId = node->getId().toString();
-    // Scripts always run via Graph::executeNodeScript so autosave/logging hooks
-    // remain centralized (context menu, CLI, future editor all share the pathway).
-    // WARNING: this call is synchronous—expensive scripts block the UI thread.
-    // Future async execution will require a task queue or background worker.
+    const QString label = QString("%1 [%2]")
+                             .arg(node->getNodeType(),
+                                  node->getId().toString(QUuid::WithoutBraces).left(8));
+    qDebug() << "[ScriptRunner] Running script for" << label;
+
     QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
-    QString label = QString("%1 [%2]").arg(node->getNodeType(),
-                                           node->getId().toString(QUuid::WithoutBraces).left(8));
+    qDebug() << "[ScriptRunner] Result for" << label << ":" << result;
+
     QString message = QString("Script executed on %1").arg(label);
-    qDebug() << "[ScriptRunner]" << message << "result:" << result;
     if (statusBar()) {
         statusBar()->showMessage(message, 3000);
     }
