@@ -977,6 +977,8 @@ bool Window::runScriptForNode(Node* node)
     const QString nodeId = node->getId().toString();
     // Scripts always run via Graph::executeNodeScript so autosave/logging hooks
     // remain centralized (context menu, CLI, future editor all share the pathway).
+    // WARNING: this call is synchronous—expensive scripts block the UI thread.
+    // Future async execution will require a task queue or background worker.
     QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
     QString label = QString("%1 [%2]").arg(node->getNodeType(),
                                            node->getId().toString(QUuid::WithoutBraces).left(8));
