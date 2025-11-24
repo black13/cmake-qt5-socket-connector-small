@@ -11,10 +11,13 @@
 #include <QStyleOptionGraphicsItem>
 #include <libxml/tree.h>
 
-// QObject wrapper exposed to JavaScript so scripts interact with C++ safely.
-// Every method here is intentional: keep the surface area tight so scripts
-// can read/write payloads, log, run synthetic workloads, and inspect basic
-// metadata (id/type/sockets/edges) without poking raw C++ pointers.
+/**
+ * @brief QObject wrapper exposed to JavaScript so scripts interact with C++ safely.
+ *
+ * Every method here is intentional: keep the surface area tight so scripts
+ * can read/write payloads, log, run synthetic workloads, and inspect basic
+ * metadata (id/type/sockets/edges) without poking raw C++ pointers.
+ */
 class ScriptNodeApi : public QObject
 {
     Q_OBJECT
@@ -47,6 +50,14 @@ public slots:
     QVariantMap payload() const
     {
         return m_node ? m_node->payload() : QVariantMap();
+    }
+
+    QString label() const
+    {
+        if (!m_node) {
+            return {};
+        }
+        return m_node->displayLabel();
     }
 
     void setPayload(const QVariantMap& payload)
@@ -117,6 +128,7 @@ public slots:
         }
         map.insert(QStringLiteral("id"), nodeId());
         map.insert(QStringLiteral("type"), nodeType());
+        map.insert(QStringLiteral("label"), label());
         map.insert(QStringLiteral("inputCount"), m_node->getInputSockets().size());
         map.insert(QStringLiteral("outputCount"), m_node->getOutputSockets().size());
         map.insert(QStringLiteral("edgeCount"), m_node->getIncidentEdges().size());
@@ -186,9 +198,12 @@ void ScriptedNode::setDisplayLabel(const QString& text)
     update();
 }
 
-// Serialize the node and embed <script> / <payload> children so behavior
-// persists through save/load. Called whenever the graph is saved (including
-// immediately after palette drop, so new nodes carry their starter script).
+/**
+ * @brief Serialize the node, embedding <script>/<payload> children.
+ *
+ * Called whenever the graph is saved (including immediately after palette drop,
+ * so starter scripts persist). This is what lets autosave capture script edits.
+ */
 xmlNodePtr ScriptedNode::write(xmlDocPtr doc, xmlNodePtr repr) const
 {
     xmlNodePtr nodeElement = Node::write(doc, repr);

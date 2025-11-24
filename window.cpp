@@ -861,8 +861,8 @@ bool Window::deleteSelection()
 /**
  * @brief Surface context actions for scripted nodes.
  *
- * Triggered from View::contextMenuEvent, which requires Shift+Right-click so
- * ghost-edge drag continues to use plain right-click. Offers three actions:
+ * Triggered via View's Shift+Left gesture so ghost-edge drag retains the plain
+ * right-click. Offers three actions:
  *   - Direct node (under cursor) → Run Script
  *   - Current selection (multi-node) → Run Scripts for Selection
  *   - Entire graph → Run Scripts (All Nodes)
@@ -873,6 +873,14 @@ void Window::showContextMenu(Node* node, const QPoint& screenPos, const QPointF&
     Q_UNUSED(scenePos);
     if (!m_graph) {
         return;
+    }
+
+    if (node) {
+        qDebug() << "[ContextMenu] showContextMenu for node"
+                 << node->getNodeType()
+                 << node->getId().toString(QUuid::WithoutBraces);
+    } else {
+        qDebug() << "[ContextMenu] showContextMenu with no direct node under cursor";
     }
 
     QMenu menu(this);
@@ -977,8 +985,13 @@ bool Window::nodeHasScript(Node* node) const
     if (!node || !m_graph) {
         return false;
     }
-    const QString script = m_graph->getNodeScript(node->getId().toString());
-    return !script.trimmed().isEmpty();
+    const QString nodeId = node->getId().toString();
+    const QString script = m_graph->getNodeScript(nodeId);
+    const bool hasScript = !script.trimmed().isEmpty();
+    qDebug() << "[ScriptRunner] nodeHasScript" << nodeId
+             << "type" << node->getNodeType()
+             << "hasScript=" << hasScript;
+    return hasScript;
 }
 
 /**
@@ -1019,6 +1032,12 @@ bool Window::runScriptForNode(Node* node)
     return true;
 }
 
+/**
+ * @brief Iterate over a set of nodes and execute scripts where available.
+ *
+ * @param nodes Collection to inspect.
+ * @param contextLabel Label for log/status output (e.g., "selection" or "graph").
+ */
 void Window::runScriptsForNodes(const QList<Node*>& nodes, const QString& contextLabel)
 {
     if (!m_graph) {

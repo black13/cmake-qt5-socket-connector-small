@@ -12,6 +12,12 @@
 #include <QApplication>
 #include <QContextMenuEvent>
 
+/**
+ * @brief Construct the custom graphics view used by the editor.
+ *
+ * Enables antialiasing, drag/drop, and rubber-band selection so the Scene can
+ * focus strictly on node/edge logic. All per-view visual tweaks live here.
+ */
 View::View(Scene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
     , m_scene(scene)
@@ -33,12 +39,18 @@ View::View(Scene* scene, QWidget* parent)
     setAcceptDrops(true);
 }
 
+/**
+ * @brief Handle mouse press. Shift+Left spawns scripted-node menu, otherwise pass to base view.
+ */
 void View::mousePressEvent(QMouseEvent* event)
 {
     if ((event->modifiers() & Qt::ShiftModifier) && event->button() == Qt::LeftButton) {
         QPointF scenePos = mapToScene(event->pos());
         QGraphicsItem* graphicsItem = itemAt(event->pos());
         Node* node = dynamic_cast<Node*>(graphicsItem);
+        qDebug() << "View: Shift+Left context trigger at" << event->pos()
+                 << "scene" << scenePos
+                 << "node" << (node ? node->getNodeType() : "<none>");
         emit contextMenuRequested(node, event->globalPos(), scenePos);
         event->accept();
         return;
@@ -54,6 +66,9 @@ void View::mousePressEvent(QMouseEvent* event)
     QGraphicsView::mousePressEvent(event);
 }
 
+/**
+ * @brief Track rubber-band selection progress for debug logging.
+ */
 void View::mouseMoveEvent(QMouseEvent* event)
 {
     if (m_rubberBandSelecting && !m_rubberBandActive) {
@@ -70,6 +85,9 @@ void View::mouseMoveEvent(QMouseEvent* event)
     QGraphicsView::mouseMoveEvent(event);
 }
 
+/**
+ * @brief Reset rubber-band flags when the mouse is released.
+ */
 void View::mouseReleaseEvent(QMouseEvent* event)
 {
     QGraphicsView::mouseReleaseEvent(event);
@@ -80,6 +98,9 @@ void View::mouseReleaseEvent(QMouseEvent* event)
     }
 }
 
+/**
+ * @brief Simple zoom handler using the mouse wheel.
+ */
 void View::wheelEvent(QWheelEvent* event)
 {
     // Simple zoom
@@ -91,6 +112,9 @@ void View::wheelEvent(QWheelEvent* event)
     }
 }
 
+/**
+ * @brief Accept drag operations that carry node template data.
+ */
 void View::dragEnterEvent(QDragEnterEvent* event)
 {
     qDebug() << "View: Drag enter event received";
@@ -110,6 +134,9 @@ void View::dragEnterEvent(QDragEnterEvent* event)
     }
 }
 
+/**
+ * @brief Allow drag moves for node templates, logging every few events.
+ */
 void View::dragMoveEvent(QDragMoveEvent* event)
 {
     // Allow drag movement if it contains node template data
@@ -127,6 +154,9 @@ void View::dragMoveEvent(QDragMoveEvent* event)
     }  
 }
 
+/**
+ * @brief Decode dropped node template data and emit nodeDropped().
+ */
 void View::dropEvent(QDropEvent* event)
 {
     qDebug() << "View: Drop event received";
@@ -175,21 +205,20 @@ void View::dropEvent(QDropEvent* event)
     }
 }
 
+/**
+ * @brief Draw the scene background (currently delegates to base class).
+ */
 void View::drawBackground(QPainter* painter, const QRectF& rect)
 {
     // Simple grid background
     QGraphicsView::drawBackground(painter, rect);
 }
 
+/**
+ * @brief Suppress the native context menu; scripted menu is Shift+Left only.
+ */
 void View::contextMenuEvent(QContextMenuEvent* event)
 {
-    if (!(event->modifiers() & Qt::ShiftModifier)) {
-        event->ignore();
-        return;
-    }
-
-    QPointF scenePos = mapToScene(event->pos());
-    QGraphicsItem* graphicsItem = itemAt(event->pos());
-    Node* node = dynamic_cast<Node*>(graphicsItem);
-    emit contextMenuRequested(node, event->globalPos(), scenePos);
+    Q_UNUSED(event);
+    qDebug() << "View: Native context menu suppressed. Use Shift+Left click.";
 }
