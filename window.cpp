@@ -242,6 +242,9 @@ void Window::keyPressEvent(QKeyEvent* event)
     QMainWindow::keyPressEvent(event);
 }
 
+/**
+ * @brief Remember current filename and refresh window title.
+ */
 void Window::setCurrentFile(const QString& filename)
 {
     m_currentFile = filename;
@@ -254,6 +257,9 @@ void Window::setCurrentFile(const QString& filename)
     }
 }
 
+/**
+ * @brief Store CLI --script path for execution once the window is visible.
+ */
 void Window::setStartupScript(const QString& scriptPath)
 {
     m_startupScript = scriptPath;
@@ -261,6 +267,9 @@ void Window::setStartupScript(const QString& scriptPath)
     // TODO: Execute script in showEvent() after event loop is running
 }
 
+/**
+ * @brief Serialize the graph to disk using Node/Edge::write().
+ */
 bool Window::saveGraph(const QString& filename)
 {
     qDebug() << "Saving graph to:" << filename;
@@ -321,6 +330,9 @@ bool Window::saveGraph(const QString& filename)
     }
 }
 
+/**
+ * @brief Load graph XML via Graph facade + template system.
+ */
 bool Window::loadGraph(const QString& filename)
 {
     if (!m_factory) {
@@ -350,6 +362,9 @@ bool Window::loadGraph(const QString& filename)
     return ok;
 }
 
+/**
+ * @brief Create a SOURCE node near the current viewport center.
+ */
 void Window::createInputNode()
 {
     if (!m_graph) {
@@ -377,6 +392,9 @@ void Window::createInputNode()
     }
 }
 
+/**
+ * @brief Create a SINK node near the current viewport center.
+ */
 void Window::createOutputNode()
 {
     if (!m_graph) {
@@ -404,6 +422,9 @@ void Window::createOutputNode()
     }
 }
 
+/**
+ * @brief Create a TRANSFORM node near the current viewport center.
+ */
 void Window::createProcessorNode()
 {
     if (!m_graph) {

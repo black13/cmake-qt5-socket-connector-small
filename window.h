@@ -44,46 +44,57 @@ class Window : public QMainWindow
     Q_OBJECT
     
 public:
+    /**
+     * @brief Construct the main applicaton window and attach default UI.
+     */
     explicit Window(QWidget* parent = nullptr);
     ~Window();
     
-    // Adopt an external factory (non-owning)
+    /**
+     * @brief Provide an already-created GraphFactory (Window does not own it).
+     */
     void adoptFactory(GraphFactory* factory);
 
-    // Access to scene for testing
+    /// @return Underlying Scene (primarily for testing helpers).
     [[nodiscard]] Scene* getScene() const { return m_scene; }
 
-    // Access to graph facade
+    /// @return Graph facade powering UI + scripting.
     [[nodiscard]] Graph* getGraph() const { return m_graph; }
 
-    // Set startup script (for CLI --script option)
+    /**
+     * @brief Register a startup script path (CLI --script).
+     *
+     * Executed once during showEvent().
+     */
     void setStartupScript(const QString& scriptPath);
 
-    // Update status bar with current graph information
+    /**
+     * @brief Refresh status-bar widgets with graph statistics.
+     */
     void updateStatusBar();
-
-    // Snapshot current scene to PNG (useful for documentation)
-
-    // All testing/automation goes through JavaScript + Graph facade
 
 protected:
     void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
 public slots:
-    // Scene event handlers
+    /// Scene change callbacks wired to GraphSubject observers.
     void onSceneChanged();
     void onSelectionChanged();
+
+    /**
+     * @brief Open scripted-node context menu (invoked from View).
+     */
     void showContextMenu(Node* node, const QPoint& screenPos, const QPointF& scenePos);
     
-    // Basic XML saving functionality
+    /// Basic XML save/load entry points.
     bool saveGraph(const QString& filename);
     bool loadGraph(const QString& filename);
     
-    // File management
+    /// File management helpers.
     void setCurrentFile(const QString& filename);
     [[nodiscard]] QString getCurrentFile() const { return m_currentFile; }
     
-    // Interactive node creation
+    /// Interactive node creation shortcuts.
     void createInputNode();
     void createOutputNode();
     void createProcessorNode();
@@ -112,15 +123,16 @@ private slots:
     void updateSelectionInfo();
     
 protected:
-    // Handle keyboard shortcuts
+    /// Handle Delete/shortcut dispatch that can't live in Scene.
     void keyPressEvent(QKeyEvent* event) override;
     
-    // UI initialization that doesn't need m_factory
+    /// Initialize UI components that do not require GraphFactory.
     void initializeUi();
     
-    // Setup that depends on m_factory
+    /// Perform setup that depends on m_factory (palette/templates).
     void initializeWithFactory();
 
+    /// Delete selected nodes/edges via Graph facade.
     bool deleteSelection();
 
 private:
@@ -183,8 +195,12 @@ private:
     // Helpers for visual tests
     void restoreCurrentFile();     // reload m_currentFile if set, else clear
     void restoreJustLoadedFile();
+
+    /// Run a scripted node individually (context menu helper).
     bool runScriptForNode(Node* node);
+    /// Execute scripts for a batch of nodes (selection/all).
     void runScriptsForNodes(const QList<Node*>& nodes, const QString& contextLabel);
+    /// Query Graph facade to see if a node has script text.
     bool nodeHasScript(Node* node) const;
 
     // JavaScript integration will be added via Graph facade

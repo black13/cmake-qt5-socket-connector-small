@@ -7,29 +7,22 @@
 
 ## 🎯 NEXT STEP (Session Resume)
 
-**Current Status:**
-- Branch: `docs-plan-consolidation` (merging Branch 1.5)
-- qgraphicsitem_cast count: **0 remaining** (ghost-edge casts eliminated)
-- Additional safety: replaced unsafe static_cast with qobject_cast where applicable
-  - node.cpp: scene() casts → qobject_cast
-  - node_palette_widget.cpp: sender() cast → qobject_cast
-- Working tree consolidation: screenshots tracked; generated helpers ignored via `.gitignore`
-- Recent completions: Branch 1.5 (ghost edge typed access), Branch 1.7 (factory typed serialization + VS debugger PATH fix)
+**Current Status (Nov 24, 2025):**
+- Branch: `main` (feature/node-javascript-behavior merged)
+- Scripting UX: Shift+Left context menu, per-node JS logging, default summary scripts
+- Diagnostics: Scene cleanup logging, scripted-node API docs, TEMP helper script `thescript.sh`
 
-**BLOCKING ISSUE - Linux Build:**
-- Qt debug build (`/opt/qt5.15.7-debug`) requires GLIBCXX_3.4.30 and 3.4.32
-- System GCC 13.3.0 has older GLIBCXX version
-- Need to either:
-  1. Rebuild Qt debug with current system GCC (preferred for long-term)
-  2. Upgrade system libstdc++ to match Qt's requirements
-  3. Use Qt release build temporarily (not ideal for debugging)
-- Error: `undefined reference to std::condition_variable::wait(std::unique_lock<std::mutex>&)@GLIBCXX_3.4.30`
+**Polish Cycle – Branch Per Goal**
+1. `polish/snap-grid` – refine grid rendering & snapping indicator
+2. `polish/view-navigation` – smoother zoom/pan, recenter shortcuts
+3. `polish/context-menu` – UX tweaks for scripted-node menu (disabled states, log hygiene)
+4. `polish/status-logging` – consolidate log spam, add concise status HUD for scripts/saves
+5. `polish/selection-copy` – prep selection HUD for future copy/paste/undo work
 
-**RECOMMENDED NEXT TASK (after Linux build fixed):**
-- Phase 2.1: Implement Graph::saveToFile() (facade save)
-- Phase 2.2: Node position precision (serialize pos() not m_lastPos)
+**Tooling / Samples**
+- `scripts/generate_graph.py` produces sample XML graphs (pipeline, split-merge) so we can quickly load larger scratch-pad layouts and test snapping/selection behavior.
 
-**Parallel Prep:** Gather notes/screens for Phase 2.6 (view/navigation + spacing).
+Each branch: `git checkout -b polish/<topic>`, run targeted fixes, build/test, then PR into `main`.
 ---
 
 ## Observer & Rendering Next Steps (Nov 2025)

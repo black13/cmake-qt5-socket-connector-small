@@ -11,6 +11,8 @@
 #include <QDebug>
 #include <QApplication>
 #include <QContextMenuEvent>
+#include <QtMath>
+#include <cmath>
 
 /**
  * @brief Construct the custom graphics view used by the editor.
@@ -83,6 +85,10 @@ void View::mouseMoveEvent(QMouseEvent* event)
         }
     }
     QGraphicsView::mouseMoveEvent(event);
+
+    m_lastMouseScenePos = mapToScene(event->pos());
+    m_mouseInside = true;
+    viewport()->update();
 }
 
 /**
@@ -206,12 +212,53 @@ void View::dropEvent(QDropEvent* event)
 }
 
 /**
- * @brief Draw the scene background (currently delegates to base class).
+ * @brief Draw the scene background with a minor/major grid.
  */
 void View::drawBackground(QPainter* painter, const QRectF& rect)
 {
-    // Simple grid background
     QGraphicsView::drawBackground(painter, rect);
+
+    if (!m_showGrid || m_minorGridSpacing <= 0.0) {
+        return;
+    }
+
+    const qreal spacing = m_minorGridSpacing;
+    const int majorInterval = qMax(1, m_majorLineInterval);
+
+    const int firstX = static_cast<int>(std::floor(rect.left() / spacing));
+    const int lastX = static_cast<int>(std::ceil(rect.right() / spacing));
+    const int firstY = static_cast<int>(std::floor(rect.top() / spacing));
+    const int lastY = static_cast<int>(std::ceil(rect.bottom() / spacing));
+
+    const QPen minorPen(QColor(255, 255, 255, 20));
+    const QPen majorPen(QColor(255, 255, 255, 60));
+    const QPen axisPen(QColor(82, 156, 255, 180));
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+
+    auto penForCoordinate = [&](qreal coordinate, bool isMajor) -> QPen {
+        if (qFuzzyIsNull(coordinate)) {
+            return axisPen;
+        }
+        return isMajor ? majorPen : minorPen;
+    };
+
+    for (int i = firstX; i <= lastX; ++i) {
+        const qreal x = static_cast<qreal>(i) * spacing;
+        const bool major = (i % majorInterval) == 0;
+        painter->setPen(penForCoordinate(x, major));
+        painter->drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()));
+    }
+
+    for (int j = firstY; j <= lastY; ++j) {
+        const qreal y = static_cast<qreal>(j) * spacing;
+        const bool major = (j % majorInterval) == 0;
+        painter->setPen(penForCoordinate(y, major));
+        painter->drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y));
+    }
+
+    painter->restore();
 }
 
 /**
@@ -221,4 +268,69 @@ void View::contextMenuEvent(QContextMenuEvent* event)
 {
     Q_UNUSED(event);
     qDebug() << "View: Native context menu suppressed. Use Shift+Left click.";
+}
+
+/**
+ * @brief Draw the snap preview crosshair.
+ */
+void View::drawForeground(QPainter* painter, const QRectF& rect)
+{
+    QGraphicsView::drawForeground(painter, rect);
+
+    Q_UNUSED(rect);
+    if (!m_showSnapIndicator || !m_mouseInside || m_minorGridSpacing <= 0.0) {
+        return;
+    }
+
+    const QPointF snapPoint = snapToGrid(m_lastMouseScenePos);
+    const qreal spacing = m_minorGridSpacing;
+    const qreal arm = qMax<qreal>(6.0, spacing * 0.35);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+    painter->setPen(QPen(QColor(82, 156, 255, 200), 0));
+    painter->drawLine(QPointF(snapPoint.x() - arm, snapPoint.y()),
+                      QPointF(snapPoint.x() + arm, snapPoint.y()));
+    painter->drawLine(QPointF(snapPoint.x(), snapPoint.y() - arm),
+                      QPointF(snapPoint.x(), snapPoint.y() + arm));
+    painter->restore();
+}
+
+/**
+ * @brief Hide the snap indicator when the cursor leaves the view.
+ */
+void View::leaveEvent(QEvent* event)
+{
+    m_mouseInside = false;
+    viewport()->update();
+    QGraphicsView::leaveEvent(event);
+}
+
+void View::setGridVisible(bool enabled)
+{
+    if (m_showGrid == enabled) {
+        return;
+    }
+    m_showGrid = enabled;
+    viewport()->update();
+}
+
+void View::setSnapIndicatorVisible(bool enabled)
+{
+    if (m_showSnapIndicator == enabled) {
+        return;
+    }
+    m_showSnapIndicator = enabled;
+    viewport()->update();
+}
+
+QPointF View::snapToGrid(const QPointF& scenePos) const
+{
+    if (m_minorGridSpacing <= 0.0) {
+        return scenePos;
+    }
+
+    const qreal snappedX = std::round(scenePos.x() / m_minorGridSpacing) * m_minorGridSpacing;
+    const qreal snappedY = std::round(scenePos.y() / m_minorGridSpacing) * m_minorGridSpacing;
+    return QPointF(snappedX, snappedY);
 }

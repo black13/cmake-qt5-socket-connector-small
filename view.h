@@ -7,6 +7,8 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 
+class QEvent;
+
 class Scene;
 class Node;
 
@@ -37,6 +39,24 @@ protected:
     
     // Grid visualization
     void drawBackground(QPainter* painter, const QRectF& rect) override;
+    void drawForeground(QPainter* painter, const QRectF& rect) override;
+    void leaveEvent(QEvent* event) override;
+
+public:
+    /**
+     * @brief Enable/disable the background grid.
+     */
+    void setGridVisible(bool enabled);
+
+    /**
+     * @brief Enable/disable the snap preview crosshair.
+     */
+    void setSnapIndicatorVisible(bool enabled);
+
+    /**
+     * @brief Snap a scene position to the current grid spacing.
+     */
+    QPointF snapToGrid(const QPointF& scenePos) const;
 
 signals:
     // Signal emitted when a node is dropped
@@ -51,4 +71,10 @@ private:
     int m_rubberBandMoveCounter = 0;
     QPoint m_rubberBandStartViewport;
     QPointF m_rubberBandStartScene;
+    bool m_showGrid = true;
+    qreal m_minorGridSpacing = 20.0;
+    int m_majorLineInterval = 5;
+    bool m_showSnapIndicator = true;
+    QPointF m_lastMouseScenePos = QPointF();
+    bool m_mouseInside = false;
 };
