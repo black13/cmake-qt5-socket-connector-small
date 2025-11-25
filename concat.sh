@@ -124,6 +124,14 @@ add_file "xml_autosave_observer.cpp"
 add_section "RESOURCES"
 add_file "icons.qrc"
 
+# ─────────────────────────────────────
+# Scripts & Automation Helpers
+# ─────────────────────────────────────
+add_section "SCRIPTS & AUTOMATION"
+add_file "scripts/generate_graph.py"
+add_file "scripts/coverage_report.sh"
+add_file "scripts/coverage_scenario.js"
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✓ Done: All translation unit sources written to $OUTPUT"

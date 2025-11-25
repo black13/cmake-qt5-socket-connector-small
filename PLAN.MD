@@ -21,6 +21,8 @@
 
 **Tooling / Samples**
 - `scripts/generate_graph.py` produces sample XML graphs (pipeline, split-merge) so we can quickly load larger scratch-pad layouts and test snapping/selection behavior.
+- `scripts/coverage_report.sh` builds with clang coverage flags, runs NodeGraph (passes through CLI args), and emits an `llvm-cov report` so we can track UI/script execution coverage on macOS.
+- `scripts/coverage_scenario.js` drives Graph facade APIs (create/move/connect/delete, save/load) to raise coverage during automated runs; launch via `coverage_report.sh --script scripts/coverage_scenario.js`.
 
 Each branch: `git checkout -b polish/<topic>`, run targeted fixes, build/test, then PR into `main`.
 ---

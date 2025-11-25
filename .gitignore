@@ -41,6 +41,10 @@ ui_*.h
 *.log
 autosave*.xml
 logs/
+# Coverage artifacts
+build_coverage/
+nodegraph-*.profraw
+*.profdata
 
 # Temporary files
 *.tmp

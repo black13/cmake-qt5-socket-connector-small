@@ -242,6 +242,11 @@ public:
     Q_INVOKABLE QJSValue evalFile(const QString& filePath);
 
     /**
+     * Request application shutdown (useful for headless coverage runs).
+     */
+    Q_INVOKABLE void quitApplication();
+
+    /**
      * Get JavaScript engine (for advanced use)
      * @return Pointer to QJSEngine
      */

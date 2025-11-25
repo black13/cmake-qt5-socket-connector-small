@@ -12,6 +12,8 @@
 #include <QFile>
 #include <QGraphicsItem>
 #include <QTextStream>
+#include <QCoreApplication>
+#include <QTimer>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
@@ -615,6 +617,14 @@ QJSValue Graph::evalFile(const QString& filePath)
     file.close();
 
     return evalScript(script);
+}
+
+void Graph::quitApplication()
+{
+    qDebug() << "Graph::quitApplication requested";
+    if (auto app = QCoreApplication::instance()) {
+        QTimer::singleShot(0, app, &QCoreApplication::quit);
+    }
 }
 
 // ========== Internal Helpers ==========
