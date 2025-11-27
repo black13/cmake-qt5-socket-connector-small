@@ -23,6 +23,15 @@
 - `scripts/generate_graph.py` produces sample XML graphs (pipeline, split-merge) so we can quickly load larger scratch-pad layouts and test snapping/selection behavior.
 - `scripts/coverage_report.sh` builds with clang coverage flags, runs NodeGraph (passes through CLI args), and emits an `llvm-cov report` so we can track UI/script execution coverage on macOS.
 - `scripts/coverage_scenario.js` drives Graph facade APIs (create/move/connect/delete, save/load) to raise coverage during automated runs; launch via `coverage_report.sh --script scripts/coverage_scenario.js`.
+- **SCPI emulator subproject** (planned) – emulate the legacy EMC bench on a host machine before moving to Raspberry Pi hardware. Target: lightweight QEMU/VM on macOS, NI-VISA client talks over TCP/IP to the emulator’s SCPI port. Document requirements and start with a software-only spectrum analyzer/signal generator before introducing hardware.
+- Detailed requirements tracked in `scpi/qemu_notes.md` (install QEMU, Linux guest, SCPI service, NI-VISA integration, eventual Raspberry Pi port).
+- Status: Environment validated on macOS 12.7
+  - NI-VISA 23.5.0 already installed under `/Applications/National Instruments/NI-VISA` (NI-MAX + NI IO Trace confirmed working)
+  - QEMU 10.1.2 installed via MacPorts (`qemu-system-x86_64 --version`)
+  - Next step: build a SCPI server running locally (or inside the new QEMU guest) so NI-MAX can discover it over TCP/IP before porting to Raspberry Pi hardware. 
+    * Guest OS: minimal Ubuntu Server (no desktop) or similar, installed via QEMU with QCOW2 disk + user-mode networking (port 5025 forwarded). 
+    * Inside the guest, run a lightweight SCPI service (Python/Go/C++) that responds to basic commands (`*IDN?`, `*RST`, `.MEAS?`) before modeling full EMC instruments. 
+    * Document exact steps in `scpi/qemu_notes.md` as we build the guest and emulator.
 
 Each branch: `git checkout -b polish/<topic>`, run targeted fixes, build/test, then PR into `main`.
 ---
