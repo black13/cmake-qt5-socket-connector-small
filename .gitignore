@@ -78,3 +78,7 @@ generate_test_files.py
 # Cleanup scripts
 cleanup_repo.sh
 remove_claude_coauthor.sh
+
+# Local research artifacts (not committed)
+research_bins/
+visa_bins/

@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.16)
 project(NodeGraph VERSION 1.0.0 LANGUAGES CXX)
 
+# Optional: build VISA probe CLI for Windows-only research (off by default)
+option(WITH_VISA_SHIM "Build VISA probe CLI (Windows only)" OFF)
+option(WITH_VISA_SHIM_ONLY "Configure only visa-probe and skip the main app" OFF)
+if (WIN32 AND WITH_VISA_SHIM)
+    add_executable(visa-probe visa_probe.cpp)
+    target_compile_definitions(visa-probe PRIVATE UNICODE _UNICODE)
+    set_target_properties(visa-probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
+
+# Allow configuring only the probe tool (no Qt/libxml2) when desired
+if (WITH_VISA_SHIM_ONLY)
+    message(STATUS "Configuring only visa-probe (WITH_VISA_SHIM_ONLY=ON)")
+    return()
+endif()
+
 # ─────────────────────────────────────
 # NOTE: Code Review Compendium Script
 # ─────────────────────────────────────
