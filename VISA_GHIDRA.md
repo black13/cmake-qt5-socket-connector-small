@@ -37,3 +37,33 @@ Next Steps
 - Decide the minimal probing set required by our tooling.
 - If we proceed with the shim, integrate a tiny abstraction that the app can call to query “is VISA available?” and “list resources”, without hard linking.
 
+Ghidra Install (Windows)
+------------------------
+
+Recommended layout
+- Avoid Program Files to reduce UAC friction; prefer a tools folder:
+  - Example: `D:\Tools\Ghidra\ghidra_10.4.x` (or `C:\Tools\Ghidra\ghidra_10.4.x`)
+- Ghidra “installs” by unzip; no MSI. Keep versions side‑by‑side.
+
+Chosen Path
+- We will use: `D:\ghidra_11.3.1_PUBLIC`
+- Extract the official zip directly into that folder so `D:\ghidra_11.3.1_PUBLIC\ghidraRun.bat` exists.
+
+Steps
+1) Download Ghidra zip from NSA’s GitHub release page.
+2) Extract to your tools folder, e.g.: `D:\ghidra_11.3.1_PUBLIC`
+3) Ensure Java 17 is available (Temurin JDK 17 recommended).
+   - Optional env: `setx GHIDRA_JDK "C:\\Program Files\\Eclipse Adoptium\\jdk-17.x.x"`
+4) Set convenience env var (optional):
+   - `setx GHIDRA_HOME "D:\\ghidra_11.3.1_PUBLIC"`
+5) Run via: `"%GHIDRA_HOME%\ghidraRun.bat"` (or double‑click `ghidraRun.bat`).
+
+Project location
+- Default is `%USERPROFILE%\ghidra_projects`. You can create a clean workspace path such as `D:\ghidra_projects` and point Ghidra to it on first run.
+
+Verification
+- Check version: `"%GHIDRA_HOME%\support\analyzeHeadless.bat" -help`
+- If launching fails, verify Java 17 is on PATH or `GHIDRA_JDK` is set.
+
+Cleanup reference
+- See `scripts/cleanup_ghidra.ps1` for safe removal of configs (`.ghidra*` under the user profile), optional project purge, and optional install folder deletion.
