@@ -7,6 +7,8 @@ option(WITH_VISA_SHIM_ONLY "Configure only visa-probe and skip the main app" OFF
 if (WIN32 AND WITH_VISA_SHIM)
     add_executable(visa-probe visa_probe.cpp)
     target_compile_definitions(visa-probe PRIVATE UNICODE _UNICODE)
+    # Link Windows Version library for GetFileVersionInfo* and VerQueryValue*
+    target_link_libraries(visa-probe PRIVATE Version)
     set_target_properties(visa-probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
 

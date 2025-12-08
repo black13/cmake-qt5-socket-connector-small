@@ -82,3 +82,29 @@ remove_claude_coauthor.sh
 # Local research artifacts (not committed)
 research_bins/
 visa_bins/
+
+# Ghidra project (keep live workspace out of git)
+ghidra/workspace/
+ghidra/cache/
+ghidra/*.lock
+!ghidra/archives/
+!ghidra/archives/**/*.gar
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local build artifacts
+vp_build/
+nul
+
+# Wireshark captures (local only)
+*.pcapng
+
+# Decompiled binaries - kept locally, not committed
+# See VISA_RESEARCH.md for inventory and findings
+*.exe.c
+*.dll.c
+
+# Temp/scratch files
+temp_*.txt

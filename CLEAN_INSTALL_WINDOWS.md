@@ -48,3 +48,43 @@ Notes
 - Scripts are safe-by-default. Use `-WhatIf` to preview changes. Run elevated for Machine-scope changes.
 - Do not redistribute NI binaries. Keep research bins local and ignored by git.
 
+NI-488.2 18.5 (GPIB) — Silent Install
+--------------------------------------
+
+If you downloaded `NI4882_1850f1.zip` and extracted to `C:\Users\<you>\Downloads\NI4882_1850f1`, you can run a silent install with logging:
+
+- Elevated PowerShell:
+  - `cd C:\Users\<you>\Downloads\NI4882_1850f1`
+  - `Start-Process -Wait -Verb RunAs -FilePath .\setup.exe -ArgumentList '/q /AcceptLicenses yes /r:n /log "C:\\Users\\Public\\ni4882_install.log" /cacheProductInstallers yes'`
+
+- Basic UI (minimal prompts):
+  - `Start-Process -Wait -Verb RunAs -FilePath .\setup.exe -ArgumentList '/qb /log "C:\\Users\\Public\\ni4882_install.log" /cacheProductInstallers yes'`
+
+- Generate a spec file (no install, records choices):
+  - `Start-Process -Wait -Verb RunAs -FilePath .\setup.exe -ArgumentList '/generatespecfile "C:\\Users\\Public\\ni4882_spec.xml"'`
+  - Later: `Start-Process -Wait -Verb RunAs -FilePath .\setup.exe -ArgumentList '"C:\\Users\\Public\\ni4882_spec.xml" /q /AcceptLicenses yes /r:n /log "C:\\Users\\Public\\ni4882_install.log"'`
+
+Monitor Installer Log
+---------------------
+
+While the installer runs, tail the log and highlight issues:
+
+- Live tail: `Get-Content "C:\\Users\\Public\\ni4882_install.log" -Tail 50 -Wait`
+- Highlight problems: `Get-Content "C:\\Users\\Public\\ni4882_install.log" -Wait | Select-String -Pattern 'Error|FATAL|failed|Return value 3|rollback' -SimpleMatch`
+- After finish, summarize:
+  - Errors: `Select-String "C:\\Users\\Public\\ni4882_install.log" -Pattern 'Error|FATAL|failed|Return value 3|rollback' -Context 2,2`
+  - MSI results: `Select-String "C:\\Users\\Public\\ni4882_install.log" -Pattern 'Action ended|Return value'`
+
+Post-Install Verification (NI-488.2/GPIB)
+-----------------------------------------
+
+- Programs: list uninstall entries
+  - `$paths = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'`
+  - `Get-ItemProperty $paths | ? { $_.DisplayName -match 'NI-488|GPIB|National Instruments' } | ft DisplayName,DisplayVersion,Publisher -Auto`
+- Drivers/services:
+  - `pnputil /enum-drivers | Select-String -SimpleMatch 'GPIB','ni-488'`
+  - `Get-Service | ? { $_.DisplayName -match 'GPIB|National Instruments|^NI ' } | ft Name,Status,StartType`
+- Common folders:
+  - `@("$env:ProgramFiles\National Instruments","$env:ProgramFiles(x86)\National Instruments") | % { $_, (Test-Path $_) }`
+
+VISA note: NI-488.2 is the GPIB stack and may not install VISA. If you need `visa64.dll` (System32) and vendor DLLs under `IVI Foundation\VISA`, install NI‑VISA as well and verify with the probe or `scripts/inspect_visa_binaries.ps1 -CheckExports`.

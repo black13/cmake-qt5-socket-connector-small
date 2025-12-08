@@ -1,0 +1,223 @@
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+
+   EnableRedirectToV8JsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.078 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.016 seconds
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 29
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+
+Microsoft (R) Windows Debugger Version 10.0.26100.4188 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+CommandLine: "C:\Program Files (x86)\IVI Foundation\VISA\WinNT\NIvisa\NIvisaic.exe"
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*
+Symbol search path is: srv*
+Executable search path is: 
+ModLoad: 00000000`00d80000 00000000`00e2f000   appshell.exe
+ModLoad: 00007ffd`7a470000 00007ffd`7a668000   ntdll.dll
+ModLoad: 00000000`77b00000 00000000`77ca4000   ntdll.dll
+ModLoad: 00007ffd`7a2d0000 00007ffd`7a329000   C:\WINDOWS\System32\wow64.dll
+ModLoad: 00007ffd`7a330000 00007ffd`7a3b3000   C:\WINDOWS\System32\wow64win.dll
+ModLoad: 00000000`77af0000 00000000`77afa000   C:\WINDOWS\System32\wow64cpu.dll
+ModLoad: 00000000`76350000 00000000`76440000   C:\WINDOWS\SysWOW64\KERNEL32.DLL
+ModLoad: 00000000`775c0000 00000000`777f9000   C:\WINDOWS\SysWOW64\KERNELBASE.dll
+ModLoad: 00000000`770f0000 00000000`7728d000   C:\WINDOWS\SysWOW64\USER32.dll
+ModLoad: 00000000`77800000 00000000`77818000   C:\WINDOWS\SysWOW64\win32u.dll
+ModLoad: 00000000`770c0000 00000000`770e3000   C:\WINDOWS\SysWOW64\GDI32.dll
+ModLoad: 00000000`759b0000 00000000`75a97000   C:\WINDOWS\SysWOW64\gdi32full.dll
+ModLoad: 00000000`76100000 00000000`7617b000   C:\WINDOWS\SysWOW64\msvcp_win.dll
+ModLoad: 00000000`76490000 00000000`765b0000   C:\WINDOWS\SysWOW64\ucrtbase.dll
+ModLoad: 00000000`77040000 00000000`770bd000   C:\WINDOWS\SysWOW64\ADVAPI32.dll
+ModLoad: 00000000`77290000 00000000`7734f000   C:\WINDOWS\SysWOW64\msvcrt.dll
+ModLoad: 00000000`75aa0000 00000000`75b17000   C:\WINDOWS\SysWOW64\sechost.dll
+ModLoad: 00000000`77830000 00000000`778e9000   C:\WINDOWS\SysWOW64\RPCRT4.dll
+ModLoad: 00000000`779f0000 00000000`77a09000   C:\WINDOWS\SysWOW64\bcrypt.dll
+ModLoad: 00000000`73270000 00000000`73481000   C:\WINDOWS\WinSxS\x86_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.6456_none_a865dda286726b5c\COMCTL32.dll
+ModLoad: 00000000`755c0000 00000000`755c8000   C:\WINDOWS\SysWOW64\VERSION.dll
+ModLoad: 77000000 77025000   C:\WINDOWS\SysWOW64\IMM32.DLL
+ModLoad: 65700000 65708000   C:\Program Files (x86)\National Instruments\Shared\NILVRuntimeManager.dll
+ModLoad: 757b0000 757c5000   C:\WINDOWS\SysWOW64\VCRUNTIME140.dll
+ModLoad: 62b40000 639ba000   C:\Program Files (x86)\National Instruments\Shared\LabVIEW Run-Time\2017\lvrt.dll
+ModLoad: 76890000 7693f000   C:\WINDOWS\SysWOW64\COMDLG32.dll
+ModLoad: 75600000 75668000   C:\WINDOWS\SysWOW64\nierInterface.dll
+ModLoad: 76610000 76890000   C:\WINDOWS\SysWOW64\combase.dll
+ModLoad: 76e80000 76f07000   C:\WINDOWS\SysWOW64\shcore.dll
+ModLoad: 76200000 762e3000   C:\WINDOWS\SysWOW64\ole32.dll
+ModLoad: 76440000 76489000   C:\WINDOWS\SysWOW64\SHLWAPI.dll
+ModLoad: 75b20000 760fb000   C:\WINDOWS\SysWOW64\SHELL32.dll
+ModLoad: 76940000 769d6000   C:\WINDOWS\SysWOW64\OLEAUT32.dll
+ModLoad: 77350000 773b3000   C:\WINDOWS\SysWOW64\WS2_32.dll
+ModLoad: 757a0000 757a8000   C:\WINDOWS\SysWOW64\WSOCK32.dll
+ModLoad: 74da0000 74dc8000   C:\WINDOWS\SysWOW64\WINMM.dll
+ModLoad: 758f0000 7596d000   C:\WINDOWS\SysWOW64\WINSPOOL.DRV
+ModLoad: 74d60000 74d92000   C:\WINDOWS\SysWOW64\IPHLPAPI.DLL
+ModLoad: 649e0000 64b49000   C:\WINDOWS\WinSxS\x86_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.19041.6456_none_d950d087e104e52a\gdiplus.dll
+ModLoad: 74fa0000 755b9000   C:\WINDOWS\SysWOW64\windows.storage.dll
+ModLoad: 74f10000 74f35000   C:\WINDOWS\SysWOW64\Wldp.dll
+ModLoad: 765b0000 7660f000   C:\WINDOWS\SysWOW64\bcryptPrimitives.dll
+ModLoad: 00000000`656d0000 00000000`656f2000   C:\Program Files (x86)\National Instruments\Shared\LabVIEW Run-Time\2017\niCPULib.dll
+ModLoad: 00000000`757d0000 00000000`7583d000   C:\WINDOWS\SysWOW64\MSVCP140.dll
+ModLoad: 00000000`74f00000 00000000`74f0f000   C:\WINDOWS\SysWOW64\kernel.appcore.dll
+ModLoad: 00000000`731f0000 00000000`73264000   C:\WINDOWS\SysWOW64\uxtheme.dll
+ModLoad: 00000000`77a10000 00000000`77ae4000   C:\WINDOWS\SysWOW64\MSCTF.dll
+ModLoad: 00000000`76180000 00000000`761fe000   C:\WINDOWS\SysWOW64\clbcatq.dll
+ModLoad: 00000000`645f0000 00000000`647c9000   C:\WINDOWS\SysWOW64\explorerframe.dll
+ModLoad: 00000000`64b50000 00000000`65065000   C:\WINDOWS\SysWOW64\d2d1.dll
+ModLoad: 00000000`65780000 00000000`65786000   C:\WINDOWS\SysWOW64\msimg32.dll
+ModLoad: 00000000`72ea0000 00000000`72ec1000   C:\WINDOWS\SysWOW64\SspiCli.dll
+ModLoad: 00000000`74dd0000 00000000`74deb000   C:\WINDOWS\SysWOW64\profapi.dll
+ModLoad: 00000000`74f40000 00000000`74f92000   C:\WINDOWS\SysWOW64\mswsock.dll
+ModLoad: 00000000`74ee0000 00000000`74ef1000   C:\WINDOWS\SysWOW64\napinsp.dll
+ModLoad: 00000000`74ec0000 00000000`74ed6000   C:\WINDOWS\SysWOW64\pnrpnsp.dll
+ModLoad: 00000000`74e50000 00000000`74e66000   C:\WINDOWS\SysWOW64\wshbth.dll
+ModLoad: 00000000`74e30000 00000000`74e46000   C:\WINDOWS\SysWOW64\NLAapi.dll
+ModLoad: 00000000`74b20000 00000000`74bb0000   C:\WINDOWS\SysWOW64\DNSAPI.dll
+ModLoad: 00000000`77030000 00000000`77037000   C:\WINDOWS\SysWOW64\NSI.dll
+ModLoad: 00000000`74a90000 00000000`74a9e000   C:\WINDOWS\SysWOW64\winrnr.dll
+ModLoad: 00000000`74a50000 00000000`74a58000   C:\Program Files (x86)\National Instruments\Shared\mDNS Responder\nimdnsNSP.dll
+ModLoad: 00000000`74a40000 00000000`74a4d000   C:\WINDOWS\SysWOW64\nimdnsResponder.dll
+ModLoad: 00000000`74940000 00000000`74998000   C:\WINDOWS\SysWOW64\fwpuclnt.dll
+ModLoad: 00000000`749d0000 00000000`749d8000   C:\Windows\SysWOW64\rasadhlp.dll
+ModLoad: 00000000`72220000 00000000`722b5000   C:\WINDOWS\SysWOW64\TextShaping.dll
+ModLoad: 00000000`28000000 00000000`28035000   C:\PROGRA~2\NATION~1\Shared\nicont.dll
+ModLoad: 00000000`762f0000 00000000`7634e000   C:\WINDOWS\SysWOW64\coml2.dll
+ModLoad: 00000000`655b0000 00000000`65650000   C:\Program Files (x86)\National Instruments\Shared\LabVIEW Run-Time\2017\nitaglv.dll
+ModLoad: 00000000`65690000 00000000`656ca000   C:\WINDOWS\SysWOW64\LKBROW.dll
+ModLoad: 00000000`756a0000 00000000`756d8000   C:\WINDOWS\SysWOW64\LKDYNAM.dll
+ModLoad: 00000000`75670000 00000000`75699000   C:\WINDOWS\SysWOW64\LKSEC.dll
+ModLoad: 00000000`756e0000 00000000`7575a000   C:\WINDOWS\SysWOW64\LKSOCK.dll
+ModLoad: 00000000`65550000 00000000`655a9000   C:\WINDOWS\SysWOW64\LKREALT.dll
+ModLoad: 00000000`741f0000 00000000`74202000   C:\Program Files (x86)\National Instruments\MAX\mxs.dll
+ModLoad: 00000000`748f0000 00000000`74935000   C:\Program Files (x86)\National Instruments\MAX\mxsutils.dll
+ModLoad: 00000000`64950000 00000000`649d9000   C:\WINDOWS\SysWOW64\nisyscfg.dll
+ModLoad: 00000000`6f0b0000 00000000`6f0e1000   C:\WINDOWS\SysWOW64\dataexchange.dll
+ModLoad: 00000000`6ef40000 00000000`6f0a5000   C:\WINDOWS\SysWOW64\dcomp.dll
+ModLoad: 00000000`6ed60000 00000000`6ef40000   C:\WINDOWS\SysWOW64\d3d11.dll
+ModLoad: 00000000`6ec90000 00000000`6ed55000   C:\WINDOWS\SysWOW64\dxgi.dll
+ModLoad: 00000000`6eaf0000 00000000`6ec81000   C:\WINDOWS\SysWOW64\twinapi.appcore.dll
+ModLoad: 00000000`72c10000 00000000`72cc9000   C:\WINDOWS\SysWOW64\textinputframework.dll
+ModLoad: 00000000`72680000 00000000`728ff000   C:\WINDOWS\SysWOW64\CoreUIComponents.dll
+ModLoad: 00000000`725e0000 00000000`7267b000   C:\WINDOWS\SysWOW64\CoreMessaging.dll
+ModLoad: 00000000`722c0000 00000000`7239d000   C:\WINDOWS\SysWOW64\wintypes.dll
+ModLoad: 00000000`74810000 00000000`74839000   C:\WINDOWS\SysWOW64\ntmarta.dll
+ModLoad: 00000000`073b0000 00000000`0748d000   C:\WINDOWS\SysWOW64\wintypes.dll
+ModLoad: 00000000`72bb0000 00000000`72c03000   C:\WINDOWS\SysWOW64\Oleacc.dll
+ModLoad: 00000000`73f40000 00000000`73f74000   C:\WINDOWS\SysWOW64\visa32.dll
+ModLoad: 00000000`74500000 00000000`74518000   C:\WINDOWS\SysWOW64\NiViSv32.dll
+ModLoad: 00000000`10000000 00000000`10102000   C:\Program Files (x86)\National Instruments\Shared\LabVIEW Run-Time\2017\mesa.dll
+ModLoad: 00000000`741c0000 00000000`741e4000   C:\WINDOWS\SysWOW64\NiSpyLog.dll
+ModLoad: 00000000`648b0000 00000000`64943000   C:\WINDOWS\SysWOW64\mscms.dll
+ModLoad: 00000000`65700000 00000000`6570c000   C:\WINDOWS\SysWOW64\ColorAdapterClient.dll
+ModLoad: 00000000`75770000 00000000`75795000   C:\WINDOWS\SysWOW64\USERENV.dll
+ModLoad: 00000000`65510000 00000000`6554e000   C:\WINDOWS\SysWOW64\icm32.dll
+ModLoad: 00000000`73ce0000 00000000`73d16000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiVi488.dll
+ModLoad: 00000000`73cc0000 00000000`73cdc000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiViAsrl.dll
+ModLoad: 00000000`76a40000 00000000`76e7a000   C:\WINDOWS\SysWOW64\SETUPAPI.dll
+ModLoad: 00000000`75970000 00000000`759ab000   C:\WINDOWS\SysWOW64\cfgmgr32.dll
+ModLoad: 00000000`73c70000 00000000`73cb8000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiViEnet.dll
+ModLoad: 00000000`73810000 00000000`73c65000   C:\WINDOWS\SysWOW64\WININET.dll
+ModLoad: 00000000`737f0000 00000000`73801000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiViEnetAsrl.dll
+ModLoad: 00000000`737c0000 00000000`737e2000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiViPxi.dll
+ModLoad: 00000000`74e70000 00000000`74eb2000   C:\WINDOWS\SysWOW64\niqpxi.dll
+ModLoad: 00000000`64580000 00000000`645ed000   C:\WINDOWS\SysWOW64\NIPALU.dll
+ModLoad: 00000000`64500000 00000000`64507000   C:\WINDOWS\SysWOW64\nipalut.dll
+ModLoad: 00000000`755d0000 00000000`755d9000   C:\WINDOWS\SysWOW64\NIPAL32.dll
+ModLoad: 00000000`737a0000 00000000`737c0000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiViRpc.dll
+ModLoad: 00000000`74aa0000 00000000`74ab8000   C:\WINDOWS\SysWOW64\nirpc.dll
+ModLoad: 00000000`73780000 00000000`73797000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\Bin\NiViUsb.dll
+ModLoad: 00000000`74b10000 00000000`74b1a000   C:\WINDOWS\SysWOW64\WINUSB.DLL
+ModLoad: 00000000`73f10000 00000000`73f1c000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\NIvisa\PxiPlugins\NiViPpiP.dll
+ModLoad: 00000000`73750000 00000000`7377e000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\NIvisa\PxiPlugins\NiViPpiD.dll
+ModLoad: 00000000`73100000 00000000`7310f000   C:\WINDOWS\SysWOW64\nipxisvc.dll
+ModLoad: 00000000`6f220000 00000000`6f387000   C:\Program Files (x86)\National Instruments\Shared\MAX\Bin\mxRmCfg.dll
+ModLoad: 00000000`6f130000 00000000`6f216000   C:\WINDOWS\SysWOW64\nisysapi.dll
+(ebc.1cc4): C++ EH exception - code e06d7363 (first chance)
+(ebc.1cc4): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`721a0000 00000000`7221b000   C:\Program Files (x86)\National Instruments\MAX\mxsout.dll
+ModLoad: 00000000`742f0000 00000000`74319000   C:\WINDOWS\SysWOW64\DEVOBJ.dll
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`6e5e0000 00000000`6e640000   C:\Program Files (x86)\National Instruments\Shared\NI-488.2\niGPIBsys.dll
+ModLoad: 00000000`6e470000 00000000`6e49e000   C:\Program Files (x86)\National Instruments\NI Controller Driver\nicntsae.dll
+ModLoad: 00000000`6e430000 00000000`6e467000   C:\Program Files (x86)\National Instruments\MXI\MXI Manager\nimxisae.dll
+ModLoad: 00000000`6e400000 00000000`6e427000   C:\WINDOWS\SysWOW64\nimximgr.dll
+ModLoad: 00000000`725c0000 00000000`725d8000   C:\WINDOWS\SysWOW64\nipcibrd.dll
+ModLoad: 00000000`6e3d0000 00000000`6e3f8000   C:\Program Files (x86)\National Instruments\MXI\MXI Manager\nimxipci.dll
+ModLoad: 00000000`6e390000 00000000`6e3c7000   C:\Program Files (x86)\National Instruments\PXI\nimxipxi.dll
+ModLoad: 00000000`769e0000 00000000`76a39000   C:\WINDOWS\SysWOW64\WINTRUST.dll
+ModLoad: 00000000`778f0000 00000000`779ef000   C:\WINDOWS\SysWOW64\CRYPT32.dll
+ModLoad: 00000000`74280000 00000000`7428e000   C:\WINDOWS\SysWOW64\MSASN1.dll
+ModLoad: 00000000`72570000 00000000`7258c000   C:\WINDOWS\SysWOW64\nimxif.dll
+ModLoad: 00000000`6d910000 00000000`6d932000   C:\WINDOWS\SysWOW64\nicntdrv.dll
+ModLoad: 00000000`73100000 00000000`7310f000   C:\WINDOWS\SysWOW64\nipxisvc.DLL
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`6e240000 00000000`6e25a000   C:\WINDOWS\SysWOW64\nipalsys.dll
+ModLoad: 00000000`73100000 00000000`7310f000   C:\WINDOWS\SysWOW64\nipxisvc.DLL
+ModLoad: 00000000`6dee0000 00000000`6df79000   C:\Program Files (x86)\National Instruments\PXI\nipxisae.dll
+ModLoad: 00000000`72120000 00000000`72197000   C:\WINDOWS\SysWOW64\nipxicfgapi.dll
+ModLoad: 00000000`72590000 00000000`725b8000   C:\WINDOWS\SysWOW64\nipxiecf.dll
+ModLoad: 00000000`6d910000 00000000`6d932000   C:\WINDOWS\SysWOW64\nicntdrv.dll
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`6e230000 00000000`6e23d000   C:\WINDOWS\SysWOW64\wbem\wbemprox.dll
+ModLoad: 00000000`6dd80000 00000000`6ddf0000   C:\WINDOWS\SysWOW64\wbemcomn.dll
+ModLoad: 00000000`6dd70000 00000000`6dd80000   C:\WINDOWS\SysWOW64\wbem\wbemsvc.dll
+ModLoad: 00000000`6dca0000 00000000`6dd6a000   C:\WINDOWS\SysWOW64\wbem\fastprox.dll
+ModLoad: 00000000`73ef0000 00000000`73f08000   C:\WINDOWS\SysWOW64\amsi.dll
+ModLoad: 00000000`73e60000 00000000`73eeb000   C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.25100.9008-0\X86\MpOav.dll
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`72570000 00000000`7258c000   C:\WINDOWS\SysWOW64\nimxif.dll
+ModLoad: 00000000`72ba0000 00000000`72bb0000   C:\WINDOWS\SysWOW64\nicmmu.dll
+ModLoad: 00000000`72110000 00000000`7211d000   C:\WINDOWS\SysWOW64\nipxices.dll
+ModLoad: 00000000`6f0f0000 00000000`6f130000   C:\Program Files (x86)\National Instruments\PXI\Drivers\nipxicid.dll
+ModLoad: 00000000`73730000 00000000`73747000   C:\WINDOWS\SysWOW64\GPIB-32.DLL
+ModLoad: 00000000`755e0000 00000000`755f5000   C:\WINDOWS\SysWOW64\ni488config.dll
+ModLoad: 00000000`736e0000 00000000`73727000   C:\WINDOWS\SysWOW64\ni4882.dll
+ModLoad: 00000000`6d910000 00000000`6d932000   C:\WINDOWS\SysWOW64\nicntdrv.dll
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`6d910000 00000000`6d932000   C:\WINDOWS\SysWOW64\nicntdrv.dll
+(ebc.2cc8): C++ EH exception - code e06d7363 (first chance)
+(ebc.2cc8): C++ EH exception - code e06d7363 (first chance)
+(ebc.2cc8): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`6d910000 00000000`6d932000   C:\WINDOWS\SysWOW64\nicntdrv.dll
+(ebc.10cc): C++ EH exception - code e06d7363 (first chance)
+ModLoad: 00000000`6dc10000 00000000`6dc97000   C:\Program Files (x86)\National Instruments\Shared\NI-VISA\niVISAsys.dll
+ModLoad: 00000000`6daf0000 00000000`6db24000   C:\WINDOWS\SysWOW64\nidimsae.dll
+ModLoad: 00000000`6ddf0000 00000000`6de20000   C:\WINDOWS\SysWOW64\nidimu.dll
+ModLoad: 00000000`745e0000 00000000`745ff000   C:\WINDOWS\SysWOW64\niorbu.dll
+ModLoad: 00000000`6dab0000 00000000`6dae1000   C:\Program Files (x86)\National Instruments\Shared\NI Network Discovery\niDiscExp.dll
+ModLoad: 00000000`6d9f0000 00000000`6daaa000   C:\WINDOWS\SysWOW64\nimru2u.dll
+ModLoad: 00000000`745a0000 00000000`745d8000   C:\WINDOWS\SysWOW64\nimdbgu.dll
+ModLoad: 00000000`74550000 00000000`7459d000   C:\WINDOWS\SysWOW64\nimxdfu.dll
+ModLoad: 00000000`6d9a0000 00000000`6d9e9000   C:\Program Files (x86)\National Instruments\Shared\NI System Configuration\nisyscfgExpert.dll
+ModLoad: 00000000`74840000 00000000`74884000   C:\WINDOWS\SysWOW64\POWRPROF.dll
+ModLoad: 00000000`74720000 00000000`7472d000   C:\WINDOWS\SysWOW64\UMPDC.dll
+ModLoad: 00000000`6cbd0000 00000000`6ce08000   C:\WINDOWS\SysWOW64\iertutil.dll
+ModLoad: 00000000`74760000 00000000`7477d000   C:\WINDOWS\SysWOW64\srvcli.dll
+ModLoad: 00000000`74750000 00000000`7475b000   C:\WINDOWS\SysWOW64\netutils.dll
+ModLoad: 00000000`65950000 00000000`65962000   C:\WINDOWS\SysWOW64\ondemandconnroutehelper.dll
+ModLoad: 00000000`71f20000 00000000`71fea000   C:\WINDOWS\SysWOW64\winhttp.dll
+ModLoad: 00000000`744f0000 00000000`744f8000   C:\WINDOWS\SysWOW64\WINNSI.DLL
+ModLoad: 00000000`0b2b0000 00000000`0b4e6000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\NIvisa\viic_ext.dll
+ModLoad: 00000000`0b2b0000 00000000`0b4e6000   C:\Program Files (x86)\IVI Foundation\VISA\WinNT\NIvisa\viic_ext.dll
+ModLoad: 00000000`65680000 00000000`65688000   C:\Program Files (x86)\National Instruments\Shared\NILVRuntimeManager.dll
+ModLoad: 00000000`65670000 00000000`65686000   C:\Program Files (x86)\National Instruments\Shared\NI-VISA\VisaCtrl.dll

@@ -1,0 +1,425 @@
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+
+   EnableRedirectToV8JsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.062 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.344 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 29
+
+Microsoft (R) Windows Debugger Version 10.0.26100.4188 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+CommandLine: "C:\Program Files (x86)\National Instruments\MAX\NIMax.exe"
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*
+Symbol search path is: srv*
+Executable search path is: 
+ModLoad: 00000000`00d30000 00000000`00d4a000   nimax.exe
+ModLoad: 00007ffd`7a470000 00007ffd`7a668000   ntdll.dll
+ModLoad: 00000000`77b00000 00000000`77ca4000   ntdll.dll
+ModLoad: 00007ffd`7a2d0000 00007ffd`7a329000   C:\WINDOWS\System32\wow64.dll
+ModLoad: 00007ffd`7a330000 00007ffd`7a3b3000   C:\WINDOWS\System32\wow64win.dll
+(2ae0.35e4): Break instruction exception - code 80000003 (first chance)
+ntdll!LdrpDoDebuggerBreak+0x30Processing initial command 'sxe ld; g'
+:
+00007ffd`7a540860 cc              int     3
+0:000> sxe ld; g
+ModLoad: 00000000`77af0000 00000000`77afa000   C:\WINDOWS\System32\wow64cpu.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> continue
+Couldn't resolve error at 'ontinue'
+0:000> continue
+Couldn't resolve error at 'ontinue'
+0:000> run
+         ^ Bad register error in 'run'
+0:000> help
+       ^ Syntax error in 'help'
+0:000> g
+ModLoad: 00000000`76350000 00000000`76440000   C:\WINDOWS\SysWOW64\KERNEL32.DLL
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`775c0000 00000000`777f9000   C:\WINDOWS\SysWOW64\KERNELBASE.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`76490000 00000000`765b0000   C:\WINDOWS\SysWOW64\ucrtbase.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`731c0000 00000000`731ea000   C:\Program Files (x86)\National Instruments\MAX\nimaximp.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`757b0000 00000000`757c5000   C:\WINDOWS\SysWOW64\VCRUNTIME140.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:003> g
+ModLoad: 00000000`6f430000 00000000`6f8da000   C:\WINDOWS\SysWOW64\mfc140u.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`77040000 00000000`770bd000   C:\WINDOWS\SysWOW64\ADVAPI32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`77290000 00000000`7734f000   C:\WINDOWS\SysWOW64\msvcrt.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> go
+       ^ addresses must be preceeded by whitespace error in 'go'
+0:002> g
+ModLoad: 00000000`75aa0000 00000000`75b17000   C:\WINDOWS\SysWOW64\sechost.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`77830000 00000000`778e9000   C:\WINDOWS\SysWOW64\RPCRT4.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`770f0000 00000000`7728d000   C:\WINDOWS\SysWOW64\USER32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`779f0000 00000000`77a09000   C:\WINDOWS\SysWOW64\bcrypt.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> 
+0:002> g
+ModLoad: 00000000`77800000 00000000`77818000   C:\WINDOWS\SysWOW64\win32u.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`770c0000 00000000`770e3000   C:\WINDOWS\SysWOW64\GDI32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`006b0000 00000000`006d3000   C:\WINDOWS\SysWOW64\GDI32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`76200000 00000000`762e3000   C:\WINDOWS\SysWOW64\ole32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`759b0000 00000000`75a97000   C:\WINDOWS\SysWOW64\gdi32full.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`76100000 00000000`7617b000   C:\WINDOWS\SysWOW64\msvcp_win.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`76610000 00000000`76890000   C:\WINDOWS\SysWOW64\combase.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`76940000 00000000`769d6000   C:\WINDOWS\SysWOW64\OLEAUT32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`755c0000 00000000`755c8000   C:\WINDOWS\SysWOW64\VERSION.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:003> g
+ModLoad: 00000000`76440000 00000000`76489000   C:\WINDOWS\SysWOW64\SHLWAPI.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`757d0000 00000000`7583d000   C:\WINDOWS\SysWOW64\MSVCP140.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+ModLoad: 00000000`77000000 00000000`77025000   C:\WINDOWS\SysWOW64\IMM32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:002> g
+ModLoad: 00000000`75600000 00000000`75668000   C:\WINDOWS\SysWOW64\nierInterface.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:003> g
+ModLoad: 00000000`731f0000 00000000`73264000   C:\WINDOWS\SysWOW64\UxTheme.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:001> g
+(2ae0.35e4): WOW64 breakpoint - code 4000001f (first chance)
+First chance exceptions are reported before any exception handling.
+This exception may be expected and handled.
+ntdll_77b00000!LdrpDoDebuggerBreak+0x2b:
+77bb1b52 cc              int     3
+0:000:x86> g
+ModLoad: 73270000 73481000   C:\WINDOWS\WinSxS\x86_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.6456_none_a865dda286726b5c\Comctl32.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`765b0000 00000000`7660f000   C:\WINDOWS\SysWOW64\bcryptPrimitives.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`74bb0000 00000000`74d5b000   C:\WINDOWS\SysWOW64\dbghelp.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`74a60000 00000000`74a8b000   C:\WINDOWS\SysWOW64\dbgcore.DLL
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`74810000 00000000`74839000   C:\WINDOWS\SysWOW64\ntmarta.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> g
+ModLoad: 00000000`74f00000 00000000`74f0f000   C:\WINDOWS\SysWOW64\kernel.appcore.dll
+ntdll!NtMapViewOfSection+0x14:
+00007ffd`7a50daa4 c3              ret
+0:000> sxi ld
+0:000> g
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.3a04): C++ EH exception - code e06d7363 (first chance)
+(2ae0.3a04): C++ EH exception - code e06d7363 (first chance)
+(2ae0.3a04): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2a90): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): Unknown exception - code 04242420 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): Unknown exception - code 000006ba (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+(2ae0.2ca8): CLR exception - code e0434352 (first chance)
+System.Windows.Data Error: 23 : Cannot convert '<null>' from type '<null>' to type 'System.Windows.Media.ImageSource' for 'en-US' culture with default conversions; consider using Converter property of Binding. NotSupportedException:'System.NotSupportedException: ImageSourceConverter cannot convert from (null).
+   at System.ComponentModel.TypeConverter.GetConvertFromException(Object value)
+   at System.Windows.Media.ImageSourceConverter.ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
+   at MS.Internal.Data.DefaultValueConverter.ConvertHelper(Object o, Type destinationType, DependencyObject targetElement, CultureInfo culture, Boolean isForward)'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='DatePicker' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.3510): C++ EH exception - code e06d7363 (first chance)
+(2ae0.35e4): C++ EH exception - code e06d7363 (first chance)
+(2ae0.35e4): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2398): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2398): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2398): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='DatePicker' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+System.Windows.Data Error: 17 : Cannot get 'Item[]' value (type 'ValidationError') from '(Validation.Errors)' (type 'ReadOnlyObservableCollection`1'). BindingExpression:Path=(0)[0].ErrorContent; DataItem='TextBox' (Name='ValueControl'); target element is 'Control' (Name=''); target property is 'DataContext' (type 'Object') ArgumentOutOfRangeException:'System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
+Parameter name: index'
+(2ae0.2ca8): Unknown exception - code 0000071a (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.29a0): C++ EH exception - code e06d7363 (first chance)
+(2ae0.298c): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.2ca8): C++ EH exception - code e06d7363 (first chance)
+(2ae0.3b40): CLR exception - code e0434352 (first chance)
+(2ae0.3b40): CLR exception - code e0434352 (first chance)
+wow64cpu!CpupSyscallStub+0xc:
+00000000`77af1cfc c3              ret
