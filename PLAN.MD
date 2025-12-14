@@ -32,6 +32,16 @@
     * Guest OS: minimal Ubuntu Server (no desktop) or similar, installed via QEMU with QCOW2 disk + user-mode networking (port 5025 forwarded). 
     * Inside the guest, run a lightweight SCPI service (Python/Go/C++) that responds to basic commands (`*IDN?`, `*RST`, `.MEAS?`) before modeling full EMC instruments. 
     * Document exact steps in `scpi/qemu_notes.md` as we build the guest and emulator.
+- **SCPI/LXI transport focus (Dec 2025)** – new goal is to remove VISA termination-character hacks by exposing the emulator as a proper LXI instrument. Reference: [EEVblog thread “Open source lxi-tools and liblxi v1.0 released for GNU/Linux” posts 225‑249](https://www.eevblog.com/forum/testgear/open-source-lxi-tools-and-liblxi-v1-0-released-for-gnulinux/225/) which explains why most LXI gear offers SCPI via three transports (RAW TCP, VXI‑11 over ONC RPC, HiSlip). Plan:
+  1. **Document protocol behavior** – keep Wireshark captures of NI‑MAX talking to a known-good VXI‑11 server (see “Python baseline” below) so we know the exact CreateLink / DeviceRead / DeviceWrite sequence NI expects.
+  2. **Python proof-of-concept** – clone Anders Wallin’s lightweight [`vxi11_server`](https://github.com/awallin/vxi11_server) (BSD license) and run `examples/simple_scpi_server.py`. This exposes `TCPIP::<host>::INSTR` without any VISA tweaks, giving us real traffic to study and a quick demo for stakeholders (“if it works, it works” even though it’s Python).
+  3. **Capture reference traces** – while the Python server is running, connect with NI‑MAX/NIvisaic, issue `*IDN?`, `*RST`, etc., and save `.pcap` files filtered on RPC/VXI‑11 ports. These captures become our spec when porting the dispatcher to C++.
+  4. **Integrate liblxi (C)** – pull the existing `liblxi/` tree into the build via `FetchContent` (only the VXI‑11 server bits: `vxi11core_svc.c`, `vxi11.c`, generated XDR files). Wrap the callbacks so they invoke our existing SCPI dispatcher (`scpi/share/asio_scpi_server.cpp`). End result: two front ends (Boost.Asio raw TCP and VXI‑11) sharing a common command handler.
+  5. **Build/test wiring** – teach `build.sh` (Debug/Release) to compile/link the VXI‑11 server, and gate the download paths so offline builds still succeed. Update the Windows `.bat` later but keep placeholders now.
+  6. **Documentation** – expand `README.md` once VXI‑11 works: how to run the server, how NI‑MAX discovers it via `TCPIP::<host>::INSTR`, and note that VXI‑11 eliminates the need to toggle “Enable termination character” / `Serial End In Mode`.
+  7. **Future transports** – after VXI‑11 we can evaluate HiSlip (libhislip or similar) and optional scripting (Duktape/QtScript) so engineers can build SCPI behaviors without touching C++. Lua is explicitly out per stakeholder preference.
+
+> **VXI‑11 refresher:** defined by `vxi11core.rpcl` (same file in `liblxi/src`). RPCGen creates `*_svc.c`, `*_clnt.c`, and XDR serializers. A device session starts with `Create_Link`, then repeated `Device_Write` / `Device_Read`. Termination is negotiated via flags inside the RPC messages, so VISA never needs manual “termination char” tweaks. This is why NI‑MAX prefers VXI‑11 endpoints for SCPI instruments.
 
 Each branch: `git checkout -b polish/<topic>`, run targeted fixes, build/test, then PR into `main`.
 ---
