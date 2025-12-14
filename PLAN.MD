@@ -47,6 +47,8 @@
   * Inside the VM: `sudo apt install rpcbind python3 python3-pip git`, `sudo systemctl enable --now rpcbind`, then clone `python-vxi11-server` and run the demo SCPI device without sudo. Linux’s rpcbind accepts registrations instantly, letting us capture Wireshark traces and iterate faster.
 
 > **VXI‑11 refresher:** defined by `vxi11core.rpcl` (same file in `liblxi/src`). RPCGen creates `*_svc.c`, `*_clnt.c`, and XDR serializers. A device session starts with `Create_Link`, then repeated `Device_Write` / `Device_Read`. Termination is negotiated via flags inside the RPC messages, so VISA never needs manual “termination char” tweaks. This is why NI‑MAX prefers VXI‑11 endpoints for SCPI instruments.
+>
+> **Where rpcbind fits:** VXI‑11 rides on ONC RPC, so every server must register its program number/port with the portmapper (`rpcbind`, service on TCP/UDP 111). NI‑MAX (or any VXI‑11 client) first contacts rpcbind to ask “Which port serves program 0x0607AF (VXI‑11 core)?” and then talks directly to that port for all SCPI traffic. Without rpcbind running the server can’t register, and clients cannot discover it—hence why macOS SIP/launchd issues blocked our Python proof-of-concept and why the Linux VM (where `systemctl enable --now rpcbind` just works) is our practical testbed.
 
 Each branch: `git checkout -b polish/<topic>`, run targeted fixes, build/test, then PR into `main`.
 ---
