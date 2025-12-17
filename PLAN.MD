@@ -46,6 +46,11 @@
   * Enable shared folders (or SSHFS) so the VM sees `/Users/jjosburn/temp/cmake-qt5-socket-connector-small` and we can edit on macOS while running servers inside Linux.
   * Inside the VM: `sudo apt install rpcbind python3 python3-pip git`, `sudo systemctl enable --now rpcbind`, then clone `python-vxi11-server` and run the demo SCPI device without sudo. Linux’s rpcbind accepts registrations instantly, letting us capture Wireshark traces and iterate faster.
   * Status: VM online (Ubuntu Server), SSH reachable from macOS. Next: verify packages (`rpcbind`, `python3`, `git`), pull `python-vxi11-server`, and document Wireshark captures.
+- **Addendum – VM bring-up checklist:**
+  1. **VM creation** – VirtualBox VM documented (Ubuntu Server 24.04, bridged NIC, shared folder). SSH port-forwarding confirmed (`ssh -p 2222 jjosburn@127.0.0.1`).
+  2. **Baseline packages** – inside the VM run `sudo apt update && sudo apt install rpcbind python3 python3-pip git build-essential cmake gdb libboost-all-dev libssl-dev` so Boost/Asio builds succeed locally.
+  3. **Clone SCPI tooling** – `git clone https://github.com/coburnw/python-vxi11-server.git`; run `python3 demo_servers/time-device.py` to confirm rpcbind/portmapper registration.
+  4. **Capture traffic** – from macOS (bridged NIC) connect NI‑MAX to `TCPIP::<vm-ip>::INSTR`, issue SCPI commands, and save Wireshark capture files (`Create_Link`, `Device_Write`, `Device_Read` sequences). These captures feed the C++/liblxi implementation.
 
 > **VXI‑11 refresher:** defined by `vxi11core.rpcl` (same file in `liblxi/src`). RPCGen creates `*_svc.c`, `*_clnt.c`, and XDR serializers. A device session starts with `Create_Link`, then repeated `Device_Write` / `Device_Read`. Termination is negotiated via flags inside the RPC messages, so VISA never needs manual “termination char” tweaks. This is why NI‑MAX prefers VXI‑11 endpoints for SCPI instruments.
 >
