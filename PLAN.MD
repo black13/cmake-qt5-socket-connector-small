@@ -45,6 +45,7 @@
   * Stand up a lightweight Ubuntu Server VM in VirtualBox (2 vCPU, 4 GB RAM, 40 GB disk). Use **Bridged** networking so NI‑MAX on macOS can reach `TCPIP::<vm-ip>::INSTR` directly.
   * Enable shared folders (or SSHFS) so the VM sees `/Users/jjosburn/temp/cmake-qt5-socket-connector-small` and we can edit on macOS while running servers inside Linux.
   * Inside the VM: `sudo apt install rpcbind python3 python3-pip git`, `sudo systemctl enable --now rpcbind`, then clone `python-vxi11-server` and run the demo SCPI device without sudo. Linux’s rpcbind accepts registrations instantly, letting us capture Wireshark traces and iterate faster.
+  * Status: VM online (Ubuntu Server), SSH reachable from macOS. Next: verify packages (`rpcbind`, `python3`, `git`), pull `python-vxi11-server`, and document Wireshark captures.
 
 > **VXI‑11 refresher:** defined by `vxi11core.rpcl` (same file in `liblxi/src`). RPCGen creates `*_svc.c`, `*_clnt.c`, and XDR serializers. A device session starts with `Create_Link`, then repeated `Device_Write` / `Device_Read`. Termination is negotiated via flags inside the RPC messages, so VISA never needs manual “termination char” tweaks. This is why NI‑MAX prefers VXI‑11 endpoints for SCPI instruments.
 >
