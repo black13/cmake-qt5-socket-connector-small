@@ -46,11 +46,19 @@
   * Enable shared folders (or SSHFS) so the VM sees `/Users/jjosburn/temp/cmake-qt5-socket-connector-small` and we can edit on macOS while running servers inside Linux.
   * Inside the VM: `sudo apt install rpcbind python3 python3-pip git`, `sudo systemctl enable --now rpcbind`, then clone `python-vxi11-server` and run the demo SCPI device without sudo. Linux’s rpcbind accepts registrations instantly, letting us capture Wireshark traces and iterate faster.
   * Status: VM online (Ubuntu Server), SSH reachable from macOS. Next: verify packages (`rpcbind`, `python3`, `git`), pull `python-vxi11-server`, and document Wireshark captures.
+- **Network setup recap (Dec 20)** – Host-only adapter `vboxnet0` added alongside NAT so the VM now has:
+  * Adapter 1 (NAT) → `enp0s3`, IP `10.0.2.15`, SSH port-forward on host `127.0.0.1:2222` unchanged.
+  * Adapter 2 (Host-only `vboxnet0`) → `enp0s8`, IP `192.168.56.2` after enabling DHCP via Netplan (`dhcp4: true`). Install `isc-dhcp-client` if needed so `dhclient enp0s8` works.
+  * Guest Additions installed (VirtualBox ISO + `build-essential dkms linux-headers-$(uname -r)`) for shared folders/clipboard.
+  * Use `192.168.56.2` for NI‑MAX (`TCPIP::192.168.56.2::INSTR`) and Wireshark captures; NAT path stays for internet/outbound traffic.
 - **Addendum – VM bring-up checklist:**
   1. **VM creation** – VirtualBox VM documented (Ubuntu Server 24.04, bridged NIC, shared folder). SSH port-forwarding confirmed (`ssh -p 2222 jjosburn@127.0.0.1`).
   2. **Baseline packages** – inside the VM run `sudo apt update && sudo apt install rpcbind python3 python3-pip git build-essential cmake gdb libboost-all-dev libssl-dev` so Boost/Asio builds succeed locally.
   3. **Clone SCPI tooling** – `git clone https://github.com/coburnw/python-vxi11-server.git`; run `python3 demo_servers/time-device.py` to confirm rpcbind/portmapper registration.
   4. **Capture traffic** – from macOS (bridged NIC) connect NI‑MAX to `TCPIP::<vm-ip>::INSTR`, issue SCPI commands, and save Wireshark capture files (`Create_Link`, `Device_Write`, `Device_Read` sequences). These captures feed the C++/liblxi implementation.
+- **UI backlog (Graph editor):**
+  * Build a richer “Recent/Open Graph” surface that remembers the last few XMLs (per project) with metadata like modified time, thumbnail, and storage path so it’s easy to reopen the correct network description. This should also surface as a `File → Recent Graphs` menu (and optionally a welcome dialog) so users can reopen the last N files with a single click.
+  * Add export tooling for documentation: given the current graph scene, generate Mermaid diagrams (`graph TD`, `flowchart LR`, etc.) from the node/edge list. Provide CLI + UI entry point (e.g., File → Export → Mermaid) that writes `.mmd` alongside the original XML for downstream docs/Wikis.
 
 > **VXI‑11 refresher:** defined by `vxi11core.rpcl` (same file in `liblxi/src`). RPCGen creates `*_svc.c`, `*_clnt.c`, and XDR serializers. A device session starts with `Create_Link`, then repeated `Device_Write` / `Device_Read`. Termination is negotiated via flags inside the RPC messages, so VISA never needs manual “termination char” tweaks. This is why NI‑MAX prefers VXI‑11 endpoints for SCPI instruments.
 >
