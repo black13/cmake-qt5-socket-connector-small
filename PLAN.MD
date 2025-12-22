@@ -52,6 +52,10 @@
   * Guest Additions installed (VirtualBox ISO + `build-essential dkms linux-headers-$(uname -r)`) for shared folders/clipboard.
   * Use `192.168.56.2` for NI‑MAX (`TCPIP::192.168.56.2::INSTR`) and Wireshark captures; NAT path stays for internet/outbound traffic.
 - **Documentation artifacts** – Earlier NI‑MAX reverse-engineering generated a large `doxygen_out/` (~700 MB). Keep those HTML/PDF exports only if we’re actively referencing them during analysis; otherwise, archive or regenerate to avoid wasting disk space in the working tree.
+- **VXI‑11 server (Dec 2025)** – We now have a working Python baseline (python-vxi11-server) that NI‑VISA and PyVISA talk to via `TCPIP::192.168.56.3::INSTR`. Next wave is a native C/C++ implementation:
+  1. Use the EPICS/Tektronix `vxi11core.rpcl` (`/Users/jjosburn/temp/asyn/asyn/vxi11/vxi11core.rpcl`) and run `rpcgen -a -C` to generate the ONC/RPC server stubs (`vxi11core_svc.c`, `_xdr.c`, headers). Repeat for `vxi11intr.rpcl` if we support interrupts.
+  2. Integrate those generated sources into our CMake build and implement the `create_link`, `device_write`, `device_read`, etc. handlers so they call the existing Boost.Asio SCPI dispatcher (the logic currently in `scpi/share/asio_scpi_server.cpp`). The RPC layer replaces the raw TCP listener so only VXI‑11 endpoints are exposed.
+  3. Keep the Python server + NI-VISA traces (e.g., `dec22capture.txt`) as the golden reference—verify the new C/C++ server registers with `rpcbind`, responds identically to `*IDN?`, and matches the Wireshark captures before retiring the Python shim.
 - **Addendum – VM bring-up checklist:**
   1. **VM creation** – VirtualBox VM documented (Ubuntu Server 24.04, bridged NIC, shared folder). SSH port-forwarding confirmed (`ssh -p 2222 jjosburn@127.0.0.1`).
   2. **Baseline packages** – inside the VM run `sudo apt update && sudo apt install rpcbind python3 python3-pip git build-essential cmake gdb libboost-all-dev libssl-dev` so Boost/Asio builds succeed locally.
