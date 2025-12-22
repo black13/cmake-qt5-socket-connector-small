@@ -51,6 +51,7 @@
   * Adapter 2 (Host-only `vboxnet0`) → `enp0s8`, IP `192.168.56.2` after enabling DHCP via Netplan (`dhcp4: true`). Install `isc-dhcp-client` if needed so `dhclient enp0s8` works.
   * Guest Additions installed (VirtualBox ISO + `build-essential dkms linux-headers-$(uname -r)`) for shared folders/clipboard.
   * Use `192.168.56.2` for NI‑MAX (`TCPIP::192.168.56.2::INSTR`) and Wireshark captures; NAT path stays for internet/outbound traffic.
+- **Documentation artifacts** – Earlier NI‑MAX reverse-engineering generated a large `doxygen_out/` (~700 MB). Keep those HTML/PDF exports only if we’re actively referencing them during analysis; otherwise, archive or regenerate to avoid wasting disk space in the working tree.
 - **Addendum – VM bring-up checklist:**
   1. **VM creation** – VirtualBox VM documented (Ubuntu Server 24.04, bridged NIC, shared folder). SSH port-forwarding confirmed (`ssh -p 2222 jjosburn@127.0.0.1`).
   2. **Baseline packages** – inside the VM run `sudo apt update && sudo apt install rpcbind python3 python3-pip git build-essential cmake gdb libboost-all-dev libssl-dev` so Boost/Asio builds succeed locally.
