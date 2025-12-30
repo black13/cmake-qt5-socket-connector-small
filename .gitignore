@@ -82,3 +82,7 @@ generate_test_files.py
 # Cleanup scripts
 cleanup_repo.sh
 remove_claude_coauthor.sh
+scpi/share/scpi_server
+scpi/share/*.o
+shared/server/vxi11_server
+scripts/vm_config.sh
