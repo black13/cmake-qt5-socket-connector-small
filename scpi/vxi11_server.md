@@ -44,3 +44,6 @@ AGILENT,PSA-N9030A,SGNL0001,5.00
 - `:TRACe:DATA?` (returns CSV trace data)
 
 Unknown commands return `ERROR,"Unknown command"` and queue `-113,"Undefined header"` for `:SYST:ERR?`.
+
+## Provenance Notes
+- Vendor payloads (for example, NI-VISA extractions) are only used for local reference and are not kept in git. Recreate them from the official installer if needed.
