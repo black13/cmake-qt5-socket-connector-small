@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)
-DEFAULT_BUILD_DIR="$REPO_ROOT/shared/server/build"
-FALLBACK_BUILD_DIR="${HOME:-/tmp}/.cache/vxi11_server"
+DEFAULT_BUILD_DIR="$REPO_ROOT/shared/server/build_debug"
+FALLBACK_BUILD_DIR="${HOME:-/tmp}/.cache/vxi11_server_debug"
 FALLBACK_BIN="$REPO_ROOT/shared/server/vxi11_server"
 
 if [ -n "${VXI11_BUILD_DIR:-}" ]; then
@@ -44,6 +44,9 @@ ensure_binary() {
 
   local candidates=(
     "$DEFAULT_BUILD_DIR/vxi11_server"
+    "$REPO_ROOT/shared/server/build_release/vxi11_server"
+    "${HOME:-/tmp}/.cache/vxi11_server_debug/vxi11_server"
+    "${HOME:-/tmp}/.cache/vxi11_server_release/vxi11_server"
     "$FALLBACK_BUILD_DIR/vxi11_server"
     "/tmp/vxi11_server_build/vxi11_server"
     "$FALLBACK_BIN"
