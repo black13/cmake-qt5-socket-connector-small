@@ -48,6 +48,13 @@ If the shared folder is read-only, the build falls back to `~/.cache/vxi11_serve
 ```
 For debug logging, set `VXI11_DEBUG=1` before starting. Logs go to the runtime log file (see `vxi11_server_ctl.sh`).
 
+## One-shot VM Debug Run (host)
+From the host, use this wrapper to rebuild, restart with the script hook, and run a quick SCPI check:
+```
+./scripts/vm_vxi11_debug.sh
+```
+Requires `scripts/vm_config.sh` to be set up and SSH access to the VM.
+
 ## Build Cadence
 - Default to Debug builds while iterating.
 - Do a weekly Release build (`./scripts/vxi11_build.sh release`) followed by the quick SCPI test below.

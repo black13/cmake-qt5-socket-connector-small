@@ -14,6 +14,7 @@ Commands:
   status            Show VM state
   wait-ssh [secs]   Wait until SSH is available (default 60s)
   ssh               Open an interactive SSH session
+  run <cmd>         Run a shell command in the VM
   build             Run VM build command
   server-start      Start the VXI-11 server in the VM
   server-stop       Stop the VXI-11 server in the VM
@@ -145,6 +146,14 @@ case "$command" in
       exit 1
     fi
     "${SSH_WRAPPER[@]}" "${ssh_args_interactive[@]}" "$VM_SSH_USER@$VM_SSH_HOST"
+    ;;
+  run)
+    if [ $# -lt 2 ]; then
+      echo "Usage: $(basename "$0") run <command>" >&2
+      exit 1
+    fi
+    shift
+    ssh_cmd "$*"
     ;;
   build)
     ssh_cmd "cd $(printf '%q' "$VM_REPO_DIR") && $VM_BUILD_CMD"
