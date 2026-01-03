@@ -5,6 +5,9 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)
 SRC_DIR="$REPO_ROOT/shared/server"
 
 BUILD_TYPE="Debug"
+BUILD_VERBOSE=${VXI11_BUILD_VERBOSE:-0}
+DO_CLEAN=0
+DO_REBUILD=0
 for arg in "$@"; do
   case $arg in
     debug|Debug)
@@ -13,12 +16,25 @@ for arg in "$@"; do
     release|Release)
       BUILD_TYPE="Release"
       ;;
+    -v|--verbose|verbose)
+      BUILD_VERBOSE=1
+      ;;
+    clean|--clean)
+      DO_CLEAN=1
+      ;;
+    rebuild|--rebuild)
+      DO_REBUILD=1
+      ;;
     *)
-      echo "Usage: $(basename "$0") [debug|release]" >&2
+      echo "Usage: $(basename "$0") [debug|release] [--verbose] [--clean|--rebuild]" >&2
       exit 1
       ;;
   esac
 done
+
+if [ "$BUILD_VERBOSE" != "0" ]; then
+  set -x
+fi
 
 build_suffix=$(echo "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')
 DEFAULT_BUILD_DIR="$SRC_DIR/build_${build_suffix}"
@@ -51,6 +67,16 @@ else
       echo "Build directory not writable: $BUILD_DIR" >&2
       exit 1
     fi
+  fi
+fi
+
+if [ "$DO_CLEAN" != "0" ] || [ "$DO_REBUILD" != "0" ]; then
+  if [ -n "${BUILD_DIR:-}" ] && [ "$BUILD_DIR" != "/" ]; then
+    rm -rf "$BUILD_DIR"
+    echo "Cleaned build directory: $BUILD_DIR"
+  fi
+  if [ "$DO_REBUILD" = "0" ]; then
+    exit 0
   fi
 fi
 
