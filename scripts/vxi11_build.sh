@@ -78,6 +78,10 @@ if [ "$DO_CLEAN" != "0" ] || [ "$DO_REBUILD" != "0" ]; then
   if [ "$DO_REBUILD" = "0" ]; then
     exit 0
   fi
+  if ! ensure_writable_dir "$BUILD_DIR"; then
+    echo "Build directory not writable: $BUILD_DIR" >&2
+    exit 1
+  fi
 fi
 
 CC=${CC:-gcc}
