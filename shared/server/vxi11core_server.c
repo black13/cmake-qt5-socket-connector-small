@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <strings.h>
+#include <signal.h>
 #include <time.h>
 
 #ifdef VXI11_USE_DUKTAPE
@@ -292,6 +293,19 @@ static int parse_double(const char *text, double *out) {
 	}
 	*out = value;
 	return 1;
+}
+
+static void maybe_break_on_command_locked(const char *command) {
+	const char *break_cmd = getenv("VXI11_BREAK_CMD");
+	if (!break_cmd || !*break_cmd) {
+		return;
+	}
+	if (strcmp(break_cmd, "0") == 0 || strcasecmp(break_cmd, "off") == 0) {
+		return;
+	}
+	if (strcasecmp(command, break_cmd) == 0) {
+		raise(SIGTRAP);
+	}
 }
 
 #ifdef VXI11_USE_DUKTAPE
@@ -580,6 +594,7 @@ static void prepare_response_locked(const char *command) {
 	}
 
 	to_upper(buffer);
+	maybe_break_on_command_locked(buffer);
 
 	if (strcmp(buffer, "*IDN?") == 0) {
 		append_response_locked("AGILENT,PSA-N9030A,SGNL0001,5.00\n");

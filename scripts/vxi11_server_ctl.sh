@@ -28,12 +28,13 @@ VXI11_PID_FILE=${VXI11_PID_FILE:-"$RUNTIME_DIR/vxi11_server.pid"}
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") <start|stop|status|restart>
+Usage: $(basename "$0") <start|stop|status|restart|run|logs|gdb>
 
 Environment:
   VXI11_SERVER_BIN   Path to vxi11_server binary
   VXI11_LOG_FILE     Path to log file
   VXI11_PID_FILE     Path to PID file
+  VXI11_BREAK_CMD    SCPI command to break on (used with gdb)
 EOF
 }
 
@@ -119,6 +120,29 @@ status_server() {
   fi
 }
 
+run_server() {
+  ensure_binary
+  "$VXI11_SERVER_BIN"
+}
+
+tail_logs() {
+  if [ ! -f "$VXI11_LOG_FILE" ]; then
+    echo "Log file not found: $VXI11_LOG_FILE" >&2
+    exit 1
+  fi
+  tail -n 200 -f "$VXI11_LOG_FILE"
+}
+
+run_gdb() {
+  ensure_binary
+  if ! command -v gdb >/dev/null 2>&1; then
+    echo "gdb not found in PATH." >&2
+    exit 1
+  fi
+  local break_cmd=${VXI11_BREAK_CMD:-"*IDN?"}
+  VXI11_BREAK_CMD="$break_cmd" gdb --args "$VXI11_SERVER_BIN"
+}
+
 case "${1:-}" in
   start)
     start_server
@@ -132,6 +156,15 @@ case "${1:-}" in
   restart)
     stop_server
     start_server
+    ;;
+  run)
+    run_server
+    ;;
+  logs)
+    tail_logs
+    ;;
+  gdb)
+    run_gdb
     ;;
   *)
     usage

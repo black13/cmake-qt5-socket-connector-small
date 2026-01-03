@@ -47,6 +47,17 @@ If the shared folder is read-only, the build falls back to `~/.cache/vxi11_serve
 ./scripts/vxi11_server_ctl.sh status
 ```
 For debug logging, set `VXI11_DEBUG=1` before starting. Logs go to the runtime log file (see `vxi11_server_ctl.sh`).
+To stream logs:
+```
+./scripts/vxi11_server_ctl.sh logs
+```
+
+## Debugging with gdb
+Run the server under gdb and break on a command (default `*IDN?`):
+```
+VXI11_BREAK_CMD="*IDN?" ./scripts/vxi11_server_ctl.sh gdb
+```
+When the command is received, the server raises `SIGTRAP` and gdb stops.
 
 ## One-shot VM Debug Run (host)
 From the host, use this wrapper to rebuild, restart with the script hook, and run a quick SCPI check:
