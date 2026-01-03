@@ -24,12 +24,33 @@ build_suffix=$(echo "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')
 DEFAULT_BUILD_DIR="$SRC_DIR/build_${build_suffix}"
 FALLBACK_BUILD_DIR="${HOME:-/tmp}/.cache/vxi11_server_${build_suffix}"
 
+ensure_writable_dir() {
+  local dir=$1
+  if ! mkdir -p "$dir" 2>/dev/null; then
+    return 1
+  fi
+  local test_file="$dir/.vxi11_write_test"
+  if ! : > "$test_file" 2>/dev/null; then
+    return 1
+  fi
+  rm -f "$test_file"
+  return 0
+}
+
 if [ -n "${VXI11_BUILD_DIR:-}" ]; then
   BUILD_DIR="$VXI11_BUILD_DIR"
+  if ! ensure_writable_dir "$BUILD_DIR"; then
+    echo "Build directory not writable: $BUILD_DIR" >&2
+    exit 1
+  fi
 else
   BUILD_DIR="$DEFAULT_BUILD_DIR"
-  if ! mkdir -p "$BUILD_DIR" 2>/dev/null; then
+  if ! ensure_writable_dir "$BUILD_DIR"; then
     BUILD_DIR="$FALLBACK_BUILD_DIR"
+    if ! ensure_writable_dir "$BUILD_DIR"; then
+      echo "Build directory not writable: $BUILD_DIR" >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -58,7 +79,6 @@ if [ ! -d "$SRC_DIR" ]; then
   exit 1
 fi
 
-mkdir -p "$BUILD_DIR"
 echo "Build type: $BUILD_TYPE"
 echo "Using build directory: $BUILD_DIR"
 
