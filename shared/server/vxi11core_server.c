@@ -9,41 +9,196 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 
+#ifdef VXI11_USE_DUKTAPE
+#include "duktape.h"
+#endif
 static pthread_mutex_t g_state_lock = PTHREAD_MUTEX_INITIALIZER;
 static char g_last_command[1024];
-static char g_response[65536];
+static char g_response[262144];
 static size_t g_response_len = 0;
 static size_t g_response_offset = 0;
 static const Device_Link kLinkId = 1;
 
-static const int kTracePoints = 1001;
-static double g_trace[1001];
+static const int kTraceMaxPoints = 10001;
+static double g_trace[10001];
+static int g_trace_points = 1001;
 static double g_center_hz = 1.0e9;
 static double g_span_hz = 10.0e6;
 static double g_ref_level_dbm = 0.0;
 static double g_rbw_hz = 1.0e3;
+static double g_vbw_hz = 3.0e3;
+static double g_sweep_time_s = 0.05;
+static int g_continuous = 1;
+static double g_tone_freq_hz = 98.5e6;
+static double g_tone_base_hz = 98.5e6;
+static double g_tone_level_dbm = -30.0;
+static int g_tone_enabled = 1;
+static double g_tone_drift_span_hz = 50.0e3;
+static double g_tone_drift_step_hz = 5.0e3;
+static double g_noise_floor_dbm = -90.0;
+static double g_noise_variation_db = 3.0;
+static uint64_t g_noise_state = 0;
+static uint64_t g_noise_counter = 0;
+static int g_debug = 0;
+static int g_debug_init = 0;
+static int g_marker_index = -1;
+static double g_marker_freq_hz = 0.0;
+static double g_marker_level_dbm = 0.0;
+static int g_marker_track_max = 0;
 static char g_error_msg[128];
 
+#ifdef VXI11_USE_DUKTAPE
+static duk_context *g_duk_ctx = NULL;
+static int g_script_init = 0;
+static int g_script_enabled = 0;
+static char g_script_path[512];
+#endif
+
 static void reset_state_locked(void) {
-	g_center_hz = 1.0e9;
-	g_span_hz = 10.0e6;
+	g_center_hz = 98.5e6;
+	g_span_hz = 20.0e6;
 	g_ref_level_dbm = 0.0;
 	g_rbw_hz = 1.0e3;
+	g_vbw_hz = 3.0e3;
+	g_sweep_time_s = 0.05;
+	g_trace_points = 1001;
+	g_continuous = 1;
+	g_tone_base_hz = 98.5e6;
+	g_tone_freq_hz = g_tone_base_hz;
+	g_tone_level_dbm = -30.0;
+	g_tone_enabled = 1;
+	g_tone_drift_span_hz = 50.0e3;
+	g_tone_drift_step_hz = 5.0e3;
+	g_noise_floor_dbm = -90.0;
+	g_noise_variation_db = 3.0;
+	g_noise_state = 0;
+	g_noise_counter = 0;
+	g_marker_index = -1;
+	g_marker_freq_hz = 0.0;
+	g_marker_level_dbm = 0.0;
+	g_marker_track_max = 0;
 	g_error_msg[0] = '\0';
 }
 
+static void ensure_debug_init(void) {
+	if (g_debug_init) {
+		return;
+	}
+	const char *env = getenv("VXI11_DEBUG");
+	if (env && *env && strcmp(env, "0") != 0) {
+		g_debug = 1;
+	}
+	g_debug_init = 1;
+}
+
+static void debug_log(const char *fmt, ...) {
+	if (!g_debug) {
+		return;
+	}
+	va_list args;
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+	fflush(stderr);
+}
+
+static double start_freq_hz_locked(void) {
+	return g_center_hz - (g_span_hz / 2.0);
+}
+
+static double stop_freq_hz_locked(void) {
+	return g_center_hz + (g_span_hz / 2.0);
+}
+
+static void update_marker_locked(void) {
+	if (g_marker_index < 0) {
+		return;
+	}
+	if (g_marker_index >= g_trace_points) {
+		g_marker_index = g_trace_points - 1;
+	}
+	const double start = start_freq_hz_locked();
+	const double step = (g_trace_points > 1) ? (g_span_hz / (g_trace_points - 1)) : 0.0;
+	g_marker_freq_hz = start + step * g_marker_index;
+	g_marker_level_dbm = g_trace[g_marker_index];
+}
+
+static void marker_set_to_max_locked(void) {
+	int max_index = 0;
+	double max_value = g_trace[0];
+	for (int i = 1; i < g_trace_points; ++i) {
+		if (g_trace[i] > max_value) {
+			max_value = g_trace[i];
+			max_index = i;
+		}
+	}
+	g_marker_index = max_index;
+	update_marker_locked();
+}
+
+static void reseed_noise_locked(void) {
+	uint64_t seed = ((uint64_t)time(NULL) << 32) ^ (uint64_t)clock();
+	seed ^= (g_noise_counter + 1) * 0x9e3779b97f4a7c15ULL;
+	if (seed == 0) {
+		seed = 0x243f6a8885a308d3ULL;
+	}
+	g_noise_counter++;
+	g_noise_state = seed;
+}
+
+static double next_noise_unit_locked(void) {
+	g_noise_state = g_noise_state * 6364136223846793005ULL + 1ULL;
+	return (double)((g_noise_state >> 11) & 0x1fffffffffffffULL) / 9007199254740992.0;
+}
+
+static void update_tone_drift_locked(void) {
+	if (!g_tone_enabled || g_tone_drift_span_hz <= 0.0 || g_tone_drift_step_hz <= 0.0) {
+		return;
+	}
+	const double step = (next_noise_unit_locked() * 2.0 - 1.0) * g_tone_drift_step_hz;
+	const double min_freq = g_tone_base_hz - g_tone_drift_span_hz;
+	const double max_freq = g_tone_base_hz + g_tone_drift_span_hz;
+	g_tone_freq_hz += step;
+	if (g_tone_freq_hz < min_freq) {
+		g_tone_freq_hz = min_freq;
+	} else if (g_tone_freq_hz > max_freq) {
+		g_tone_freq_hz = max_freq;
+	}
+}
+
 static void generate_trace_locked(void) {
-	const double peak_freq = g_center_hz + g_span_hz * 0.1;
-	const double width = g_span_hz / 6.0;
-	for (int i = 0; i < kTracePoints; ++i) {
-		const double frac = (kTracePoints > 1) ? ((double)i / (kTracePoints - 1)) : 0.0;
-		const double freq = g_center_hz - g_span_hz / 2.0 + g_span_hz * frac;
-		const double offset = freq - peak_freq;
-		const double gaussian = g_ref_level_dbm - 10.0 * exp(-(offset * offset) / (2.0 * width * width));
-		g_trace[i] = gaussian;
+	const double start = start_freq_hz_locked();
+	const double tone_width = g_span_hz / 400.0;
+	const double noise_floor = g_noise_floor_dbm;
+	const int points = g_trace_points;
+	reseed_noise_locked();
+	update_tone_drift_locked();
+	for (int i = 0; i < points; ++i) {
+		const double frac = (points > 1) ? ((double)i / (points - 1)) : 0.0;
+		const double freq = start + g_span_hz * frac;
+		const double noise = (next_noise_unit_locked() * 2.0 - 1.0) * g_noise_variation_db;
+		const double ripple = 0.5 * sin(i * 0.11) + 0.3 * sin(i * 0.07);
+		double level = noise_floor + noise + ripple;
+		if (g_tone_enabled) {
+			const double offset = freq - g_tone_freq_hz;
+			const double amplitude = exp(-(offset * offset) / (2.0 * tone_width * tone_width));
+			const double tone = g_tone_level_dbm + 20.0 * log10(amplitude + 1e-12);
+			if (tone > level) {
+				level = tone;
+			}
+		}
+		g_trace[i] = level;
+	}
+	if (g_marker_track_max) {
+		marker_set_to_max_locked();
+	} else {
+		update_marker_locked();
 	}
 }
 
@@ -73,10 +228,22 @@ static void append_number_response_locked(double value) {
 	g_response_offset = 0;
 }
 
+static void append_int_response_locked(int value) {
+	int written = snprintf(g_response, sizeof(g_response), "%d\n", value);
+	if (written < 0) {
+		append_response_locked("ERROR,\"Format\"\n");
+		set_error_locked("-200,\"Execution error\"");
+		return;
+	}
+	g_response_len = (size_t)written;
+	g_response_offset = 0;
+}
+
 static void append_trace_response_locked(void) {
 	size_t offset = 0;
-	for (int i = 0; i < kTracePoints; ++i) {
-		const char *fmt = (i + 1 == kTracePoints) ? "%.6f\n" : "%.6f,";
+	const int points = g_trace_points;
+	for (int i = 0; i < points; ++i) {
+		const char *fmt = (i + 1 == points) ? "%.6f\n" : "%.6f,";
 		int written = snprintf(g_response + offset, sizeof(g_response) - offset, fmt, g_trace[i]);
 		if (written < 0) {
 			append_response_locked("ERROR,\"Trace\"\n");
@@ -127,6 +294,261 @@ static int parse_double(const char *text, double *out) {
 	return 1;
 }
 
+#ifdef VXI11_USE_DUKTAPE
+static int read_file(const char *path, char **out, size_t *out_len) {
+	FILE *file = fopen(path, "rb");
+	if (!file) {
+		return 0;
+	}
+	if (fseek(file, 0, SEEK_END) != 0) {
+		fclose(file);
+		return 0;
+	}
+	long size = ftell(file);
+	if (size < 0) {
+		fclose(file);
+		return 0;
+	}
+	if (fseek(file, 0, SEEK_SET) != 0) {
+		fclose(file);
+		return 0;
+	}
+	char *buffer = (char *)malloc((size_t)size + 1);
+	if (!buffer) {
+		fclose(file);
+		return 0;
+	}
+	size_t read_len = fread(buffer, 1, (size_t)size, file);
+	fclose(file);
+	buffer[read_len] = '\0';
+	*out = buffer;
+	*out_len = read_len;
+	return 1;
+}
+
+static duk_ret_t duk_vxi_get_trace(duk_context *ctx) {
+	duk_idx_t arr = duk_push_array(ctx);
+	for (duk_uarridx_t i = 0; i < (duk_uarridx_t)g_trace_points; ++i) {
+		duk_push_number(ctx, g_trace[i]);
+		duk_put_prop_index(ctx, arr, i);
+	}
+	return 1;
+}
+
+static duk_ret_t duk_vxi_set_trace(duk_context *ctx) {
+	if (!duk_is_array(ctx, 0)) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "trace must be an array");
+	}
+	duk_uarridx_t len = duk_get_length(ctx, 0);
+	if (len < 1 || len > (duk_uarridx_t)kTraceMaxPoints) {
+		return duk_error(ctx, DUK_ERR_RANGE_ERROR, "trace points out of range");
+	}
+	for (duk_uarridx_t i = 0; i < len; ++i) {
+		duk_get_prop_index(ctx, 0, i);
+		g_trace[i] = duk_to_number(ctx, -1);
+		duk_pop(ctx);
+	}
+	g_trace_points = (int)len;
+	if (g_marker_track_max) {
+		marker_set_to_max_locked();
+	} else {
+		update_marker_locked();
+	}
+	return 0;
+}
+
+static duk_ret_t duk_vxi_get_trace_points(duk_context *ctx) {
+	duk_push_int(ctx, g_trace_points);
+	return 1;
+}
+
+static duk_ret_t duk_vxi_set_trace_points(duk_context *ctx) {
+	int points = duk_require_int(ctx, 0);
+	if (points < 11 || points > kTraceMaxPoints) {
+		return duk_error(ctx, DUK_ERR_RANGE_ERROR, "trace points out of range");
+	}
+	g_trace_points = points;
+	generate_trace_locked();
+	return 0;
+}
+
+static duk_ret_t duk_vxi_get_center_hz(duk_context *ctx) {
+	duk_push_number(ctx, g_center_hz);
+	return 1;
+}
+
+static duk_ret_t duk_vxi_set_center_hz(duk_context *ctx) {
+	g_center_hz = duk_to_number(ctx, 0);
+	generate_trace_locked();
+	return 0;
+}
+
+static duk_ret_t duk_vxi_get_span_hz(duk_context *ctx) {
+	duk_push_number(ctx, g_span_hz);
+	return 1;
+}
+
+static duk_ret_t duk_vxi_set_span_hz(duk_context *ctx) {
+	g_span_hz = duk_to_number(ctx, 0);
+	generate_trace_locked();
+	return 0;
+}
+
+static duk_ret_t duk_vxi_get_tone_hz(duk_context *ctx) {
+	duk_push_number(ctx, g_tone_freq_hz);
+	return 1;
+}
+
+static duk_ret_t duk_vxi_set_tone_hz(duk_context *ctx) {
+	g_tone_freq_hz = duk_to_number(ctx, 0);
+	return 0;
+}
+
+static duk_ret_t duk_vxi_set_tone_enabled(duk_context *ctx) {
+	g_tone_enabled = duk_to_boolean(ctx, 0) ? 1 : 0;
+	return 0;
+}
+
+static duk_ret_t duk_vxi_set_noise_floor_dbm(duk_context *ctx) {
+	g_noise_floor_dbm = duk_to_number(ctx, 0);
+	return 0;
+}
+
+static duk_ret_t duk_vxi_set_noise_variation_db(duk_context *ctx) {
+	g_noise_variation_db = duk_to_number(ctx, 0);
+	return 0;
+}
+
+static duk_ret_t duk_vxi_generate_trace(duk_context *ctx) {
+	(void)ctx;
+	generate_trace_locked();
+	return 0;
+}
+
+static void register_vxi_api(duk_context *ctx) {
+	duk_push_object(ctx);
+	duk_push_c_function(ctx, duk_vxi_get_trace, 0);
+	duk_put_prop_string(ctx, -2, "getTrace");
+	duk_push_c_function(ctx, duk_vxi_set_trace, 1);
+	duk_put_prop_string(ctx, -2, "setTrace");
+	duk_push_c_function(ctx, duk_vxi_get_trace_points, 0);
+	duk_put_prop_string(ctx, -2, "getTracePoints");
+	duk_push_c_function(ctx, duk_vxi_set_trace_points, 1);
+	duk_put_prop_string(ctx, -2, "setTracePoints");
+	duk_push_c_function(ctx, duk_vxi_get_center_hz, 0);
+	duk_put_prop_string(ctx, -2, "getCenterHz");
+	duk_push_c_function(ctx, duk_vxi_set_center_hz, 1);
+	duk_put_prop_string(ctx, -2, "setCenterHz");
+	duk_push_c_function(ctx, duk_vxi_get_span_hz, 0);
+	duk_put_prop_string(ctx, -2, "getSpanHz");
+	duk_push_c_function(ctx, duk_vxi_set_span_hz, 1);
+	duk_put_prop_string(ctx, -2, "setSpanHz");
+	duk_push_c_function(ctx, duk_vxi_get_tone_hz, 0);
+	duk_put_prop_string(ctx, -2, "getToneHz");
+	duk_push_c_function(ctx, duk_vxi_set_tone_hz, 1);
+	duk_put_prop_string(ctx, -2, "setToneHz");
+	duk_push_c_function(ctx, duk_vxi_set_tone_enabled, 1);
+	duk_put_prop_string(ctx, -2, "setToneEnabled");
+	duk_push_c_function(ctx, duk_vxi_set_noise_floor_dbm, 1);
+	duk_put_prop_string(ctx, -2, "setNoiseFloorDbm");
+	duk_push_c_function(ctx, duk_vxi_set_noise_variation_db, 1);
+	duk_put_prop_string(ctx, -2, "setNoiseVariationDb");
+	duk_push_c_function(ctx, duk_vxi_generate_trace, 0);
+	duk_put_prop_string(ctx, -2, "generateTrace");
+	duk_put_global_string(ctx, "vxi");
+}
+
+static int script_init_locked(void) {
+	if (g_script_init) {
+		return g_script_enabled;
+	}
+	g_script_init = 1;
+	const char *env = getenv("VXI11_SCRIPT");
+	if (env && (*env == '\0' || strcmp(env, "0") == 0 || strcasecmp(env, "off") == 0)) {
+		return 0;
+	}
+	const char *path = env && *env ? env : "scpi/vxi11_script.js";
+	char *script = NULL;
+	size_t script_len = 0;
+	if (!read_file(path, &script, &script_len)) {
+		if (env && *env) {
+			debug_log("[vxi11] script not found: %s\n", path);
+		}
+		return 0;
+	}
+	g_duk_ctx = duk_create_heap_default();
+	if (!g_duk_ctx) {
+		debug_log("[vxi11] failed to create duktape heap\n");
+		free(script);
+		return 0;
+	}
+	register_vxi_api(g_duk_ctx);
+	if (duk_peval_lstring(g_duk_ctx, script, script_len) != 0) {
+		debug_log("[vxi11] script error: %s\n", duk_safe_to_string(g_duk_ctx, -1));
+		duk_pop(g_duk_ctx);
+		duk_destroy_heap(g_duk_ctx);
+		g_duk_ctx = NULL;
+		free(script);
+		return 0;
+	}
+	duk_pop(g_duk_ctx);
+	free(script);
+	strncpy(g_script_path, path, sizeof(g_script_path) - 1);
+	g_script_path[sizeof(g_script_path) - 1] = '\0';
+	g_script_enabled = 1;
+	debug_log("[vxi11] script loaded: %s\n", g_script_path);
+	return 1;
+}
+#endif
+
+static int script_handle_command_locked(const char *command, char *out, size_t out_size, size_t *out_len) {
+#ifdef VXI11_USE_DUKTAPE
+	if (!out || out_size == 0) {
+		return 0;
+	}
+	if (!script_init_locked()) {
+		return 0;
+	}
+	duk_context *ctx = g_duk_ctx;
+	duk_get_global_string(ctx, "handle");
+	if (!duk_is_function(ctx, -1)) {
+		duk_pop(ctx);
+		return 0;
+	}
+	duk_push_string(ctx, command);
+	if (duk_pcall(ctx, 1) != 0) {
+		debug_log("[vxi11] script handle error: %s\n", duk_safe_to_string(ctx, -1));
+		duk_pop(ctx);
+		return 0;
+	}
+	if (duk_is_null(ctx, -1) || duk_is_undefined(ctx, -1)) {
+		duk_pop(ctx);
+		return 0;
+	}
+	const char *resp = duk_safe_to_string(ctx, -1);
+	size_t len = strlen(resp);
+	if (len >= out_size) {
+		len = out_size - 1;
+	}
+	memcpy(out, resp, len);
+	if (len + 1 < out_size && len > 0 && out[len - 1] != '\n') {
+		out[len++] = '\n';
+	}
+	out[len] = '\0';
+	if (out_len) {
+		*out_len = len;
+	}
+	duk_pop(ctx);
+	return 1;
+#else
+	(void)command;
+	(void)out;
+	(void)out_size;
+	(void)out_len;
+	return 0;
+#endif
+}
+
 static void prepare_response_locked(const char *command) {
 	char buffer[1024];
 	strncpy(buffer, command, sizeof(buffer) - 1);
@@ -134,6 +556,14 @@ static void prepare_response_locked(const char *command) {
 	trim_whitespace(buffer);
 	if (buffer[0] == '\0') {
 		append_response_locked("");
+		return;
+	}
+
+	size_t script_len = 0;
+	if (script_handle_command_locked(buffer, g_response, sizeof(g_response), &script_len)) {
+		g_response_len = script_len < sizeof(g_response) ? script_len : sizeof(g_response) - 1;
+		g_response[g_response_len] = '\0';
+		g_response_offset = 0;
 		return;
 	}
 
@@ -180,6 +610,14 @@ static void prepare_response_locked(const char *command) {
 		append_number_response_locked(g_center_hz);
 		return;
 	}
+	if (strcmp(buffer, ":FREQ:STAR?") == 0 || strcmp(buffer, ":FREQUENCY:START?") == 0) {
+		append_number_response_locked(start_freq_hz_locked());
+		return;
+	}
+	if (strcmp(buffer, ":FREQ:STOP?") == 0 || strcmp(buffer, ":FREQUENCY:STOP?") == 0) {
+		append_number_response_locked(stop_freq_hz_locked());
+		return;
+	}
 	if (strcmp(buffer, ":SENS:FREQ:SPAN?") == 0 || strcmp(buffer, ":SENSE:FREQUENCY:SPAN?") == 0) {
 		append_number_response_locked(g_span_hz);
 		return;
@@ -188,9 +626,39 @@ static void prepare_response_locked(const char *command) {
 		append_number_response_locked(g_rbw_hz);
 		return;
 	}
+	if (strcmp(buffer, ":BAND:VID?") == 0 || strcmp(buffer, ":BANDWIDTH:VIDEO?") == 0) {
+		append_number_response_locked(g_vbw_hz);
+		return;
+	}
+	if (strcmp(buffer, ":SWE:POIN?") == 0 || strcmp(buffer, ":SWEEP:POINTS?") == 0) {
+		append_int_response_locked(g_trace_points);
+		return;
+	}
+	if (strcmp(buffer, ":SWE:TIME?") == 0 || strcmp(buffer, ":SWEEP:TIME?") == 0) {
+		append_number_response_locked(g_sweep_time_s);
+		return;
+	}
 	if (strcmp(buffer, ":DISP:WIND:TRAC:Y:SCAL:RLEV?") == 0 ||
 	    strcmp(buffer, ":DISPLAY:WINDOW:TRACE:Y:SCALE:RLEVEL?") == 0) {
 		append_number_response_locked(g_ref_level_dbm);
+		return;
+	}
+	if (strcmp(buffer, ":INIT:CONT?") == 0 || strcmp(buffer, ":INITIATE:CONTINUOUS?") == 0) {
+		append_int_response_locked(g_continuous ? 1 : 0);
+		return;
+	}
+	if (strcmp(buffer, ":CALC:MARK1:X?") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:X?") == 0) {
+		if (g_marker_index < 0) {
+			marker_set_to_max_locked();
+		}
+		append_number_response_locked(g_marker_freq_hz);
+		return;
+	}
+	if (strcmp(buffer, ":CALC:MARK1:Y?") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:Y?") == 0) {
+		if (g_marker_index < 0) {
+			marker_set_to_max_locked();
+		}
+		append_number_response_locked(g_marker_level_dbm);
 		return;
 	}
 
@@ -202,6 +670,44 @@ static void prepare_response_locked(const char *command) {
 			return;
 		}
 		g_center_hz = value;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":FREQ:STAR") == 0 || strcmp(buffer, ":FREQUENCY:START") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		const double stop = stop_freq_hz_locked();
+		if (value >= stop) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_center_hz = (value + stop) / 2.0;
+		g_span_hz = stop - value;
+		generate_trace_locked();
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":FREQ:STOP") == 0 || strcmp(buffer, ":FREQUENCY:STOP") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		const double start = start_freq_hz_locked();
+		if (value <= start) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_center_hz = (start + value) / 2.0;
+		g_span_hz = value - start;
+		generate_trace_locked();
 		append_response_locked("OK\n");
 		return;
 	}
@@ -228,6 +734,46 @@ static void prepare_response_locked(const char *command) {
 		append_response_locked("OK\n");
 		return;
 	}
+	if (strcmp(buffer, ":BAND:VID") == 0 || strcmp(buffer, ":BANDWIDTH:VIDEO") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_vbw_hz = value;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":SWE:POIN") == 0 || strcmp(buffer, ":SWEEP:POINTS") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		int points = (int)value;
+		if (points < 11 || points > kTraceMaxPoints) {
+			append_response_locked("ERROR,\"Bad points\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_trace_points = points;
+		generate_trace_locked();
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":SWE:TIME") == 0 || strcmp(buffer, ":SWEEP:TIME") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_sweep_time_s = value;
+		append_response_locked("OK\n");
+		return;
+	}
 	if (strcmp(buffer, ":DISP:WIND:TRAC:Y:SCAL:RLEV") == 0 ||
 	    strcmp(buffer, ":DISPLAY:WINDOW:TRACE:Y:SCALE:RLEVEL") == 0) {
 		double value;
@@ -242,15 +788,33 @@ static void prepare_response_locked(const char *command) {
 		return;
 	}
 
-	if (strcmp(buffer, ":INIT") == 0 || strcmp(buffer, ":INITIATE") == 0) {
+	if (strcmp(buffer, ":INIT") == 0 || strcmp(buffer, ":INITIATE") == 0 ||
+	    strcmp(buffer, ":INIT:IMM") == 0 || strcmp(buffer, ":INITIATE:IMMEDIATE") == 0) {
 		generate_trace_locked();
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":INIT:CONT") == 0 || strcmp(buffer, ":INITIATE:CONTINUOUS") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_continuous = value != 0.0 ? 1 : 0;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":CALC:MARK1:MAX") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:MAXIMUM") == 0) {
+		g_marker_track_max = 1;
+		marker_set_to_max_locked();
 		append_response_locked("OK\n");
 		return;
 	}
 	if (strcmp(buffer, ":TRAC:DATA?") == 0 || strcmp(buffer, ":TRACE:DATA?") == 0) {
 		append_trace_response_locked();
 		return;
-	}
+	 }
 
 	append_response_locked("ERROR,\"Unknown command\"\n");
 	set_error_locked("-113,\"Undefined header\"");
@@ -274,6 +838,7 @@ create_link_1_svc(Create_LinkParms *argp, struct svc_req *rqstp)
 	static Create_LinkResp  result;
 	(void)argp;
 	(void)rqstp;
+	ensure_debug_init();
 	pthread_mutex_lock(&g_state_lock);
 	g_last_command[0] = '\0';
 	g_response[0] = '\0';
@@ -281,11 +846,15 @@ create_link_1_svc(Create_LinkParms *argp, struct svc_req *rqstp)
 	g_response_offset = 0;
 	reset_state_locked();
 	generate_trace_locked();
+#ifdef VXI11_USE_DUKTAPE
+	script_init_locked();
+#endif
 	pthread_mutex_unlock(&g_state_lock);
 	result.error = 0;
 	result.lid = kLinkId;
 	result.abortPort = 0;
 	result.maxRecvSize = (u_int)sizeof(g_response);
+	debug_log("[vxi11] create_link lid=%d maxRecv=%u\n", result.lid, result.maxRecvSize);
 	return &result;
 }
 
@@ -294,6 +863,7 @@ device_write_1_svc(Device_WriteParms *argp, struct svc_req *rqstp)
 {
 	static Device_WriteResp  result;
 	(void)rqstp;
+	ensure_debug_init();
 	pthread_mutex_lock(&g_state_lock);
 	size_t copy_len = argp->data.data_len;
 	if (copy_len >= sizeof(g_last_command)) {
@@ -301,6 +871,7 @@ device_write_1_svc(Device_WriteParms *argp, struct svc_req *rqstp)
 	}
 	memcpy(g_last_command, argp->data.data_val, copy_len);
 	g_last_command[copy_len] = '\0';
+	debug_log("[vxi11] write cmd=\"%s\"\n", g_last_command);
 	prepare_response_locked(g_last_command);
 	pthread_mutex_unlock(&g_state_lock);
 	result.error = 0;
@@ -315,6 +886,7 @@ device_read_1_svc(Device_ReadParms *argp, struct svc_req *rqstp)
 	static char buffer[4096];
 	(void)argp;
 	(void)rqstp;
+	ensure_debug_init();
 	pthread_mutex_lock(&g_state_lock);
 	size_t remaining = 0;
 	if (g_response_len > g_response_offset) {
@@ -329,11 +901,14 @@ device_read_1_svc(Device_ReadParms *argp, struct svc_req *rqstp)
 		memcpy(buffer, g_response + g_response_offset, send_len);
 	}
 	g_response_offset += send_len;
+	const int reason = (g_response_offset >= g_response_len) ? 1 : 0;
 	pthread_mutex_unlock(&g_state_lock);
 	result.error = 0;
-	result.reason = (g_response_offset >= g_response_len) ? 1 : 0;
+	result.reason = reason;
 	result.data.data_val = buffer;
 	result.data.data_len = (u_int)send_len;
+	debug_log("[vxi11] read send=%zu offset=%zu len=%zu reason=%d\n",
+		send_len, g_response_offset, g_response_len, reason);
 	return &result;
 }
 
