@@ -897,7 +897,7 @@ static void prepare_response_locked(const char *command) {
 	LOG_MSG(LOG_DEBUG, "C", "cmd=\"%s\" arg=\"%s\"", buffer, arg ? arg : "");
 
 	if (strcmp(buffer, "*IDN?") == 0) {
-		append_response_locked("Agilent Technologies,E4404B,MY00000000,A.01.00\n");
+		append_response_locked("SIMILAR,E4404B,MY00000000,A.01.00\n");
 		return;
 	}
 	if (strcmp(buffer, "*CLS") == 0) {

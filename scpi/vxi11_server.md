@@ -88,7 +88,7 @@ lxi scpi -a 127.0.0.1 "*IDN?"
 
 Expected response:
 ```
-Agilent Technologies,E4404B,MY00000000,A.01.00
+SIMILAR,E4404B,MY00000000,A.01.00
 ```
 
 ## Supported SCPI (current)
