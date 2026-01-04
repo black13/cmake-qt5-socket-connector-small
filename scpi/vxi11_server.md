@@ -15,6 +15,7 @@ The script can implement `handle(cmd)`:
 - Return `null`/`undefined` to fall back to the built-in SCPI handler.
 
 Available `vxi` helpers (C <-> JS bridge):
+- `vxi.log(level, message)` (level can be number or string: error|warn|info|debug|trace)
 - `vxi.getTrace()` / `vxi.setTrace(array)`
 - `vxi.getTracePoints()` / `vxi.setTracePoints(points)`
 - `vxi.getCenterHz()` / `vxi.setCenterHz(hz)`
@@ -51,6 +52,8 @@ To stream logs:
 ```
 ./scripts/vxi11_server_ctl.sh logs
 ```
+For deep logging, set `VXI11_LOG_LEVEL` (error|warn|info|debug|trace). You can also force a log file via
+`VXI11_LOG_FILE=/path/to/file` (defaults to stderr, which is already captured by the control script).
 
 ## Debugging with gdb
 Run the server under gdb and break on a command (default `*IDN?`):

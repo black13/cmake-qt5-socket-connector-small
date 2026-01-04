@@ -19,6 +19,15 @@
 #ifdef VXI11_USE_DUKTAPE
 #include "duktape.h"
 #endif
+
+enum {
+	LOG_ERROR = 0,
+	LOG_WARN = 1,
+	LOG_INFO = 2,
+	LOG_DEBUG = 3,
+	LOG_TRACE = 4
+};
+
 static pthread_mutex_t g_state_lock = PTHREAD_MUTEX_INITIALIZER;
 static char g_last_command[1024];
 static char g_response[262144];
@@ -46,8 +55,10 @@ static double g_noise_floor_dbm = -90.0;
 static double g_noise_variation_db = 3.0;
 static uint64_t g_noise_state = 0;
 static uint64_t g_noise_counter = 0;
-static int g_debug = 0;
-static int g_debug_init = 0;
+static pthread_mutex_t g_log_lock = PTHREAD_MUTEX_INITIALIZER;
+static int g_log_init = 0;
+static int g_log_level = LOG_WARN;
+static FILE *g_log_file = NULL;
 static int g_marker_index = -1;
 static double g_marker_freq_hz = 0.0;
 static double g_marker_level_dbm = 0.0;
@@ -87,26 +98,124 @@ static void reset_state_locked(void) {
 	g_error_msg[0] = '\0';
 }
 
-static void ensure_debug_init(void) {
-	if (g_debug_init) {
+static const char *log_level_name(int level) {
+	switch (level) {
+	case LOG_ERROR:
+		return "ERROR";
+	case LOG_WARN:
+		return "WARN ";
+	case LOG_INFO:
+		return "INFO ";
+	case LOG_DEBUG:
+		return "DEBUG";
+	case LOG_TRACE:
+		return "TRACE";
+	default:
+		return "INFO ";
+	}
+}
+
+static int parse_log_level(const char *value) {
+	if (!value || !*value) {
+		return LOG_INFO;
+	}
+	if (value[0] >= '0' && value[0] <= '9') {
+		int level = atoi(value);
+		if (level < LOG_ERROR) {
+			level = LOG_ERROR;
+		} else if (level > LOG_TRACE) {
+			level = LOG_TRACE;
+		}
+		return level;
+	}
+	if (strcasecmp(value, "error") == 0) {
+		return LOG_ERROR;
+	}
+	if (strcasecmp(value, "warn") == 0 || strcasecmp(value, "warning") == 0) {
+		return LOG_WARN;
+	}
+	if (strcasecmp(value, "info") == 0) {
+		return LOG_INFO;
+	}
+	if (strcasecmp(value, "debug") == 0) {
+		return LOG_DEBUG;
+	}
+	if (strcasecmp(value, "trace") == 0) {
+		return LOG_TRACE;
+	}
+	return LOG_INFO;
+}
+
+static void ensure_log_init(void) {
+	if (g_log_init) {
 		return;
 	}
-	const char *env = getenv("VXI11_DEBUG");
-	if (env && *env && strcmp(env, "0") != 0) {
-		g_debug = 1;
+	g_log_init = 1;
+	const char *level_env = getenv("VXI11_LOG_LEVEL");
+	if (level_env && *level_env) {
+		g_log_level = parse_log_level(level_env);
+	} else {
+		const char *debug_env = getenv("VXI11_DEBUG");
+		if (debug_env && *debug_env && strcmp(debug_env, "0") != 0) {
+			g_log_level = LOG_DEBUG;
+		} else {
+			g_log_level = LOG_WARN;
+		}
 	}
-	g_debug_init = 1;
+	const char *path = getenv("VXI11_LOG_FILE");
+	if (path && *path) {
+		if (strcasecmp(path, "stderr") == 0) {
+			g_log_file = stderr;
+		} else if (strcasecmp(path, "stdout") == 0) {
+			g_log_file = stdout;
+		} else {
+			g_log_file = fopen(path, "a");
+			if (!g_log_file) {
+				g_log_file = stderr;
+			}
+		}
+	} else {
+		g_log_file = stderr;
+	}
+}
+
+static void log_message_v(int level, const char *src, const char *fmt, va_list args) {
+	ensure_log_init();
+	if (level > g_log_level) {
+		return;
+	}
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	time_t sec = ts.tv_sec;
+	struct tm tm_now;
+	localtime_r(&sec, &tm_now);
+	char stamp[32];
+	strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", &tm_now);
+	int ms = (int)(ts.tv_nsec / 1000000);
+	pthread_mutex_lock(&g_log_lock);
+	fprintf(g_log_file, "[%s.%03d] %s", stamp, ms, log_level_name(level));
+	if (src && *src) {
+		fprintf(g_log_file, " %s:", src);
+	}
+	fprintf(g_log_file, " ");
+	vfprintf(g_log_file, fmt, args);
+	fprintf(g_log_file, "\n");
+	fflush(g_log_file);
+	pthread_mutex_unlock(&g_log_lock);
+}
+
+static void log_message(int level, const char *src, const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	log_message_v(level, src, fmt, args);
+	va_end(args);
 }
 
 static void debug_log(const char *fmt, ...) {
-	if (!g_debug) {
-		return;
-	}
 	va_list args;
 	va_start(args, fmt);
-	vfprintf(stderr, fmt, args);
+	log_message_v(LOG_DEBUG, "C", fmt, args);
 	va_end(args);
-	fflush(stderr);
 }
 
 static double start_freq_hz_locked(void) {
@@ -206,6 +315,7 @@ static void generate_trace_locked(void) {
 static void set_error_locked(const char *msg) {
 	strncpy(g_error_msg, msg, sizeof(g_error_msg) - 1);
 	g_error_msg[sizeof(g_error_msg) - 1] = '\0';
+	log_message(LOG_WARN, "C", "error queued: %s", g_error_msg);
 }
 
 static void append_response_locked(const char *response) {
@@ -439,8 +549,35 @@ static duk_ret_t duk_vxi_generate_trace(duk_context *ctx) {
 	return 0;
 }
 
+static duk_ret_t duk_vxi_log(duk_context *ctx) {
+	int level = LOG_INFO;
+	const char *message = NULL;
+	if (duk_get_top(ctx) == 1) {
+		message = duk_safe_to_string(ctx, 0);
+	} else if (duk_get_top(ctx) >= 2) {
+		if (duk_is_number(ctx, 0)) {
+			level = (int)duk_to_int(ctx, 0);
+		} else {
+			level = parse_log_level(duk_safe_to_string(ctx, 0));
+		}
+		message = duk_safe_to_string(ctx, 1);
+	}
+	if (level < LOG_ERROR) {
+		level = LOG_ERROR;
+	} else if (level > LOG_TRACE) {
+		level = LOG_TRACE;
+	}
+	if (!message) {
+		message = "";
+	}
+	log_message(level, "JS", "%s", message);
+	return 0;
+}
+
 static void register_vxi_api(duk_context *ctx) {
 	duk_push_object(ctx);
+	duk_push_c_function(ctx, duk_vxi_log, DUK_VARARGS);
+	duk_put_prop_string(ctx, -2, "log");
 	duk_push_c_function(ctx, duk_vxi_get_trace, 0);
 	duk_put_prop_string(ctx, -2, "getTrace");
 	duk_push_c_function(ctx, duk_vxi_set_trace, 1);
@@ -486,19 +623,19 @@ static int script_init_locked(void) {
 	size_t script_len = 0;
 	if (!read_file(path, &script, &script_len)) {
 		if (env && *env) {
-			debug_log("[vxi11] script not found: %s\n", path);
+			log_message(LOG_WARN, "JS", "script not found: %s", path);
 		}
 		return 0;
 	}
 	g_duk_ctx = duk_create_heap_default();
 	if (!g_duk_ctx) {
-		debug_log("[vxi11] failed to create duktape heap\n");
+		log_message(LOG_ERROR, "JS", "failed to create duktape heap");
 		free(script);
 		return 0;
 	}
 	register_vxi_api(g_duk_ctx);
 	if (duk_peval_lstring(g_duk_ctx, script, script_len) != 0) {
-		debug_log("[vxi11] script error: %s\n", duk_safe_to_string(g_duk_ctx, -1));
+		log_message(LOG_ERROR, "JS", "script error: %s", duk_safe_to_string(g_duk_ctx, -1));
 		duk_pop(g_duk_ctx);
 		duk_destroy_heap(g_duk_ctx);
 		g_duk_ctx = NULL;
@@ -510,7 +647,7 @@ static int script_init_locked(void) {
 	strncpy(g_script_path, path, sizeof(g_script_path) - 1);
 	g_script_path[sizeof(g_script_path) - 1] = '\0';
 	g_script_enabled = 1;
-	debug_log("[vxi11] script loaded: %s\n", g_script_path);
+	log_message(LOG_INFO, "JS", "script loaded: %s", g_script_path);
 	return 1;
 }
 #endif
@@ -529,14 +666,16 @@ static int script_handle_command_locked(const char *command, char *out, size_t o
 		duk_pop(ctx);
 		return 0;
 	}
+	log_message(LOG_TRACE, "JS", "handle cmd=\"%s\"", command);
 	duk_push_string(ctx, command);
 	if (duk_pcall(ctx, 1) != 0) {
-		debug_log("[vxi11] script handle error: %s\n", duk_safe_to_string(ctx, -1));
+		log_message(LOG_ERROR, "JS", "handle error: %s", duk_safe_to_string(ctx, -1));
 		duk_pop(ctx);
 		return 0;
 	}
 	if (duk_is_null(ctx, -1) || duk_is_undefined(ctx, -1)) {
 		duk_pop(ctx);
+		log_message(LOG_TRACE, "JS", "no handler for cmd=\"%s\"", command);
 		return 0;
 	}
 	const char *resp = duk_safe_to_string(ctx, -1);
@@ -553,6 +692,7 @@ static int script_handle_command_locked(const char *command, char *out, size_t o
 		*out_len = len;
 	}
 	duk_pop(ctx);
+	log_message(LOG_DEBUG, "JS", "handled cmd=\"%s\" len=%zu", command, len);
 	return 1;
 #else
 	(void)command;
@@ -595,6 +735,7 @@ static void prepare_response_locked(const char *command) {
 
 	to_upper(buffer);
 	maybe_break_on_command_locked(buffer);
+	log_message(LOG_DEBUG, "C", "cmd=\"%s\" arg=\"%s\"", buffer, arg ? arg : "");
 
 	if (strcmp(buffer, "*IDN?") == 0) {
 		append_response_locked("AGILENT,PSA-N9030A,SGNL0001,5.00\n");
@@ -831,6 +972,7 @@ static void prepare_response_locked(const char *command) {
 		return;
 	 }
 
+	log_message(LOG_WARN, "C", "unknown cmd=\"%s\"", buffer);
 	append_response_locked("ERROR,\"Unknown command\"\n");
 	set_error_locked("-113,\"Undefined header\"");
 }
@@ -853,7 +995,7 @@ create_link_1_svc(Create_LinkParms *argp, struct svc_req *rqstp)
 	static Create_LinkResp  result;
 	(void)argp;
 	(void)rqstp;
-	ensure_debug_init();
+	ensure_log_init();
 	pthread_mutex_lock(&g_state_lock);
 	g_last_command[0] = '\0';
 	g_response[0] = '\0';
@@ -869,6 +1011,7 @@ create_link_1_svc(Create_LinkParms *argp, struct svc_req *rqstp)
 	result.lid = kLinkId;
 	result.abortPort = 0;
 	result.maxRecvSize = (u_int)sizeof(g_response);
+	log_message(LOG_INFO, "RPC", "create_link lid=%d maxRecv=%u", result.lid, result.maxRecvSize);
 	debug_log("[vxi11] create_link lid=%d maxRecv=%u\n", result.lid, result.maxRecvSize);
 	return &result;
 }
@@ -878,7 +1021,7 @@ device_write_1_svc(Device_WriteParms *argp, struct svc_req *rqstp)
 {
 	static Device_WriteResp  result;
 	(void)rqstp;
-	ensure_debug_init();
+	ensure_log_init();
 	pthread_mutex_lock(&g_state_lock);
 	size_t copy_len = argp->data.data_len;
 	if (copy_len >= sizeof(g_last_command)) {
@@ -901,7 +1044,7 @@ device_read_1_svc(Device_ReadParms *argp, struct svc_req *rqstp)
 	static char buffer[4096];
 	(void)argp;
 	(void)rqstp;
-	ensure_debug_init();
+	ensure_log_init();
 	pthread_mutex_lock(&g_state_lock);
 	size_t remaining = 0;
 	if (g_response_len > g_response_offset) {

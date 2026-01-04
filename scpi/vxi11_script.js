@@ -5,6 +5,7 @@ function handle(cmd) {
   var up = cmd.trim().toUpperCase();
 
   if (up === ':SIM:TRACE:TRI') {
+    vxi.log('info', 'JS generating triangle trace');
     var points = vxi.getTracePoints();
     var trace = new Array(points);
     for (var i = 0; i < points; i++) {
@@ -16,12 +17,14 @@ function handle(cmd) {
   }
 
   if (up === ':SIM:TONE:OFF') {
+    vxi.log('info', 'JS tone disabled');
     vxi.setToneEnabled(false);
     vxi.generateTrace();
     return 'OK';
   }
 
   if (up === ':SIM:TONE:ON') {
+    vxi.log('info', 'JS tone enabled');
     vxi.setToneEnabled(true);
     vxi.generateTrace();
     return 'OK';

@@ -35,6 +35,7 @@ Environment:
   VXI11_LOG_FILE     Path to log file
   VXI11_PID_FILE     Path to PID file
   VXI11_BREAK_CMD    SCPI command to break on (used with gdb)
+  VXI11_LOG_LEVEL    error|warn|info|debug|trace (defaults to warn or debug if VXI11_DEBUG=1)
 EOF
 }
 
