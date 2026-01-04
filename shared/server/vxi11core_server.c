@@ -179,7 +179,16 @@ static void ensure_log_init(void) {
 	}
 }
 
-static void log_message_v(int level, const char *src, const char *fmt, va_list args) {
+static const char *log_basename(const char *path) {
+	if (!path || !*path) {
+		return "";
+	}
+	const char *slash = strrchr(path, '/');
+	return slash ? slash + 1 : path;
+}
+
+static void log_message_v(int level, const char *src, const char *file, int line,
+	const char *func, const char *fmt, va_list args) {
 	ensure_log_init();
 	if (level > g_log_level) {
 		return;
@@ -197,6 +206,12 @@ static void log_message_v(int level, const char *src, const char *fmt, va_list a
 	if (src && *src) {
 		fprintf(g_log_file, " %s:", src);
 	}
+	if (file && *file) {
+		fprintf(g_log_file, " %s:%d", log_basename(file), line);
+		if (func && *func) {
+			fprintf(g_log_file, " %s()", func);
+		}
+	}
 	fprintf(g_log_file, " ");
 	vfprintf(g_log_file, fmt, args);
 	fprintf(g_log_file, "\n");
@@ -204,19 +219,18 @@ static void log_message_v(int level, const char *src, const char *fmt, va_list a
 	pthread_mutex_unlock(&g_log_lock);
 }
 
-static void log_message(int level, const char *src, const char *fmt, ...) {
+static void log_message(int level, const char *src, const char *file, int line,
+	const char *func, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	log_message_v(level, src, fmt, args);
+	log_message_v(level, src, file, line, func, fmt, args);
 	va_end(args);
 }
 
-static void debug_log(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	log_message_v(LOG_DEBUG, "C", fmt, args);
-	va_end(args);
-}
+#define LOG_MSG(level, src, fmt, ...) \
+	log_message(level, src, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define DEBUG_LOG(fmt, ...) \
+	LOG_MSG(LOG_DEBUG, "C", fmt, ##__VA_ARGS__)
 
 static double start_freq_hz_locked(void) {
 	return g_center_hz - (g_span_hz / 2.0);
@@ -315,7 +329,7 @@ static void generate_trace_locked(void) {
 static void set_error_locked(const char *msg) {
 	strncpy(g_error_msg, msg, sizeof(g_error_msg) - 1);
 	g_error_msg[sizeof(g_error_msg) - 1] = '\0';
-	log_message(LOG_WARN, "C", "error queued: %s", g_error_msg);
+	LOG_MSG(LOG_WARN, "C", "error queued: %s", g_error_msg);
 }
 
 static void append_response_locked(const char *response) {
@@ -570,7 +584,7 @@ static duk_ret_t duk_vxi_log(duk_context *ctx) {
 	if (!message) {
 		message = "";
 	}
-	log_message(level, "JS", "%s", message);
+	LOG_MSG(level, "JS", "%s", message);
 	return 0;
 }
 
@@ -623,19 +637,19 @@ static int script_init_locked(void) {
 	size_t script_len = 0;
 	if (!read_file(path, &script, &script_len)) {
 		if (env && *env) {
-			log_message(LOG_WARN, "JS", "script not found: %s", path);
+			LOG_MSG(LOG_WARN, "JS", "script not found: %s", path);
 		}
 		return 0;
 	}
 	g_duk_ctx = duk_create_heap_default();
 	if (!g_duk_ctx) {
-		log_message(LOG_ERROR, "JS", "failed to create duktape heap");
+		LOG_MSG(LOG_ERROR, "JS", "failed to create duktape heap");
 		free(script);
 		return 0;
 	}
 	register_vxi_api(g_duk_ctx);
 	if (duk_peval_lstring(g_duk_ctx, script, script_len) != 0) {
-		log_message(LOG_ERROR, "JS", "script error: %s", duk_safe_to_string(g_duk_ctx, -1));
+		LOG_MSG(LOG_ERROR, "JS", "script error: %s", duk_safe_to_string(g_duk_ctx, -1));
 		duk_pop(g_duk_ctx);
 		duk_destroy_heap(g_duk_ctx);
 		g_duk_ctx = NULL;
@@ -647,7 +661,7 @@ static int script_init_locked(void) {
 	strncpy(g_script_path, path, sizeof(g_script_path) - 1);
 	g_script_path[sizeof(g_script_path) - 1] = '\0';
 	g_script_enabled = 1;
-	log_message(LOG_INFO, "JS", "script loaded: %s", g_script_path);
+	LOG_MSG(LOG_INFO, "JS", "script loaded: %s", g_script_path);
 	return 1;
 }
 #endif
@@ -666,16 +680,16 @@ static int script_handle_command_locked(const char *command, char *out, size_t o
 		duk_pop(ctx);
 		return 0;
 	}
-	log_message(LOG_TRACE, "JS", "handle cmd=\"%s\"", command);
+	LOG_MSG(LOG_TRACE, "JS", "handle cmd=\"%s\"", command);
 	duk_push_string(ctx, command);
 	if (duk_pcall(ctx, 1) != 0) {
-		log_message(LOG_ERROR, "JS", "handle error: %s", duk_safe_to_string(ctx, -1));
+		LOG_MSG(LOG_ERROR, "JS", "handle error: %s", duk_safe_to_string(ctx, -1));
 		duk_pop(ctx);
 		return 0;
 	}
 	if (duk_is_null(ctx, -1) || duk_is_undefined(ctx, -1)) {
 		duk_pop(ctx);
-		log_message(LOG_TRACE, "JS", "no handler for cmd=\"%s\"", command);
+		LOG_MSG(LOG_TRACE, "JS", "no handler for cmd=\"%s\"", command);
 		return 0;
 	}
 	const char *resp = duk_safe_to_string(ctx, -1);
@@ -692,7 +706,7 @@ static int script_handle_command_locked(const char *command, char *out, size_t o
 		*out_len = len;
 	}
 	duk_pop(ctx);
-	log_message(LOG_DEBUG, "JS", "handled cmd=\"%s\" len=%zu", command, len);
+	LOG_MSG(LOG_DEBUG, "JS", "handled cmd=\"%s\" len=%zu", command, len);
 	return 1;
 #else
 	(void)command;
@@ -735,7 +749,7 @@ static void prepare_response_locked(const char *command) {
 
 	to_upper(buffer);
 	maybe_break_on_command_locked(buffer);
-	log_message(LOG_DEBUG, "C", "cmd=\"%s\" arg=\"%s\"", buffer, arg ? arg : "");
+	LOG_MSG(LOG_DEBUG, "C", "cmd=\"%s\" arg=\"%s\"", buffer, arg ? arg : "");
 
 	if (strcmp(buffer, "*IDN?") == 0) {
 		append_response_locked("AGILENT,PSA-N9030A,SGNL0001,5.00\n");
@@ -972,7 +986,7 @@ static void prepare_response_locked(const char *command) {
 		return;
 	 }
 
-	log_message(LOG_WARN, "C", "unknown cmd=\"%s\"", buffer);
+	LOG_MSG(LOG_WARN, "C", "unknown cmd=\"%s\"", buffer);
 	append_response_locked("ERROR,\"Unknown command\"\n");
 	set_error_locked("-113,\"Undefined header\"");
 }
@@ -1011,8 +1025,8 @@ create_link_1_svc(Create_LinkParms *argp, struct svc_req *rqstp)
 	result.lid = kLinkId;
 	result.abortPort = 0;
 	result.maxRecvSize = (u_int)sizeof(g_response);
-	log_message(LOG_INFO, "RPC", "create_link lid=%d maxRecv=%u", result.lid, result.maxRecvSize);
-	debug_log("[vxi11] create_link lid=%d maxRecv=%u\n", result.lid, result.maxRecvSize);
+	LOG_MSG(LOG_INFO, "RPC", "create_link lid=%d maxRecv=%u", result.lid, result.maxRecvSize);
+	DEBUG_LOG("[vxi11] create_link lid=%d maxRecv=%u", result.lid, result.maxRecvSize);
 	return &result;
 }
 
@@ -1029,7 +1043,7 @@ device_write_1_svc(Device_WriteParms *argp, struct svc_req *rqstp)
 	}
 	memcpy(g_last_command, argp->data.data_val, copy_len);
 	g_last_command[copy_len] = '\0';
-	debug_log("[vxi11] write cmd=\"%s\"\n", g_last_command);
+	DEBUG_LOG("[vxi11] write cmd=\"%s\"", g_last_command);
 	prepare_response_locked(g_last_command);
 	pthread_mutex_unlock(&g_state_lock);
 	result.error = 0;
@@ -1065,7 +1079,7 @@ device_read_1_svc(Device_ReadParms *argp, struct svc_req *rqstp)
 	result.reason = reason;
 	result.data.data_val = buffer;
 	result.data.data_len = (u_int)send_len;
-	debug_log("[vxi11] read send=%zu offset=%zu len=%zu reason=%d\n",
+	DEBUG_LOG("[vxi11] read send=%zu offset=%zu len=%zu reason=%d",
 		send_len, g_response_offset, g_response_len, reason);
 	return &result;
 }

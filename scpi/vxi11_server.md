@@ -54,6 +54,7 @@ To stream logs:
 ```
 For deep logging, set `VXI11_LOG_LEVEL` (error|warn|info|debug|trace). You can also force a log file via
 `VXI11_LOG_FILE=/path/to/file` (defaults to stderr, which is already captured by the control script).
+Log lines include `file:line func()` for C/C++ call sites; JS logs are tagged `JS` and show the C bridge location.
 
 ## Debugging with gdb
 Run the server under gdb and break on a command (default `*IDN?`):
