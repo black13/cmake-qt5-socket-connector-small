@@ -59,6 +59,29 @@ static pthread_mutex_t g_log_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_log_init = 0;
 static int g_log_level = LOG_WARN;
 static FILE *g_log_file = NULL;
+typedef enum {
+	DET_NORM,
+	DET_AVER,
+	DET_POS,
+	DET_NEG,
+	DET_SAMP,
+	DET_PEAK,
+	DET_QPEAK
+} DetectorMode;
+
+typedef enum {
+	TRACE_WRIT,
+	TRACE_MAXH,
+	TRACE_MINH,
+	TRACE_AVER,
+	TRACE_VIEW
+} TraceType;
+
+static DetectorMode g_detector_mode = DET_NORM;
+static TraceType g_trace_type = TRACE_WRIT;
+static int g_avg_enabled = 0;
+static int g_avg_count = 10;
+static int g_marker_enabled = 0;
 static int g_marker_index = -1;
 static double g_marker_freq_hz = 0.0;
 static double g_marker_level_dbm = 0.0;
@@ -91,6 +114,11 @@ static void reset_state_locked(void) {
 	g_noise_variation_db = 3.0;
 	g_noise_state = 0;
 	g_noise_counter = 0;
+	g_detector_mode = DET_NORM;
+	g_trace_type = TRACE_WRIT;
+	g_avg_enabled = 0;
+	g_avg_count = 10;
+	g_marker_enabled = 0;
 	g_marker_index = -1;
 	g_marker_freq_hz = 0.0;
 	g_marker_level_dbm = 0.0;
@@ -417,6 +445,122 @@ static int parse_double(const char *text, double *out) {
 	}
 	*out = value;
 	return 1;
+}
+
+static int parse_bool(const char *text, int *out) {
+	if (!text || !*text) {
+		return 0;
+	}
+	if (strcasecmp(text, "ON") == 0 || strcmp(text, "1") == 0 || strcasecmp(text, "TRUE") == 0) {
+		*out = 1;
+		return 1;
+	}
+	if (strcasecmp(text, "OFF") == 0 || strcmp(text, "0") == 0 || strcasecmp(text, "FALSE") == 0) {
+		*out = 0;
+		return 1;
+	}
+	return 0;
+}
+
+static const char *detector_mode_name(DetectorMode mode) {
+	switch (mode) {
+	case DET_NORM:
+		return "NORM";
+	case DET_AVER:
+		return "AVER";
+	case DET_POS:
+		return "POS";
+	case DET_NEG:
+		return "NEG";
+	case DET_SAMP:
+		return "SAMP";
+	case DET_PEAK:
+		return "PEAK";
+	case DET_QPEAK:
+		return "QPEAK";
+	default:
+		return "NORM";
+	}
+}
+
+static int parse_detector_mode(const char *text, DetectorMode *out) {
+	if (!text || !*text) {
+		return 0;
+	}
+	if (strcasecmp(text, "NORM") == 0 || strcasecmp(text, "NORMAL") == 0) {
+		*out = DET_NORM;
+		return 1;
+	}
+	if (strcasecmp(text, "AVER") == 0 || strcasecmp(text, "AVERAGE") == 0) {
+		*out = DET_AVER;
+		return 1;
+	}
+	if (strcasecmp(text, "POS") == 0 || strcasecmp(text, "POSITIVE") == 0) {
+		*out = DET_POS;
+		return 1;
+	}
+	if (strcasecmp(text, "NEG") == 0 || strcasecmp(text, "NEGATIVE") == 0) {
+		*out = DET_NEG;
+		return 1;
+	}
+	if (strcasecmp(text, "SAMP") == 0 || strcasecmp(text, "SAMPLE") == 0) {
+		*out = DET_SAMP;
+		return 1;
+	}
+	if (strcasecmp(text, "PEAK") == 0) {
+		*out = DET_PEAK;
+		return 1;
+	}
+	if (strcasecmp(text, "QPEAK") == 0 || strcasecmp(text, "QUASI") == 0 ||
+	    strcasecmp(text, "QUASIPEAK") == 0) {
+		*out = DET_QPEAK;
+		return 1;
+	}
+	return 0;
+}
+
+static const char *trace_type_name(TraceType type) {
+	switch (type) {
+	case TRACE_WRIT:
+		return "WRIT";
+	case TRACE_MAXH:
+		return "MAXH";
+	case TRACE_MINH:
+		return "MINH";
+	case TRACE_AVER:
+		return "AVER";
+	case TRACE_VIEW:
+		return "VIEW";
+	default:
+		return "WRIT";
+	}
+}
+
+static int parse_trace_type(const char *text, TraceType *out) {
+	if (!text || !*text) {
+		return 0;
+	}
+	if (strcasecmp(text, "WRIT") == 0 || strcasecmp(text, "WRITE") == 0) {
+		*out = TRACE_WRIT;
+		return 1;
+	}
+	if (strcasecmp(text, "MAXH") == 0 || strcasecmp(text, "MAX") == 0) {
+		*out = TRACE_MAXH;
+		return 1;
+	}
+	if (strcasecmp(text, "MINH") == 0 || strcasecmp(text, "MIN") == 0) {
+		*out = TRACE_MINH;
+		return 1;
+	}
+	if (strcasecmp(text, "AVER") == 0 || strcasecmp(text, "AVERAGE") == 0) {
+		*out = TRACE_AVER;
+		return 1;
+	}
+	if (strcasecmp(text, "VIEW") == 0) {
+		*out = TRACE_VIEW;
+		return 1;
+	}
+	return 0;
 }
 
 static void maybe_break_on_command_locked(const char *command) {
@@ -753,10 +897,25 @@ static void prepare_response_locked(const char *command) {
 	LOG_MSG(LOG_DEBUG, "C", "cmd=\"%s\" arg=\"%s\"", buffer, arg ? arg : "");
 
 	if (strcmp(buffer, "*IDN?") == 0) {
-		append_response_locked("AGILENT,PSA-N9030A,SGNL0001,5.00\n");
+		append_response_locked("Agilent Technologies,E4404B,MY00000000,A.01.00\n");
+		return;
+	}
+	if (strcmp(buffer, "*CLS") == 0) {
+		g_error_msg[0] = '\0';
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, "*OPC?") == 0) {
+		append_response_locked("1\n");
 		return;
 	}
 	if (strcmp(buffer, "*RST") == 0) {
+		reset_state_locked();
+		generate_trace_locked();
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":SYST:PRES") == 0 || strcmp(buffer, ":SYSTEM:PRESET") == 0) {
 		reset_state_locked();
 		generate_trace_locked();
 		append_response_locked("OK\n");
@@ -774,6 +933,10 @@ static void prepare_response_locked(const char *command) {
 			g_error_msg[0] = '\0';
 			g_response_offset = 0;
 		}
+		return;
+	}
+	if (strcmp(buffer, ":SYST:VERS?") == 0 || strcmp(buffer, ":SYSTEM:VERSION?") == 0) {
+		append_response_locked("1999.0\n");
 		return;
 	}
 
@@ -809,6 +972,30 @@ static void prepare_response_locked(const char *command) {
 		append_number_response_locked(g_sweep_time_s);
 		return;
 	}
+	if (strcmp(buffer, ":SENS:DET:FUNC?") == 0 || strcmp(buffer, ":SENSE:DETECTOR:FUNCTION?") == 0) {
+		append_response_locked(detector_mode_name(g_detector_mode));
+		if (g_response_len + 1 < sizeof(g_response)) {
+			g_response[g_response_len++] = '\n';
+			g_response[g_response_len] = '\0';
+		}
+		return;
+	}
+	if (strcmp(buffer, ":TRAC:TYPE?") == 0 || strcmp(buffer, ":TRACE:TYPE?") == 0) {
+		append_response_locked(trace_type_name(g_trace_type));
+		if (g_response_len + 1 < sizeof(g_response)) {
+			g_response[g_response_len++] = '\n';
+			g_response[g_response_len] = '\0';
+		}
+		return;
+	}
+	if (strcmp(buffer, ":SENS:AVER:STAT?") == 0 || strcmp(buffer, ":SENSE:AVERAGE:STATE?") == 0) {
+		append_int_response_locked(g_avg_enabled ? 1 : 0);
+		return;
+	}
+	if (strcmp(buffer, ":SENS:AVER:COUN?") == 0 || strcmp(buffer, ":SENSE:AVERAGE:COUNT?") == 0) {
+		append_int_response_locked(g_avg_count);
+		return;
+	}
 	if (strcmp(buffer, ":DISP:WIND:TRAC:Y:SCAL:RLEV?") == 0 ||
 	    strcmp(buffer, ":DISPLAY:WINDOW:TRACE:Y:SCALE:RLEVEL?") == 0) {
 		append_number_response_locked(g_ref_level_dbm);
@@ -819,17 +1006,23 @@ static void prepare_response_locked(const char *command) {
 		return;
 	}
 	if (strcmp(buffer, ":CALC:MARK1:X?") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:X?") == 0) {
-		if (g_marker_index < 0) {
+		if (!g_marker_enabled || g_marker_index < 0) {
 			marker_set_to_max_locked();
+			g_marker_enabled = 1;
 		}
 		append_number_response_locked(g_marker_freq_hz);
 		return;
 	}
 	if (strcmp(buffer, ":CALC:MARK1:Y?") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:Y?") == 0) {
-		if (g_marker_index < 0) {
+		if (!g_marker_enabled || g_marker_index < 0) {
 			marker_set_to_max_locked();
+			g_marker_enabled = 1;
 		}
 		append_number_response_locked(g_marker_level_dbm);
+		return;
+	}
+	if (strcmp(buffer, ":CALC:MARK1:STAT?") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:STATE?") == 0) {
+		append_int_response_locked(g_marker_enabled ? 1 : 0);
 		return;
 	}
 
@@ -916,6 +1109,56 @@ static void prepare_response_locked(const char *command) {
 		append_response_locked("OK\n");
 		return;
 	}
+	if (strcmp(buffer, ":SENS:DET:FUNC") == 0 || strcmp(buffer, ":SENSE:DETECTOR:FUNCTION") == 0) {
+		DetectorMode mode;
+		if (!arg || !parse_detector_mode(arg, &mode)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_detector_mode = mode;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":TRAC:TYPE") == 0 || strcmp(buffer, ":TRACE:TYPE") == 0) {
+		TraceType type;
+		if (!arg || !parse_trace_type(arg, &type)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_trace_type = type;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":SENS:AVER:STAT") == 0 || strcmp(buffer, ":SENSE:AVERAGE:STATE") == 0) {
+		int enabled = 0;
+		if (!arg || !parse_bool(arg, &enabled)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_avg_enabled = enabled ? 1 : 0;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":SENS:AVER:COUN") == 0 || strcmp(buffer, ":SENSE:AVERAGE:COUNT") == 0) {
+		double value;
+		if (!arg || !parse_double(arg, &value)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		int count = (int)value;
+		if (count < 1 || count > 10000) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_avg_count = count;
+		append_response_locked("OK\n");
+		return;
+	}
 	if (strcmp(buffer, ":SWE:POIN") == 0 || strcmp(buffer, ":SWEEP:POINTS") == 0) {
 		double value;
 		if (!arg || !parse_double(arg, &value)) {
@@ -979,6 +1222,22 @@ static void prepare_response_locked(const char *command) {
 	if (strcmp(buffer, ":CALC:MARK1:MAX") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:MAXIMUM") == 0) {
 		g_marker_track_max = 1;
 		marker_set_to_max_locked();
+		g_marker_enabled = 1;
+		append_response_locked("OK\n");
+		return;
+	}
+	if (strcmp(buffer, ":CALC:MARK1:STAT") == 0 || strcmp(buffer, ":CALCULATE:MARKER1:STATE") == 0) {
+		int enabled = 0;
+		if (!arg || !parse_bool(arg, &enabled)) {
+			append_response_locked("ERROR,\"Bad value\"\n");
+			set_error_locked("-222,\"Data out of range\"");
+			return;
+		}
+		g_marker_enabled = enabled ? 1 : 0;
+		if (!g_marker_enabled) {
+			g_marker_index = -1;
+			g_marker_track_max = 0;
+		}
 		append_response_locked("OK\n");
 		return;
 	}

@@ -88,25 +88,34 @@ lxi scpi -a 127.0.0.1 "*IDN?"
 
 Expected response:
 ```
-AGILENT,PSA-N9030A,SGNL0001,5.00
+Agilent Technologies,E4404B,MY00000000,A.01.00
 ```
 
 ## Supported SCPI (current)
 - `*IDN?`
+- `*CLS`
 - `*RST`
+- `*OPC?`
 - `:SYST:ERR?`
+- `:SYST:PRES`
+- `:SYST:VERS?`
 - `:FREQuency:STARt` / `:FREQuency:STOP` / queries
 - `:SENSe:FREQuency:CENTer` / `:SENSe:FREQuency:CENTer?`
 - `:SENSe:FREQuency:SPAN` / `:SENSe:FREQuency:SPAN?`
 - `:SENSe:BANDwidth:RESolution` / `:SENSe:BANDwidth:RESolution?`
+- `:SENSe:DETector:FUNCtion` / `:SENSe:DETector:FUNCtion?`
+- `:SENSe:AVERage:STATe` / `:SENSe:AVERage:STATe?`
+- `:SENSe:AVERage:COUNt` / `:SENSe:AVERage:COUNt?`
 - `:BANDwidth:VIDeo` / `:BANDwidth:VIDeo?`
 - `:SWEep:POINts` / `:SWEep:POINts?`
 - `:SWEep:TIME` / `:SWEep:TIME?`
 - `:INIT:CONTinuous` / `:INIT:CONTinuous?`
 - `:DISPlay:WINDow:TRACe:Y:SCALe:RLEVel` / `:DISPlay:WINDow:TRACe:Y:SCALe:RLEVel?`
 - `:INIT` / `:INIT:IMMediate`
+- `:TRACe:TYPE` / `:TRACe:TYPE?`
 - `:TRACe:DATA?` (returns CSV trace data)
 - `:CALC:MARK1:MAX`
+- `:CALC:MARK1:STATe` / `:CALC:MARK1:STATe?`
 - `:CALC:MARK1:X?` / `:CALC:MARK1:Y?`
 
 Unknown commands return `ERROR,"Unknown command"` and queue `-113,"Undefined header"` for `:SYST:ERR?`.
