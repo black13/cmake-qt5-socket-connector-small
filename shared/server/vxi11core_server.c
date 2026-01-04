@@ -678,6 +678,7 @@ static int script_handle_command_locked(const char *command, char *out, size_t o
 	duk_get_global_string(ctx, "handle");
 	if (!duk_is_function(ctx, -1)) {
 		duk_pop(ctx);
+		LOG_MSG(LOG_WARN, "JS", "handle() not defined");
 		return 0;
 	}
 	LOG_MSG(LOG_TRACE, "JS", "handle cmd=\"%s\"", command);
@@ -689,7 +690,7 @@ static int script_handle_command_locked(const char *command, char *out, size_t o
 	}
 	if (duk_is_null(ctx, -1) || duk_is_undefined(ctx, -1)) {
 		duk_pop(ctx);
-		LOG_MSG(LOG_TRACE, "JS", "no handler for cmd=\"%s\"", command);
+		LOG_MSG(LOG_DEBUG, "JS", "no handler for cmd=\"%s\"", command);
 		return 0;
 	}
 	const char *resp = duk_safe_to_string(ctx, -1);
