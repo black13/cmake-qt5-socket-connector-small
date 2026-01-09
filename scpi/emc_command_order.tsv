@@ -1,0 +1,22 @@
+Step	SCPI	Command	Value	Notes
+1	:SYST:PRES		Reset to known state
+2	*CLS		Clear status/error queue
+3	:SENS:FREQ:CENT		Center frequency (Hz)
+4	:SENS:FREQ:SPAN		Span (Hz)
+5	:SENS:BAND:RES		RBW (Hz)
+6	:BAND:VID		VBW (Hz)
+7	:SENS:DET:FUNC		Detector (NORM|PEAK|AVER|QPEAK|SAMP|POS|NEG)
+8	:TRAC:TYPE		Trace type (WRIT|MAXH|MINH|AVER|VIEW)
+9	:SENS:AVER:STAT		Averaging state (ON|OFF)
+10	:SENS:AVER:COUN		Averaging count
+11	:SWE:POIN		Sweep points
+12	:SWE:TIME		Sweep time (s)
+13	:DISP:WIND:TRAC:Y:SCAL:RLEV		Reference level (dBm)
+14	:INIT:CONT		Continuous (0|1)
+15	:INIT:IMM		Trigger sweep
+16	*OPC?		Check operation complete
+17	:TRAC:DATA?		Read trace CSV
+18	:CALC:MARK1:MAX		Peak search
+19	:CALC:MARK1:X?		Marker frequency
+20	:CALC:MARK1:Y?		Marker amplitude
+21	:SYST:ERR?		Check errors

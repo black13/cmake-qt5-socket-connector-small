@@ -91,6 +91,9 @@ Expected response:
 SIMILAR,E4404B,MY00000000,A.01.00
 ```
 
+## EMC Command Order
+Use the ordered, tab-delimited checklist in `scpi/emc_command_order.tsv` to fill in EMC measurement values.
+
 ## Supported SCPI (current)
 - `*IDN?`
 - `*CLS`
