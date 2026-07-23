@@ -46,20 +46,20 @@ if(WIN32)
     # For Debug builds, list Debug path first; for Release, list Release first
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         list(APPEND CMAKE_PREFIX_PATH
-            "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64"      # Debug first for Debug builds
-            "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64"
+            "D:/Qt/5.15.19/debug"                              # Debug first for Debug builds
+            "D:/Qt/5.15.19/release"
             "C:/Qt/5.15.2/msvc2019_64"
             "C:/Qt/5.15.2/msvc2019"
         )
-        message(STATUS "Debug build: Prioritizing Qt Debug libraries at D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64")
+        message(STATUS "Debug build: Prioritizing Qt Debug libraries at D:/Qt/5.15.19/debug")
     else()
         list(APPEND CMAKE_PREFIX_PATH
-            "D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64"    # Release first for Release builds
-            "D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64"
+            "D:/Qt/5.15.19/release"                            # Release first for Release builds
+            "D:/Qt/5.15.19/debug"
             "C:/Qt/5.15.2/msvc2019_64"
             "C:/Qt/5.15.2/msvc2019"
         )
-        message(STATUS "Release build: Prioritizing Qt Release libraries at D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64")
+        message(STATUS "Release build: Prioritizing Qt Release libraries at D:/Qt/5.15.19/release")
     endif()
 else()
     # Linux/WSL: Auto-detect Qt installations in /usr/local/qt-*
@@ -253,6 +253,17 @@ set(CORE_SOURCES
     graph_factory.h
     graph_factory.cpp
 
+    # Type-erased scripting seam (Sean Parent runtime-concept idiom)
+    script_engine.h
+    qjs_script_backend.h
+    qjs_script_backend.cpp
+    duktape_script_backend.h
+    duktape_script_backend.cpp   # no-op unless ENABLE_DUKTAPE=ON
+
+    # Undo/redo commands (XML-snapshot based)
+    undo_commands.h
+    undo_commands.cpp
+
     # Graph facade (public API with JavaScript integration)
     graph.h
     graph.cpp
@@ -353,6 +364,27 @@ target_link_libraries(NodeGraph NodeGraphCore)
 
 message(STATUS "Testing DISABLED - GraphController validation via menu system only")
 
+# ─────────────────────────────────────
+# Optional Duktape script engine backend
+# Select at runtime with NODEGRAPH_SCRIPT_ENGINE=duktape
+# ─────────────────────────────────────
+option(ENABLE_DUKTAPE "Build the Duktape backend for the ScriptEngine seam" OFF)
+if(ENABLE_DUKTAPE)
+    include(FetchContent)
+    enable_language(C)
+    FetchContent_Declare(
+        duktape
+        URL https://github.com/svaarala/duktape/releases/download/v2.7.0/duktape-2.7.0.tar.xz
+    )
+    FetchContent_MakeAvailable(duktape)
+    add_library(duktape_lib STATIC ${duktape_SOURCE_DIR}/src/duktape.c)
+    target_include_directories(duktape_lib PUBLIC ${duktape_SOURCE_DIR}/src)
+    target_compile_definitions(NodeGraphCore PUBLIC NODEGRAPH_HAS_DUKTAPE)
+    message(STATUS "Duktape backend  : ENABLED (v2.7.0 via FetchContent)")
+else()
+    message(STATUS "Duktape backend  : disabled (configure with -DENABLE_DUKTAPE=ON)")
+endif()
+
 # Core library linking
 set(CORE_LIBRARIES
     Qt5::Core
@@ -362,6 +394,10 @@ set(CORE_LIBRARIES
     Qt5::Qml  # Required for QJSEngine in Graph facade
     LibXml2::LibXml2
 )
+
+if(ENABLE_DUKTAPE)
+    list(APPEND CORE_LIBRARIES duktape_lib)
+endif()
 
 target_link_libraries(NodeGraphCore ${CORE_LIBRARIES})
 
@@ -376,7 +412,7 @@ if(WIN32)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 
         # Configure Qt PATH for Visual Studio debugger (configuration-specific)
-        VS_DEBUGGER_ENVIRONMENT "PATH=$<IF:$<CONFIG:Debug>,D:/Qt-5.15.17-msvc142-x64-Debug/msvc2019_64/bin,D:/Qt-5.15.17-msvc142-x64-Release/msvc2019_64/bin>;%PATH%"
+        VS_DEBUGGER_ENVIRONMENT "PATH=$<IF:$<CONFIG:Debug>,D:/Qt/5.15.19/debug/bin,D:/Qt/5.15.19/release/bin>;%PATH%"
 
         # No command arguments - removed test_working_graph.xml
         VS_DEBUGGER_WORKING_DIRECTORY
