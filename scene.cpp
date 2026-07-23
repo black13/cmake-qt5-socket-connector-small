@@ -325,6 +325,11 @@ void Scene::deleteEdge(const QUuid& edgeId)
 
 void Scene::clear()
 {
+    // Cancel any in-progress ghost-edge drag BEFORE QGraphicsScene::clear()
+    // deletes all items (including the ghost edge and its source socket) -
+    // stale ghost state would otherwise dangle and double-delete afterwards.
+    cancelGhostEdge();
+
     ScopedClearing guard(s_clearingGraph);
 
     qDebug() << "Scene::clear override - items:" << items().size()
@@ -505,7 +510,7 @@ void Scene::finishGhostEdge(Socket* toSocket)
                  << "to role"
                  << (resolvedTarget->getRole() == Socket::Output ? "Output" : "Input");
         // Validate connection roles
-        if (m_ghostFromSocket->getRole() == Socket::Output && 
+        if (m_ghostFromSocket->getRole() == Socket::Output &&
             resolvedTarget->getRole() == Socket::Input) {
 
             // Mirror the one-edge-per-socket rule for immediate feedback
@@ -514,24 +519,20 @@ void Scene::finishGhostEdge(Socket* toSocket)
                 cancelGhostEdge();
                 return;
             }
-            
-            if (m_graphFactory) {
-                Q_ASSERT(m_ghostFromSocket && resolvedTarget); // Ghost edge requires both sockets
-                // Use factory for consistent edge creation
-                Edge* newEdge = m_graphFactory->connectSockets(m_ghostFromSocket, resolvedTarget);
-                if (newEdge) {
-                    qDebug() << "GHOST: Created edge via factory"
-                             << m_ghostFromSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
-                             << ":" << m_ghostFromSocket->getIndex()
-                             << "->"
-                             << resolvedTarget->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
-                             << ":" << resolvedTarget->getIndex()
-                             << "edge" << newEdge->getId().toString(QUuid::WithoutBraces).left(8);
-                } else {
-                    qWarning() << "GHOST: Factory failed to create edge";
-                }
-            } else {
-                qWarning() << "GHOST: No factory available - cannot create edge";
+
+            // Emit intent instead of mutating directly - Window wraps this in
+            // an undoable command that performs the actual factory connection
+            Node* fromNode = m_ghostFromSocket->getParentNode();
+            Node* toNode = resolvedTarget->getParentNode();
+            if (fromNode && toNode) {
+                qDebug() << "GHOST: Requesting connection"
+                         << fromNode->getId().toString(QUuid::WithoutBraces).left(8)
+                         << ":" << m_ghostFromSocket->getIndex()
+                         << "->"
+                         << toNode->getId().toString(QUuid::WithoutBraces).left(8)
+                         << ":" << resolvedTarget->getIndex();
+                emit connectionRequested(fromNode->getId(), m_ghostFromSocket->getIndex(),
+                                         toNode->getId(), resolvedTarget->getIndex());
             }
         } else {
             qDebug() << "GHOST: Invalid connection - wrong socket roles";
@@ -553,6 +554,12 @@ void Scene::cancelGhostEdge()
         delete m_ghostEdge;
         m_ghostEdge = nullptr;
     }
+    if (m_ghostFromSocket) {
+        // resetAllSocketStates() skips the source socket - restore it here so a
+        // cancelled drag never leaves it stuck in the Connecting highlight.
+        // updateConnectionState() derives Connected/Disconnected from its edge.
+        m_ghostFromSocket->updateConnectionState();
+    }
     m_ghostFromSocket = nullptr;
     m_ghostEdgeActive = false;
     
@@ -568,6 +575,20 @@ QPen Scene::ghostPen() const
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     return pen;
+}
+
+void Scene::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{
+    QGraphicsScene::mousePressEvent(event);
+
+    // Snapshot positions of the (possibly just-changed) selection so a
+    // subsequent drag can be reported as one undoable move gesture
+    m_moveSnapshot.clear();
+    if (event->button() == Qt::LeftButton) {
+        for (Node* node : selectedNodes()) {
+            m_moveSnapshot.insert(node->getId(), node->pos());
+        }
+    }
 }
 
 void Scene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
@@ -608,6 +629,21 @@ void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
         return;
     }
     QGraphicsScene::mouseReleaseEvent(event);
+
+    // Detect completed node drags and report them as one undoable gesture
+    if (event->button() == Qt::LeftButton && !m_moveSnapshot.isEmpty()) {
+        QVector<NodeMove> moves;
+        for (auto it = m_moveSnapshot.constBegin(); it != m_moveSnapshot.constEnd(); ++it) {
+            Node* node = getNode(it.key());
+            if (node && (node->pos() - it.value()).manhattanLength() > 0.5) {
+                moves.append({it.key(), it.value(), node->pos()});
+            }
+        }
+        m_moveSnapshot.clear();
+        if (!moves.isEmpty()) {
+            emit nodesMoved(moves);
+        }
+    }
 }
 
 // JavaScript engine methods removed - focusing on core C++ functionality
