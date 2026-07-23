@@ -253,7 +253,11 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
                            fromSocket->getIndex(), toSocket->getIndex());
     
     // Resolve connections immediately since we have the sockets
-    edge->setResolvedSockets(fromSocket, toSocket);
+    if (!edge->setResolvedSockets(fromSocket, toSocket)) {
+        qCritical() << "GraphFactory::connectSockets - edge rejected by socket validation, aborting";
+        delete edge;
+        return nullptr;
+    }
 
     // Add to scene (connectSockets is for runtime creation, always adds)
     m_scene->addEdge(edge);
@@ -446,7 +450,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     qDebug() << "=== Phase 2: Creating Objects (Scene Will Be Modified) ===";
     
     // Enable batch mode to prevent observer storm during bulk loading
-    GraphSubject::beginBatch();
+    GraphSubject::BatchGuard batchGuard; // RAII: ends batch on EVERY return path (replaces the 5 manual endBatch calls below)
     
     // Create all validated nodes
     QVector<Node*> allNodes;
@@ -464,7 +468,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 delete n;
             }
             allNodes.clear();
-            GraphSubject::endBatch();
+            // batch now ends via the RAII BatchGuard at the top of this function
             xmlFreeDoc(doc);
             return false;
         }
@@ -491,7 +495,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 delete e;
             }
             allEdges.clear();
-            GraphSubject::endBatch();
+            // batch now ends via the RAII BatchGuard at the top of this function
             xmlFreeDoc(doc);
             return false;
         }
@@ -504,7 +508,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     qDebug() << "=== Phase 3: Validating Edge Connections ===";
     
     // Track socket usage to detect duplicates BEFORE making connections
-    QHash<QString, QString> socketUsage; // "nodeId:socketIndex" -> "edgeId"
+    QHash<QString, QString> socketUsage; // "dir:nodeId:socketIndex" -> "edgeId" (dir = out/in)
 
     for (Edge* edge : allEdges) {
             QString edgeDebugId = edge->getId().toString(QUuid::WithoutBraces).left(8);
@@ -516,8 +520,8 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
             int toSocketIndex = edge->getToSocketIndex();
             
             // Create socket keys
-            QString fromSocketKey = QString("%1:%2").arg(fromNodeId).arg(fromSocketIndex);
-            QString toSocketKey = QString("%1:%2").arg(toNodeId).arg(toSocketIndex);
+            QString fromSocketKey = QString("out:%1:%2").arg(fromNodeId).arg(fromSocketIndex);
+            QString toSocketKey = QString("in:%1:%2").arg(toNodeId).arg(toSocketIndex);
             
             // Check for duplicate output socket usage
             if (socketUsage.contains(fromSocketKey)) {
@@ -533,7 +537,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 for (Edge* e : allEdges) {
                     delete e;
                 }
-                GraphSubject::endBatch();
+                // batch now ends via the RAII BatchGuard at the top of this function
                 return false;
             }
             
@@ -551,7 +555,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
                 for (Edge* e : allEdges) {
                     delete e;
                 }
-                GraphSubject::endBatch();
+                // batch now ends via the RAII BatchGuard at the top of this function
                 return false;
             }
             
@@ -606,7 +610,7 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     qDebug() << "  Connections: " << successfulConnections << "/" << allEdges.size() << "edges connected successfully";
     
     // End batch mode to resume normal observer notifications
-    GraphSubject::endBatch();
+    // batch now ends via the RAII BatchGuard at the top of this function
     
     // Validate graph integrity in debug builds
     #ifdef QT_DEBUG
