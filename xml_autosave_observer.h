@@ -33,6 +33,7 @@ public:
     void onEdgeAdded(const Edge& edge) override;
     void onEdgeRemoved(const QUuid& edgeId) override;
     void onGraphCleared() override;
+    void onBatchEnded() override;
     
 private:
     Scene* m_scene;

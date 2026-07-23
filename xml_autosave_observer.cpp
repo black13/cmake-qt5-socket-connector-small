@@ -117,9 +117,23 @@ void XmlAutosaveObserver::onGraphCleared()
     scheduleAutosave();
 }
 
+void XmlAutosaveObserver::onBatchEnded()
+{
+    // Catch-up flush: mutations inside the batch never scheduled a save
+    qDebug() << "OBSERVER: Batch ended - Triggering autosave catch-up";
+    scheduleAutosave();
+}
+
 void XmlAutosaveObserver::scheduleAutosave()
 {
     if (!m_enabled) {
+        return;
+    }
+    
+    // Shutdown guard: the shutdown-time scene clear must never schedule a save,
+    // otherwise the destructor flushes an EMPTY graph over autosave.xml on exit.
+    if (m_scene && m_scene->isShutdownInProgress()) {
+        qDebug().noquote() << "[AUTOSAVE] Skipping during shutdown";
         return;
     }
     
