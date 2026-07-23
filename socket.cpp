@@ -38,6 +38,15 @@ Socket::Socket(Role role, Node* parentNode, int index)
     qDebug() << "+Socket" << m_index << (m_role == Input ? "IN" : "OUT");
 }
 
+Socket::~Socket()
+{
+    // Detach from the connected edge so it never dereferences this socket
+    // after destruction (completes the manual weak-pointer system for sockets).
+    if (m_connectedEdge) {
+        m_connectedEdge->invalidateSocket(this);
+    }
+}
+
 Node* Socket::getParentNode() const
 {
     return m_parentNode;

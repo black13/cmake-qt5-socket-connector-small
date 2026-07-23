@@ -56,6 +56,7 @@ public:
     }
     
     Socket(Role role, Node* parentNode, int index);
+    ~Socket() override; // detaches its edge's socket back-pointers (safe destruction)
     
     // Core identity - NO UUID, just index within parent node
     [[nodiscard]] int getIndex() const { return m_index; }
