@@ -8,6 +8,8 @@
 #include "node_templates.h"
 #include "graph_observer.h"
 #include "synthetic_work.h"
+#include "qjs_script_backend.h"
+#include "duktape_script_backend.h"
 #include <QDebug>
 #include <QFile>
 #include <QGraphicsItem>
@@ -28,29 +30,50 @@ const ScriptedNode* asScripted(const Node* node)
     return dynamic_cast<const ScriptedNode*>(node);
 }
 
+/// Pick the script backend. Default is QJSEngine; NODEGRAPH_SCRIPT_ENGINE=duktape
+/// selects Duktape when compiled in (-DENABLE_DUKTAPE=ON). Thanks to the
+/// type-erased seam this is the only place that knows both backends exist.
+ScriptEngine makeConfiguredEngine()
+{
+    const QByteArray choice = qgetenv("NODEGRAPH_SCRIPT_ENGINE").toLower();
+#ifdef NODEGRAPH_HAS_DUKTAPE
+    if (choice == "duktape") {
+        return ScriptEngine(DuktapeBackend());
+    }
+#else
+    if (choice == "duktape") {
+        qWarning() << "NODEGRAPH_SCRIPT_ENGINE=duktape requested but the Duktape"
+                      "backend is not compiled in (configure with -DENABLE_DUKTAPE=ON);"
+                      "falling back to QJSEngine";
+    }
+#endif
+    return ScriptEngine(QJsBackend());
+}
+
 } // namespace
 
 Graph::Graph(Scene* scene, GraphFactory* factory, QObject* parent)
     : QObject(parent)
     , m_scene(scene)
     , m_factory(factory)
-    , m_jsEngine(new QJSEngine(this))
-    , m_batchMode(false)
+    , m_scriptEngine(makeConfiguredEngine())
 {
     Q_ASSERT(m_scene);
     Q_ASSERT(m_factory);
 
-    qDebug() << "Graph: Facade initialized with JavaScript engine";
+    qDebug() << "Graph: Facade initialized with script engine:"
+             << m_scriptEngine.backendName();
 
-    // Initialize JavaScript engine and expose this Graph object
-    initializeJavaScript();
-    ScriptedNode::setSharedEngine(m_jsEngine);
+    // Expose the Graph API into the engine, then share it with all nodes
+    initializeScripting();
+    ScriptedNode::setSharedEngine(m_scriptEngine);
 }
 
 Graph::~Graph()
 {
     qDebug() << "Graph: Facade destroyed";
-    // m_jsEngine is QObject child, will be deleted automatically
+    // Drop the nodes' shared handle so the engine heap is released deterministically
+    ScriptedNode::setSharedEngine(ScriptEngine());
 }
 
 void Graph::jsLog(const QString& message)
@@ -58,26 +81,21 @@ void Graph::jsLog(const QString& message)
     qDebug() << "[JS]" << message;
 }
 
-void Graph::initializeJavaScript()
+void Graph::initializeScripting()
 {
-    // Expose this Graph object to JavaScript as global "graph"
-    QJSValue graphObj = m_jsEngine->newQObject(this);
-    m_jsEngine->globalObject().setProperty("graph", graphObj);
+    // Expose this Graph object to scripts as global "graph".
+    // The bridge is backend-specific but the call is not.
+    m_scriptEngine.registerObject(QStringLiteral("graph"), this);
 
-    // Add console.log support using exposed C++ function
-    QString consoleLogImpl = R"(
-        (function() {
-            return function(msg) {
-                graph.jsLog(String(msg));
-            };
-        })()
-    )";
+    // console.log glue in plain JS - works on any ECMAScript backend
+    const ScriptResult consoleGlue = m_scriptEngine.evaluate(QStringLiteral(
+        "var console = { log: function(msg) { graph.jsLog(String(msg)); } };"));
+    if (!consoleGlue.ok()) {
+        qWarning() << "Graph: failed to install console.log glue:" << consoleGlue.error;
+    }
 
-    QJSValue consoleObj = m_jsEngine->newObject();
-    consoleObj.setProperty("log", m_jsEngine->evaluate(consoleLogImpl));
-    m_jsEngine->globalObject().setProperty("console", consoleObj);
-
-    qDebug() << "Graph: JavaScript engine initialized - 'graph' object available";
+    qDebug() << "Graph: script engine initialized - 'graph' object available"
+             << "(backend:" << m_scriptEngine.backendName() << ")";
 }
 
 // ========== Node Operations ==========
@@ -113,6 +131,15 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
 
 bool Graph::deleteNode(const QString& nodeId)
 {
+    // Refuse while a node script runs: scripts reach this facade reentrantly,
+    // and deleting nodes mid-evaluation leaves running JS on freed objects.
+    if (ScriptedNode::isExecuting()) {
+        const QString msg = QStringLiteral("Graph::deleteNode refused while a node script is executing");
+        qWarning() << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+
     Node* node = findNode(nodeId);
     if (!node) {
         qWarning() << "Graph::deleteNode: Node not found:" << nodeId;
@@ -438,21 +465,38 @@ QVariantMap Graph::getGraphStats() const
 
 void Graph::beginBatch()
 {
-    m_batchMode = true;
-    qDebug() << "Graph: Batch mode started";
+    // Forward to the REAL batch mechanism (GraphSubject): notifications are
+    // muted during the batch and observers get a single onBatchEnded() flush
+    // when the outermost batch ends. (Previously this only flipped a private
+    // flag that nothing read - scripts got zero behavior change.)
+    GraphSubject::beginBatch();
+    qDebug() << "Graph: Batch started (GraphSubject)";
 }
 
 void Graph::endBatch()
 {
-    m_batchMode = false;
-    qDebug() << "Graph: Batch mode ended";
-    // TODO: Emit accumulated notifications
+    GraphSubject::endBatch();
+    qDebug() << "Graph: Batch ended (GraphSubject)";
+}
+
+bool Graph::isBatchMode() const
+{
+    return GraphSubject::isInBatch();
 }
 
 // ========== Graph-wide Operations ==========
 
 void Graph::clearGraph()
 {
+    // Refuse while a node script runs (scripts reach this facade reentrantly,
+    // and clearing mid-evaluation destroys the scene underneath the script).
+    if (ScriptedNode::isExecuting()) {
+        const QString msg = QStringLiteral("Graph::clearGraph refused while a node script is executing");
+        qWarning() << msg;
+        emit errorOccurred(msg);
+        return;
+    }
+
     qDebug() << "Graph::clearGraph";
     m_scene->clearGraph();
     emit graphCleared();
@@ -460,6 +504,14 @@ void Graph::clearGraph()
 
 bool Graph::deleteSelection()
 {
+    // Refuse while a node script runs (scripts reach this facade reentrantly).
+    if (ScriptedNode::isExecuting()) {
+        const QString msg = QStringLiteral("Graph::deleteSelection refused while a node script is executing");
+        qWarning() << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+
     QVariantList selectedEdges = getSelectedEdges();
     QVariantList selectedNodes = getSelectedNodes();
 
@@ -537,6 +589,15 @@ bool Graph::saveToFile(const QString& filePath)
 
 bool Graph::loadFromFile(const QString& filePath)
 {
+    // Refuse while a node script runs: loading destroys the scene (and the
+    // running node) underneath the script.
+    if (ScriptedNode::isExecuting()) {
+        const QString msg = QStringLiteral("Graph::loadFromFile refused while a node script is executing");
+        qWarning() << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+
     qDebug() << "Graph::loadFromFile:" << filePath;
 
     if (!m_factory) {
@@ -544,6 +605,10 @@ bool Graph::loadFromFile(const QString& filePath)
         emit errorOccurred("Cannot load: No factory available");
         return false;
     }
+
+    // Loading REPLACES the current graph (same semantics as File->Open);
+    // previously a script-side load silently MERGED the file into the scene.
+    m_scene->clearGraph();
 
     // Use batch mode for efficient loading
     beginBatch();
@@ -563,8 +628,39 @@ bool Graph::loadFromFile(const QString& filePath)
 
 QString Graph::toXml() const
 {
-    // TODO: Implement XML export
-    return QString("<graph></graph>");
+    // Real implementation: serialize the live scene the same way saveToFile /
+    // Window::saveGraph do (previously returned a constant "<graph></graph>"
+    // fake - the worst kind of API: silently wrong).
+    if (!m_scene) {
+        return QString();
+    }
+
+    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+    if (!doc) {
+        return QString();
+    }
+    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
+    xmlDocSetRootElement(doc, root);
+    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
+
+    for (Node* node : m_scene->getNodes().values()) {
+        node->write(doc, root);
+    }
+    for (Edge* edge : m_scene->getEdges().values()) {
+        edge->write(doc, root);
+    }
+
+    xmlChar* buffer = nullptr;
+    int size = 0;
+    xmlDocDumpFormatMemory(doc, &buffer, &size, 1);
+    xmlFreeDoc(doc);
+
+    if (!buffer) {
+        return QString();
+    }
+    const QString xml = QString::fromUtf8(reinterpret_cast<const char*>(buffer), size);
+    xmlFree(buffer);
+    return xml;
 }
 
 // ========== Validation ==========
@@ -579,26 +675,25 @@ QStringList Graph::getAvailableNodeTypes() const
     return NodeTypeTemplates::getAvailableTypes();
 }
 
-// ========== JavaScript Engine ==========
+// ========== Script Engine ==========
 
-QJSValue Graph::evalScript(const QString& script)
+QVariant Graph::evalScript(const QString& script)
 {
     qDebug() << "Graph::evalScript:" << script.left(50) << "...";
 
-    QJSValue result = m_jsEngine->evaluate(script);
+    const ScriptResult result = m_scriptEngine.evaluate(script);
 
-    if (result.isError()) {
-        QString error = QString("JavaScript error at line %1: %2")
-            .arg(result.property("lineNumber").toInt())
-            .arg(result.toString());
+    if (!result.ok()) {
+        QString error = QString("Script error: %1").arg(result.error);
         qCritical() << "Graph::evalScript:" << error;
         emit errorOccurred(error);
+        return QVariant();
     }
 
-    return result;
+    return result.value;
 }
 
-QJSValue Graph::evalFile(const QString& filePath)
+QVariant Graph::evalFile(const QString& filePath)
 {
     qDebug() << "Graph::evalFile:" << filePath;
 
@@ -607,7 +702,7 @@ QJSValue Graph::evalFile(const QString& filePath)
         QString error = QString("Cannot open file: %1").arg(filePath);
         qCritical() << "Graph::evalFile:" << error;
         emit errorOccurred(error);
-        return QJSValue();
+        return QVariant();
     }
 
     QTextStream in(&file);

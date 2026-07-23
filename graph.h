@@ -4,9 +4,8 @@
 #include <QString>
 #include <QVariantMap>
 #include <QVariantList>
-#include <QJSEngine>
-#include <QJSValue>
 #include <QUuid>
+#include "script_engine.h"
 
 class Scene;
 class GraphFactory;
@@ -24,7 +23,8 @@ class Edge;
  * - Public API: createNode(), deleteNode(), connectNodes(), etc.
  * - Operation validation (type checking, UUID validation)
  * - Coordinate between Scene/Factory/Observers
- * - JavaScript engine integration (QJSEngine - always enabled)
+ * - Script engine integration via type-erased ScriptEngine (QJSEngine backend
+ *   by default; other backends plug in without touching this class)
  * - Emit signals for all state changes
  *
  * Key design principles:
@@ -175,7 +175,7 @@ public:
      * Check if batch mode is active
      * @return true if in batch mode
      */
-    Q_INVOKABLE bool isBatchMode() const { return m_batchMode; }
+    Q_INVOKABLE bool isBatchMode() const;
 
     // ========== Graph-wide Operations ==========
 
@@ -225,27 +225,27 @@ public:
      */
     Q_INVOKABLE QStringList getAvailableNodeTypes() const;
 
-    // ========== JavaScript Engine ==========
+    // ========== Script Engine ==========
 
     /**
-     * Evaluate JavaScript code
-     * @param script JavaScript code to execute
-     * @return Result of evaluation
+     * Evaluate script code (errors are reported via errorOccurred signal)
+     * @param script Script code to execute
+     * @return Result of evaluation as QVariant (invalid on error)
      */
-    Q_INVOKABLE QJSValue evalScript(const QString& script);
+    Q_INVOKABLE QVariant evalScript(const QString& script);
 
     /**
-     * Evaluate JavaScript file
-     * @param filePath Path to JavaScript file
-     * @return Result of evaluation
+     * Evaluate script file
+     * @param filePath Path to script file
+     * @return Result of evaluation as QVariant (invalid on error)
      */
-    Q_INVOKABLE QJSValue evalFile(const QString& filePath);
+    Q_INVOKABLE QVariant evalFile(const QString& filePath);
 
     /**
-     * Get JavaScript engine (for advanced use)
-     * @return Pointer to QJSEngine
+     * Get the script engine handle (value semantics - cheap to copy)
+     * @return Type-erased ScriptEngine
      */
-    QJSEngine* jsEngine() { return m_jsEngine; }
+    [[nodiscard]] ScriptEngine scriptEngine() const { return m_scriptEngine; }
 
     /**
      * JavaScript console.log implementation
@@ -271,14 +271,14 @@ signals:
 private:
     Scene* m_scene;              // Graphics management (non-owning)
     GraphFactory* m_factory;     // Object creation (non-owning)
-    QJSEngine* m_jsEngine;       // JavaScript engine (owned)
-    bool m_batchMode;
+    ScriptEngine m_scriptEngine; // Type-erased script engine (shared handle)
+
 
     // Internal helpers
     Node* findNode(const QString& uuidStr) const;
     Edge* findEdge(const QString& uuidStr) const;
     QUuid parseUuid(const QString& uuidStr) const;
 
-    // Initialize JavaScript engine and expose Graph API
-    void initializeJavaScript();
+    // Initialize script engine and expose Graph API
+    void initializeScripting();
 };
