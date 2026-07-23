@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QUuid>
 #include <QMessageBox>
+#include <QScopedPointer>
 #include <iostream>
 #include "window.h"
 #include "scene.h"
@@ -160,11 +161,15 @@ int main(int argc, char *argv[])
     // Process command line arguments
     parser.process(app);
     
-    // Command line parsing
-    
-    // Create main window first (so Scene exists)
-    Window window;
-    Scene* scene = window.getScene();
+    // Factory holder declared BEFORE the window so explicit teardown can run
+    // window -> factory -> xmlDoc. (Previously the stack factory was destroyed
+    // first - leaving Window/Scene/Graph's non-owning factory pointers dangling
+    // through ~Window - and xmlFreeDoc ran while the factory was still alive.)
+    QScopedPointer<GraphFactory> factory;
+
+    // Create main window (so Scene exists)
+    QScopedPointer<Window> window(new Window);
+    Scene* scene = window->getScene();
     
     // Create XML document for GraphFactory
     qDebug() << "Creating unified XML document for GraphFactory";
@@ -175,11 +180,11 @@ int main(int argc, char *argv[])
     xmlSetProp(root, BAD_CAST "xmlns", BAD_CAST "http://nodegraph.org/schema");
     
     // Create single GraphFactory instance
-    GraphFactory factory(scene, xmlDoc);
+    factory.reset(new GraphFactory(scene, xmlDoc));
     qDebug() << "GraphFactory created with unified XML document";
     
     // Hand factory to window (non-owning)
-    window.adoptFactory(&factory);
+    window->adoptFactory(factory.data());
     qDebug() << "Window adopted factory - single source of truth established";
     
     // Handle file loading
@@ -193,10 +198,6 @@ int main(int argc, char *argv[])
         }
     }
     
-    // Store information about file loading status for user notification
-    bool fileLoadAttempted = !filename.isEmpty();
-    QString originalFilename = filename; // Store original filename for user message
-    
     qDebug() << "=== Using Template-Driven Node Creation (Single Source of Truth) ===";
     qDebug() << "Available node types from templates:" << NodeTypeTemplates::getAvailableTypes();
     qDebug() << "Single GraphFactory will handle all XML operations";
@@ -204,11 +205,8 @@ int main(int argc, char *argv[])
     if (!filename.isEmpty()) {
         // GraphFactory is now the single XML authority
         qDebug() << "Loading file via GraphFactory:" << filename;
-        if (!factory.loadFromXmlFile(filename)) {
+        if (!factory->loadFromXmlFile(filename)) {
             qCritical() << "GraphFactory failed to load XML file:" << filename;
-            if (fileLoadAttempted) {
-                qDebug() << "Original filename was:" << originalFilename;
-            }
             return -1;
         }
         
@@ -216,45 +214,32 @@ int main(int argc, char *argv[])
         
     } else {
         qDebug() << "Starting with empty graph - no file specified";
-        // qDebug() << "=== Starting with Empty Graph ===";
         qDebug() << "No file specified - application will start with clean scene";
         qDebug() << "  Users can create nodes manually or load XML files via Ctrl+L";
     }
     
-    // qDebug() << "=== XML-First Architecture Test Complete ===";
-    
     // Set current file if we loaded from command line
     if (!filename.isEmpty()) {
-        window.setCurrentFile(filename);
+        window->setCurrentFile(filename);
         qDebug() << "Command line file loaded - Ctrl+S will save to:" << filename;
     }
     
-    // Cleanup XML document when done
-    // Note: GraphFactory holds reference, so clean up after window closes
-    
     // Pass startup script to window if specified
     if (parser.isSet(scriptOption)) {
-        window.setStartupScript(parser.value(scriptOption));
+        window->setStartupScript(parser.value(scriptOption));
     }
 
-    window.show();
-
-    // Show user-friendly message about file loading status
-    if (fileLoadAttempted && originalFilename != filename) {
-        // File was attempted but failed to load (filename was cleared)
-        QTimer::singleShot(500, [&window, originalFilename]() {
-            QMessageBox::information(&window, "File Not Found", 
-                QString("The specified file could not be found or loaded:\n\n%1\n\nStarting with an empty graph instead.\n\nYou can create a new graph or open an existing file using File -> Open.")
-                .arg(originalFilename));
-        });
-    }
+    window->show();
     
     int result = app.exec();
     
     // Final status before exit
     qDebug() << "=== NodeGraph Application Ending ===";
     
-    // Cleanup XML document (main is the owner)
+    // Explicit teardown in safe order: window first (its Graph/Scene members
+    // point into the factory), then factory, then the XML document it used.
+    window.reset();
+    factory.reset();
     xmlFreeDoc(xmlDoc);
     qDebug() << "XML document cleaned up";
     
