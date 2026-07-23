@@ -2,7 +2,9 @@
 
 #include <QGraphicsScene>
 #include <QHash>
+#include <QPointF>
 #include <QUuid>
+#include <QVector>
 #include "graph_observer.h"
 
 class Node;
@@ -11,6 +13,14 @@ class Socket;
 class GraphFactory;
 // JavaScript engine forward declaration removed
 class GhostEdge;
+
+/// Position change of one node, captured over a drag gesture (undo support).
+struct NodeMove
+{
+    QUuid nodeId;
+    QPointF oldPos;
+    QPointF newPos;
+};
 
 /**
  * Scene - QElectroTech-style typed scene management
@@ -25,6 +35,15 @@ class Scene : public QGraphicsScene, public GraphSubject
 
 signals:
     void sceneChanged();
+
+    /// User completed a ghost-edge drag over a valid socket pair.
+    /// Window turns this intent into an undoable ConnectEdgeCommand.
+    void connectionRequested(const QUuid& fromNodeId, int fromSocketIndex,
+                             const QUuid& toNodeId, int toSocketIndex);
+
+    /// User finished dragging nodes; positions changed from old to new.
+    /// Window turns this into an undoable MoveNodesCommand.
+    void nodesMoved(const QVector<NodeMove>& moves);
 
 public:
     // RAII guard to mark clearing state
@@ -100,7 +119,8 @@ public:
     void setGraphFactory(GraphFactory* factory) { m_graphFactory = factory; }
 
 protected:
-    // Mouse event handling for ghost edge interactions
+    // Mouse event handling for ghost edge interactions and move tracking
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
     
@@ -120,6 +140,9 @@ private:
     Socket* m_ghostFromSocket;
     bool m_ghostEdgeActive;
     QPointF m_ghostCurrentPos;
+
+    // Node positions at drag start, used to emit nodesMoved for undo
+    QHash<QUuid, QPointF> m_moveSnapshot;
     
     // Helper method for ghost edge styling
     QPen ghostPen() const;
