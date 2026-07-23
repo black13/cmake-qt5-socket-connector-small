@@ -83,10 +83,11 @@ public:
     // Direct connection methods (optimization for GraphFactory)
     void setConnectionData(const QString& fromNodeId, const QString& toNodeId, 
                           int fromSocketIndex, int toSocketIndex);
-    void setResolvedSockets(Socket* fromSocket, Socket* toSocket);
+    bool setResolvedSockets(Socket* fromSocket, Socket* toSocket); // false = validation rejected (caller must bail)
     
     // Manual weak pointer system for safe destruction
     void invalidateNode(const Node* node);
+    void invalidateSocket(const Socket* socket); // null socket back-pointers (called by ~Socket)
     
     // Public accessors for layout engine
     [[nodiscard]] Node* getFromNode() const { return m_fromNode; }

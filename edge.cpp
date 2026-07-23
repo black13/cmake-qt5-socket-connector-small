@@ -86,6 +86,17 @@ void Edge::invalidateNode(const Node* node)
     }
 }
 
+void Edge::invalidateSocket(const Socket* socket)
+{
+    // Manual weak pointer nulling - called by Socket::~Socket()
+    if (socket == m_fromSocket) {
+        m_fromSocket = nullptr;
+    }
+    if (socket == m_toSocket) {
+        m_toSocket = nullptr;
+    }
+}
+
 QRectF Edge::boundingRect() const
 {
     return m_boundingRect;
@@ -266,15 +277,8 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
 
 void Edge::keyPressEvent(QKeyEvent* event)
 {
-    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
-            qDebug() << "Edge::keyPressEvent delete"
-                     << m_id.toString(QUuid::WithoutBraces).left(8);
-            typedScene->deleteEdge(m_id);
-            event->accept();
-            return;
-        }
-    }
+    // Delete is handled centrally by Window::keyPressEvent via the undo stack
+    // (DeleteSelectionCommand) - a direct delete here would bypass undo/redo.
     QGraphicsItem::keyPressEvent(event);
 }
 
@@ -359,7 +363,8 @@ void Edge::updatePath()
 void Edge::buildPath(const QPointF& start, const QPointF& end)
 {
     // Validate input points
-    if (start.isNull() || end.isNull() || !qIsFinite(start.x()) || !qIsFinite(start.y()) || 
+    // (0,0) is a valid scene position - only reject non-finite coordinates
+    if (!qIsFinite(start.x()) || !qIsFinite(start.y()) || 
         !qIsFinite(end.x()) || !qIsFinite(end.y())) {
         // Notify BSP cache before clearing
         prepareGeometryChange();
@@ -652,21 +657,21 @@ void Edge::setConnectionData(const QString& fromNodeId, const QString& toNodeId,
              << "socket" << toSocketIndex;
 }
 
-void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
+bool Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
 {
     if (!fromSocket || !toSocket) {
         qCritical() << "Edge::setResolvedSockets - null socket(s) provided";
-        return;
+        return false;
     }
     
     // Validate socket roles
     if (fromSocket->getRole() != Socket::Output) {
         qCritical() << "Edge::setResolvedSockets - fromSocket must be Output role";
-        return;
+        return false;
     }
     if (toSocket->getRole() != Socket::Input) {
         qCritical() << "Edge::setResolvedSockets - toSocket must be Input role";
-        return;
+        return false;
     }
     
     // SOCKET VALIDATION: Check for existing connections (consistent with resolveConnections)
@@ -677,7 +682,7 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
                          fromSocket->getConnectedEdge()->getId().toString(QUuid::WithoutBraces).left(8) : "unknown");
         qCritical() << "- Attempting edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
         qCritical() << "Solution: Only one edge allowed per socket. Check connection logic.";
-        return;
+        return false;
     }
     
     if (toSocket->isConnected()) {
@@ -687,7 +692,7 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
                          toSocket->getConnectedEdge()->getId().toString(QUuid::WithoutBraces).left(8) : "unknown");
         qCritical() << "- Attempting edge:" << m_id.toString(QUuid::WithoutBraces).left(8);
         qCritical() << "Solution: Only one edge allowed per socket. Check connection logic.";
-        return;
+        return false;
     }
     
     // Store socket references and update their connection state
@@ -711,6 +716,7 @@ void Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     qDebug() << "Edge: Set resolved sockets directly (optimization)";
     updatePath();
+    return true;
 }
 
 void Edge::updateZOrderFromConnections()
