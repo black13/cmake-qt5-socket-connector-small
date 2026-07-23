@@ -12,6 +12,8 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QShortcut>
+#include <QUndoStack>
+#include "scene.h" // NodeMove
 
 class View;
 class Scene;
@@ -100,9 +102,14 @@ public slots:
     void createProcessorNode();
 
     // Node creation from palette
-    void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType, 
+    void createNodeFromPalette(const QPointF& scenePos, const QString& nodeType,
                               const QString& name, int inputSockets, int outputSockets);
-    
+
+    // Undo-routed scene intents
+    void onConnectionRequested(const QUuid& fromNodeId, int fromSocketIndex,
+                               const QUuid& toNodeId, int toSocketIndex);
+    void onNodesMoved(const QVector<NodeMove>& moves);
+
 private slots:
     // Menu actions
     void newFile();
@@ -138,10 +145,11 @@ protected:
 private:
     Scene* m_scene;
     View* m_view;
-    Graph* m_graph;           // Graph facade (owns QJSEngine)
+    Graph* m_graph;           // Graph facade (owns the script engine)
     GraphFactory* m_factory;  // non-owning
+    QUndoStack* m_undoStack;  // undo/redo for all interactive mutations
     // GraphController removed - using template system directly
-    XmlAutosaveObserver* m_autosaveObserver;
+    XmlAutosaveObserver* m_autosaveObserver = nullptr;
     
     // UI elements
     QAction* m_addInputAction;
@@ -195,6 +203,9 @@ private:
     // Helpers for visual tests
     void restoreCurrentFile();     // reload m_currentFile if set, else clear
     void restoreJustLoadedFile();
+
+    /// Create a node near the viewport center via an undoable command.
+    void createNodeAtViewCenter(const QString& nodeType);
 
     /// Run a scripted node individually (context menu helper).
     bool runScriptForNode(Node* node);

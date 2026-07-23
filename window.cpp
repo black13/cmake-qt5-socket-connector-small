@@ -7,6 +7,7 @@
 #include "graph_factory.h"
 #include "xml_autosave_observer.h"
 #include "node_palette_widget.h"
+#include "undo_commands.h"
 #include <QKeyEvent>
 #include <QGraphicsScene>
 #include <QFileDialog>
@@ -46,6 +47,7 @@ Window::Window(QWidget* parent)
     , m_view(new View(m_scene, this))
     , m_graph(nullptr)
     , m_factory(nullptr)
+    , m_undoStack(new QUndoStack(this))
 {
     initializeUi(); // Setup UI that doesn't depend on factory
 }
@@ -68,6 +70,10 @@ Window::~Window()
 void Window::adoptFactory(GraphFactory* factory)
 {
     Q_ASSERT(factory); // Null factory is a programming error
+    if (m_factory) {
+        qWarning() << "Window::adoptFactory called again - ignoring (would leak Graph and autosave observer)";
+        return;
+    }
     m_factory = factory; // non-owning: main owns factory lifetime
 
     // ISSUE 4: Inject factory into scene for consistent edge creation
@@ -76,6 +82,16 @@ void Window::adoptFactory(GraphFactory* factory)
     // Create Graph facade - the new public API with JavaScript integration
     m_graph = new Graph(m_scene, m_factory, this);
     qDebug() << "Graph facade created with JavaScript engine enabled";
+
+    // Structural script-side ops invalidate the undo history (commands hold
+    // XML snapshots keyed by UUID): clear the stack when the graph is cleared
+    // or loaded via the facade so undo can't resurrect stale snapshots.
+    connect(m_graph, &Graph::graphCleared, m_undoStack, &QUndoStack::clear);
+    connect(m_graph, &Graph::graphLoaded, m_undoStack, &QUndoStack::clear);
+
+    // Route scene interaction intents through the undo stack (needs m_factory)
+    connect(m_scene, &Scene::connectionRequested, this, &Window::onConnectionRequested);
+    connect(m_scene, &Scene::nodesMoved, this, &Window::onNodesMoved);
 
     // Now that a factory exists, wire things that depend on it:
     // ISSUE 2: Centralize autosave timing - using 1200ms as compromise
@@ -344,6 +360,9 @@ bool Window::loadGraph(const QString& filename)
         m_autosaveObserver->setEnabled(false);
     }
 
+    // A new document invalidates all undo snapshots
+    m_undoStack->clear();
+
     // Graph facade handles batch mode and clearing internally
     m_graph->clearGraph();
 
@@ -363,93 +382,38 @@ bool Window::loadGraph(const QString& filename)
 }
 
 /**
- * @brief Create a SOURCE node near the current viewport center.
+ * @brief Create a node of the given type near the viewport center (undoable).
  */
+void Window::createNodeAtViewCenter(const QString& nodeType)
+{
+    if (!m_factory) {
+        QMessageBox::warning(this, "No Factory", "GraphFactory not initialized.");
+        return;
+    }
+
+    // Find a nice position in the view center with slight randomization
+    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
+    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
+    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
+    QPointF position = viewCenter + QPointF(randomX, randomY);
+
+    m_undoStack->push(new CreateNodeCommand(m_scene, m_factory, nodeType, position));
+    statusBar()->showMessage(QString("Created %1 node").arg(nodeType), 2000);
+}
+
 void Window::createInputNode()
 {
-    if (!m_graph) {
-        QMessageBox::warning(this,"No Graph","Graph facade not initialized.");
-        return;
-    }
-
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-
-    // Create input node using Graph facade API
-    QString nodeId = m_graph->createNode("SOURCE", position.x(), position.y());
-
-    if (!nodeId.isEmpty()) {
-        qDebug() << "Created input node" << nodeId << "at" << position;
-        statusBar()->showMessage(QString("Created SOURCE node: %1").arg(nodeId), 2000);
-    } else {
-        qDebug() << "Failed to create input node";
-        statusBar()->showMessage("Failed to create SOURCE node", 3000);
-    }
+    createNodeAtViewCenter(QStringLiteral("SOURCE"));
 }
 
-/**
- * @brief Create a SINK node near the current viewport center.
- */
 void Window::createOutputNode()
 {
-    if (!m_graph) {
-        QMessageBox::warning(this,"No Graph","Graph facade not initialized.");
-        return;
-    }
-
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-
-    // Create output node using Graph facade API
-    QString nodeId = m_graph->createNode("SINK", position.x(), position.y());
-
-    if (!nodeId.isEmpty()) {
-        qDebug() << "Created output node" << nodeId << "at" << position;
-        statusBar()->showMessage(QString("Created SINK node: %1").arg(nodeId), 2000);
-    } else {
-        qDebug() << "Failed to create output node";
-        statusBar()->showMessage("Failed to create SINK node", 3000);
-    }
+    createNodeAtViewCenter(QStringLiteral("SINK"));
 }
 
-/**
- * @brief Create a TRANSFORM node near the current viewport center.
- */
 void Window::createProcessorNode()
 {
-    if (!m_graph) {
-        QMessageBox::warning(this,"No Graph","Graph facade not initialized.");
-        return;
-    }
-
-    // Find a nice position in the view center
-    QPointF viewCenter = m_view->mapToScene(m_view->viewport()->rect().center());
-
-    // Add some randomization so multiple nodes don't overlap
-    qreal randomX = QRandomGenerator::global()->bounded(-50, 50);
-    qreal randomY = QRandomGenerator::global()->bounded(-50, 50);
-    QPointF position = viewCenter + QPointF(randomX, randomY);
-
-    // Create processor node using Graph facade API
-    QString nodeId = m_graph->createNode("TRANSFORM", position.x(), position.y());
-
-    if (!nodeId.isEmpty()) {
-        qDebug() << "Created processor node" << nodeId << "at" << position;
-        statusBar()->showMessage(QString("Created TRANSFORM node: %1").arg(nodeId), 2000);
-    } else {
-        qDebug() << "Failed to create processor node";
-        statusBar()->showMessage("Failed to create TRANSFORM node", 3000);
-    }
+    createNodeAtViewCenter(QStringLiteral("TRANSFORM"));
 }
 
 void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeType,
@@ -466,32 +430,36 @@ void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeT
     qDebug() << "  - Position:" << scenePos;
     qDebug() << "Window: Calling Graph facade API";
 
-    if (!m_graph) {
-        qDebug() << "Window: Graph facade not initialized!";
-        statusBar()->showMessage("Failed to create node - Graph not initialized", 3000);
+    if (!m_factory) {
+        qDebug() << "Window: GraphFactory not initialized!";
+        statusBar()->showMessage("Failed to create node - factory not initialized", 3000);
         qDebug() << "========================================";
         return;
     }
 
-    // Create node using Graph facade API (unified interface)
-    QString nodeId = m_graph->createNode(nodeType, scenePos.x(), scenePos.y());
+    // Create node via undoable command (same factory pathway as before)
+    m_undoStack->push(new CreateNodeCommand(m_scene, m_factory, nodeType, scenePos));
 
-    if (!nodeId.isEmpty()) {
-        qDebug() << "Window: Graph facade successfully created" << name << "node:" << nodeId;
-        qDebug() << "Window: Node created at scene position:" << scenePos;
-        qDebug() << "Window: Updating status bar";
-
-        // Update status bar to reflect the new node
-        updateStatusBar();
-        statusBar()->showMessage(QString("Created %1 node: %2").arg(name).arg(nodeId), 2000);
-
-        qDebug() << "Window: Node creation process completed successfully";
-    } else {
-        qDebug() << "Window: Graph facade FAILED to create" << name << "node";
-        qDebug() << "Window: This may indicate invalid node type or scene issues";
-        statusBar()->showMessage(QString("Failed to create %1 node").arg(name), 3000);
-    }
+    updateStatusBar();
+    statusBar()->showMessage(QString("Created %1 node").arg(name), 2000);
     qDebug() << "========================================";
+}
+
+void Window::onConnectionRequested(const QUuid& fromNodeId, int fromSocketIndex,
+                                   const QUuid& toNodeId, int toSocketIndex)
+{
+    if (!m_factory) {
+        qWarning() << "Window::onConnectionRequested - no factory";
+        return;
+    }
+    m_undoStack->push(new ConnectEdgeCommand(m_scene, m_factory,
+                                             fromNodeId, fromSocketIndex,
+                                             toNodeId, toSocketIndex));
+}
+
+void Window::onNodesMoved(const QVector<NodeMove>& moves)
+{
+    m_undoStack->push(new MoveNodesCommand(m_scene, moves));
 }
 
 // ============================================================================
@@ -575,16 +543,14 @@ void Window::createFileMenu()
 void Window::createEditMenu()
 {
     m_editMenu = menuBar()->addMenu("&Edit");
-    
-    // Undo/Redo placeholders for future implementation
-    QAction* undoAction = new QAction("&Undo", this);
+
+    // Undo/Redo backed by QUndoStack (auto-enabled/disabled, shows command text)
+    QAction* undoAction = m_undoStack->createUndoAction(this, tr("&Undo"));
     undoAction->setShortcut(QKeySequence::Undo);
-    undoAction->setEnabled(false); // TODO: Implement undo system
     m_editMenu->addAction(undoAction);
-    
-    QAction* redoAction = new QAction("&Redo", this);
-    redoAction->setShortcut(QKeySequence::Redo);
-    redoAction->setEnabled(false); // TODO: Implement redo system
+
+    QAction* redoAction = m_undoStack->createRedoAction(this, tr("&Redo"));
+    redoAction->setShortcuts({QKeySequence::Redo, QKeySequence(QStringLiteral("Ctrl+Y"))});
     m_editMenu->addAction(redoAction);
     
     m_editMenu->addSeparator();
@@ -852,31 +818,24 @@ void Window::updateSelectionInfo()
 
 bool Window::deleteSelection()
 {
-    if (!m_graph) {
-        qWarning() << "Delete key pressed but graph not available";
+    if (!m_factory) {
+        qWarning() << "Delete requested but factory not available";
         return false;
     }
 
-    const QVariantList nodes = m_graph->getSelectedNodes();
-    const QVariantList edges = m_graph->getSelectedEdges();
-
-    if (edges.isEmpty() && nodes.isEmpty()) {
+    auto* command = new DeleteSelectionCommand(m_scene, m_factory);
+    if (command->isEmpty()) {
         qDebug() << "Window::deleteSelection - nothing selected";
+        delete command;
         return false;
     }
 
-    qDebug() << "Window::deleteSelection - deleting" << nodes.size()
-             << "nodes and" << edges.size() << "edges";
+    qDebug() << "Window::deleteSelection -" << command->text();
+    m_undoStack->push(command);
 
-    const bool deleted = m_graph->deleteSelection();
-    if (!deleted) {
-        qWarning() << "Window::deleteSelection - graph.deleteSelection() reported failure";
-    } else {
-        qDebug() << "Window::deleteSelection - graph.deleteSelection() removed selection";
-    }
     updateSelectionInfo();
     updateStatusBar();
-    return deleted;
+    return true;
 }
 
 /**
@@ -1065,15 +1024,26 @@ void Window::runScriptsForNodes(const QList<Node*>& nodes, const QString& contex
         return;
     }
 
-    QSet<Node*> visited;
+    // Snapshot UUIDs, not pointers: scripts run synchronously and may delete
+    // nodes (graph.deleteNode/clearGraph), leaving raw Node* dangling mid-loop.
+    QVector<QUuid> pending;
+    QSet<QUuid> seen;
+    pending.reserve(nodes.size());
+    for (Node* node : nodes) {
+        if (node && !seen.contains(node->getId())) {
+            seen.insert(node->getId());
+            pending.append(node->getId());
+        }
+    }
+
     int attempted = 0;
     int succeeded = 0;
 
-    for (Node* node : nodes) {
-        if (!node || visited.contains(node)) {
-            continue;
+    for (const QUuid& nodeId : pending) {
+        Node* node = m_scene ? m_scene->getNode(nodeId) : nullptr;
+        if (!node) {
+            continue; // deleted by an earlier script in this batch
         }
-        visited.insert(node);
         if (!nodeHasScript(node)) {
             continue;
         }
@@ -1113,6 +1083,9 @@ void Window::newFile()
     if (m_autosaveObserver) {
         m_autosaveObserver->setEnabled(false);
     }
+
+    // A new document invalidates all undo snapshots
+    m_undoStack->clear();
 
     GraphSubject::beginBatch();
     m_graph->clearGraph();                        // hard clear
@@ -1244,13 +1217,9 @@ void Window::showEvent(QShowEvent* event)
             qDebug() << "=== Executing startup script:" << m_startupScript;
 
             if (m_graph) {
-                QJSValue result = m_graph->evalFile(m_startupScript);
-
-                if (result.isError()) {
-                    qCritical() << "Script error:" << result.toString();
-                } else {
-                    qDebug() << "Script executed successfully";
-                }
+                // Errors are reported via Graph::errorOccurred + log
+                m_graph->evalFile(m_startupScript);
+                qDebug() << "Script executed";
             } else {
                 qCritical() << "Graph facade not available";
             }
@@ -1263,6 +1232,13 @@ void Window::showEvent(QShowEvent* event)
 void Window::closeEvent(QCloseEvent* event)
 {
     qDebug() << "PHASE1: Window shutdown initiated";
+    
+    // Disable autosave BEFORE the shutdown clear: prepareForShutdown() clears
+    // the scene, which would otherwise mark pending changes and let the
+    // observer's destructor overwrite autosave.xml with an empty graph.
+    if (m_autosaveObserver) {
+        m_autosaveObserver->setEnabled(false);
+    }
     
     // PHASE 1.2: Prepare scene for safe shutdown
     if (m_scene) {
