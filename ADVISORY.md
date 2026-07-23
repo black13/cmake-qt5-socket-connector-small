@@ -301,3 +301,135 @@ All items from the approved fix plan (Passes 1–3 of Entry 001 §7) are impleme
 ### 5. Repository state
 
 The committed tree contains BOTH this remediation and previously uncommitted work from the earlier session (the `ScriptEngine` seam files `script_engine.h`, `qjs_script_backend.*`, `duktape_script_backend.*`, `undo_commands.*`, plus facade/palette modifications predating this review). Per owner direction both workstreams are committed together; this entry is the dividing record of what the remediation changed.
+
+---
+
+## Entry 005 — 2026-07-22 — Why we did it, backed by published Qt/Digia-era sources
+
+The owner asked that the rationale for every change be justified from published works — official Qt documentation (including the archived, pre-Digia Qt 4.8 docs), Digia/Trolltech-era Qt Quarterly articles, and the era's reference book. This entry maps each fix to its published authority. Quotes are verbatim; each has a source URL.
+
+### 1. Geometry discipline (A7 prepareGeometryChange; finding 4.2 paint-outside-rect)
+
+**A7 — moving `prepareGeometryChange()` before the mutation** is the documented contract, not a preference:
+
+> "If you want to change the item's bounding rectangle, you must first call prepareGeometryChange(). This notifies the scene of the imminent change, so that it can update its item geometry index; otherwise, the scene will be unaware of the item's new geometry, and the results are undefined (typically, rendering artifacts are left within the view)."
+— Qt 5.15, [QGraphicsItem::boundingRect](https://doc.qt.io/qt-5/qgraphicsitem.html#boundingRect)
+
+The same sentence exists verbatim in the archived **Qt 4.8** docs ([qgraphicsitem.html](https://doc.qt.io/archives/qt-4.8/qgraphicsitem.html#boundingRect)) — the rule predates Digia's ownership. The companion finding 4.2 (Node's selection glow painted ~7 px outside its rect, deferred to Pass 5) violates the sentence right before it:
+
+> "…all painting must be restricted to inside an item's bounding rect." and "Note: For shapes that paint an outline / stroke, it is important to include half the pen width in the bounding rect."
+— Qt 5.15, [QGraphicsItem::boundingRect](https://doc.qt.io/qt-5/qgraphicsitem.html#boundingRect)
+
+### 2. Scene/item ownership (A3 ghost-edge clear; B1 socket invalidation; B4 teardown)
+
+A3's whole premise — that `Scene::clear()` deletes the ghost edge and the source socket underneath a drag — is documented behavior:
+
+> "Removes and deletes all items from the scene, but otherwise leaves the state of the scene unchanged."
+— Qt 5.15, [QGraphicsScene::clear](https://doc.qt.io/qt-5/qgraphicsscene.html#clear)
+
+> "Adds or moves the item and all its children to this scene. This scene takes ownership of the item."
+— Qt 5.15, [QGraphicsScene::addItem](https://doc.qt.io/qt-5/qgraphicsscene.html#addItem)
+
+B1 (the new `Socket::~Socket` detaching its edge) exists because children die with their parent, in whatever order the scene teardown picks:
+
+> "Destroys the QGraphicsItem and all its children. … Note: It is more efficient to remove the item from the QGraphicsScene before destroying the item."
+— Qt 5.15, [QGraphicsItem::~QGraphicsItem](https://doc.qt.io/qt-5/qgraphicsitem.html#dtor.QGraphicsItem)
+
+> "Removes and deletes all items from the scene object before destroying the scene object."
+— Qt 5.15, [QGraphicsScene::~QGraphicsScene](https://doc.qt.io/qt-5/qgraphicsscene.html#dtor.QGraphicsScene)
+
+These ownership rules are stated identically in the pre-Digia Qt 4.8 archive ([addItem](https://doc.qt.io/archives/qt-4.8/qgraphicsscene.html#addItem), [removeItem](https://doc.qt.io/archives/qt-4.8/qgraphicsscene.html#removeItem), [dtor](https://doc.qt.io/archives/qt-4.8/qgraphicsscene.html#dtor.QGraphicsScene)) — our fixes align with the framework's oldest published contract, and B4's explicit teardown order is the same "the caller manages lifetime after removal" idea applied at application scope ([removeItem](https://doc.qt.io/qt-5/qgraphicsscene.html#removeItem): "The ownership of item is passed on to the caller").
+
+### 3. The swallowed right-button release (finding 4.6)
+
+The reason the base-class `mouseReleaseEvent` must run is the grabber contract:
+
+> "An item becomes a mouse grabber when it receives and accepts a mouse press event, and it stays the mouse grabber until … the item receives a mouse release event when there are no other buttons pressed."
+— Qt 5.15, [QGraphicsScene::mouseGrabberItem](https://doc.qt.io/qt-5/qgraphicsscene.html#mouseGrabberItem)
+
+> "Qt grabs the mouse when you press a mouse button, and keeps the mouse grabbed until you release the last mouse button."
+— Qt 5.15, [QGraphicsItem::grabMouse](https://doc.qt.io/qt-5/qgraphicsitem.html#grabMouse)
+
+Returning early without the base call leaves the grab (and the pressed socket) stale — exactly what the fix addressed.
+
+### 4. itemChange caution (findings around setFocus/z-value in itemChange)
+
+> "Note: Certain QGraphicsItem functions cannot be called in a reimplementation of this function; see the GraphicsItemChange documentation for details."
+— Qt 5.15, [QGraphicsItem::itemChange](https://doc.qt.io/qt-5/qgraphicsitem.html#itemChange)
+
+This documented reentrancy constraint is why the review flagged state mutations inside `itemChange` as fragile.
+
+### 5. Script watchdog (C2)
+
+The design rests entirely on one documented guarantee:
+
+> "This function is thread safe. You may call it from a different thread in order to interrupt, for example, an infinite loop in JavaScript. This function was introduced in Qt 5.14."
+— Qt 5.15, [QJSEngine::setInterrupted](https://doc.qt.io/qt-5/qjsengine.html#setInterrupted)
+
+(Note the documented wording is "a different thread", which is exactly how the watchdog uses it.) Building the script seam on QJSEngine at all is the officially blessed path:
+
+> "Warning: This module is not actively developed. … For new code, use QJSEngine and related classes in the Qt QML module instead."
+— Qt 5.15, [Qt Script module index](https://doc.qt.io/qt-5/qtscript-index.html)
+
+### 6. Refusing deletion while a script executes (B3)
+
+The policy "don't delete objects out from under running code" is Qt's own warning:
+
+> "Warning: Deleting a QObject while pending events are waiting to be delivered can cause a crash. … Use deleteLater() instead, which will cause the event loop to delete the object after all pending events have been delivered to it."
+— Qt 5.15, [QObject::~QObject](https://doc.qt.io/qt-5/qobject.html#dtor.QObject)
+
+Nodes aren't QObjects, so `deleteLater` doesn't apply to them — but the documented principle is the same: deletion must not race code that still holds the object. Our guard refuses the operation instead, which is the safer policy for a synchronous scripting boundary.
+
+### 7. Duplicate-UUID registry corruption (finding 4.4, deferred)
+
+The reason duplicate UUIDs in a file create zombie items is documented `QHash` behavior:
+
+> "If there is already an item with the key, that item's value is replaced with value."
+— Qt 5.15, [QHash::insert](https://doc.qt.io/qt-5/qhash.html#insert)
+
+### 8. Edge vanishing at scene origin (A6)
+
+The bug was using `isNull()` as a validity sentinel; the docs define it as a coordinate value:
+
+> "Returns true if both the x and y coordinates are set to 0.0 (ignoring the sign); otherwise returns false."
+— Qt 5.15, [QPointF::isNull](https://doc.qt.io/qt-5/qpointf.html#isNull)
+
+### 9. Autosave encoding (finding 4.12, deferred)
+
+The autosave writer pushes UTF-8 XML through the locale codec because that's the documented Qt 5 default:
+
+> "By default, QTextCodec::codecForLocale() is used, and automatic unicode detection is enabled."
+— Qt 5.15, [QTextStream::setCodec](https://doc.qt.io/qt-5/qtextstream.html#setCodec)
+
+(UTF-8-by-default only arrived in Qt 6 — so the explicit `setCodec("UTF-8")` fix is required on 5.15.)
+
+### 10. Undo through commands (earlier-session architecture, review-verified)
+
+The XML-snapshot `QUndoCommand` design the earlier session built (and the review verified memory-clean) is the framework's intended usage:
+
+> "Qt's Undo Framework is an implementation of the Command pattern, for implementing undo/redo functionality in applications."
+— Qt 5.15, [Undo Framework overview](https://doc.qt.io/qt-5/qundo.html)
+
+See also Qt Quarterly Issue 25 (Q1 2008), ["Using Undo/Redo with Item Views"](https://doc.qt.io/archives/qq/qq25-undo.html) by Witold Wysota — the era's published worked example of `QUndoStack`/`QUndoCommand`.
+
+### 11. durationMs measurement (A5)
+
+`QElapsedTimer` is the right instrument by documentation (monotonic, adjustment-immune) — the bug was only *when* it was sampled:
+
+> "QElapsedTimer will use the platform's monotonic reference clock in all platforms that support it … immune to time adjustments, such as the user correcting the time."
+— Qt 5.15, [QElapsedTimer](https://doc.qt.io/qt-5/qelapsedtimer.html#details)
+
+### 12. The architecture itself is the published idiom
+
+The project's Scene/Node/Edge/Socket design is not homegrown invention — it is the design the era's literature prescribes:
+
+- Qt Quarterly Issue 22 (Q2 2007), ["Designing Visual Editors in Qt"](https://doc.qt.io/archives/qq/qq22-visualeditors.html) by Prashanth N. Udupa — prescribes a `QGraphicsScene` canvas, `QGraphicsItem`-subclass nodes, link items for connections, a `QGraphicsView` for display, and (Qt 4.3+) script association — this project, in outline.
+- Qt Quarterly Issue 19 (Q3 2006), ["A Better Canvas"](https://doc.qt.io/archives/qq/qq19-graphicsview.html) by Andreas Aardal Hanssen — the framework's introduction; Issue 21 (Q1 2007), ["Porting to Qt 4.2's Graphics View"](https://doc.qt.io/archives/qq/qq21-portingcanvas.html) — the porting guide (local-coordinate painting discipline).
+- Blanchette & Summerfield, *C++ GUI Programming with Qt 4* (2nd ed., Prentice Hall, 2008, ISBN 9780132354165), Chapter 8 "2D Graphics", §"Item-Based Rendering with Graphics View" (pp. 195–217) — the Trolltech-era book chapter on this idiom ([publisher TOC](https://www.informit.com/store/c-plus-plus-gui-programming-with-qt-4-9780132354165)).
+
+### Honesty notes (so the record stays accurate)
+
+- No Qt Quarterly article covers `prepareGeometryChange()`/`boundingRect()` discipline directly — that rule lives in the API reference only (cited above, in both 5.15 and 4.8 forms).
+- `setInterrupted` is documented as callable from "a different thread" (not the looser phrase "any thread") — the watchdog uses it exactly as documented.
+- The QtScript→QJSEngine migration sentence is on the QtScript module index page, not the `QJSEngine` page.
+- RAII (BatchGuard/DepthGuard/StashSlot/QScopedPointer) is standard C++ practice, not Qt-documented — no Qt citation is claimed for it; it is the mechanism we chose to enforce the Qt contracts above on every exit path.
