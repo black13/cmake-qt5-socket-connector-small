@@ -506,6 +506,8 @@ void Node::read(xmlNodePtr node)
 void Node::calculateNodeSize(int inputCount, int outputCount)
 {
     // Calculate required height based on socket count
+    prepareGeometryChange(); // Qt contract: notify BEFORE mutating m_width/m_height
+
     int maxSockets = qMax(inputCount, outputCount);
     
     // Constants matching socket configuration
@@ -536,7 +538,8 @@ void Node::calculateNodeSize(int inputCount, int outputCount)
     const qreal socketOffset = 8.0; // Space for socket offset from edges
     m_width = qMax(m_width, socketOffset * 2 + 20); // Minimum width for sockets
     
-    // Notify Qt graphics system of geometry change
+    // (geometry-change notification already done at function top - Qt requires
+    // it BEFORE mutation; this second notify is redundant but harmless)
     prepareGeometryChange();
     
     qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
