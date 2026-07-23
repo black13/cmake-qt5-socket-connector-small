@@ -1,8 +1,7 @@
 #pragma once
 
 #include "node.h"
-#include <QJSEngine>
-#include <QJSValue>
+#include "script_engine.h"
 #include <QVariantMap>
 
 /**
@@ -14,7 +13,8 @@
  *  - Exposes a guarded API (ScriptNodeApi) to scripts: payload helpers, runWork,
  *    metadata (id/type/socket counts/edge counts) so scripts can inspect their
  *    C++ host safely
- *  - Scripts are compiled lazily with a shared QJSEngine owned by Graph
+ *  - Scripts are compiled lazily with a shared type-erased ScriptEngine owned
+ *    by Graph (backend-agnostic: QJSEngine today, Duktape or others tomorrow)
  *  - Serialized via `<script>` / `<payload>` children so behavior survives save/load.
  *    (Autosave runs immediately after palette drops, so starter scripts are persisted
  *     as soon as a node lands on the scene.)
@@ -38,8 +38,13 @@ public:
     void setDisplayLabel(const QString& text);
     [[nodiscard]] QString displayLabel() const { return m_displayLabel; }
 
-    static void setSharedEngine(QJSEngine* engine);
-    static QJSEngine* sharedEngine() { return s_engine; }
+    static void setSharedEngine(ScriptEngine engine);
+    static const ScriptEngine& sharedEngine() { return s_engine; }
+
+    // Reentrancy guard: >0 while any node script is executing. Graph uses this
+    // to refuse destructive operations (delete/clear/load) mid-evaluation, and
+    // evaluate() uses it to cap native recursion depth.
+    static bool isExecuting() { return s_executionDepth > 0; }
 
     xmlNodePtr write(xmlDocPtr doc, xmlNodePtr repr = nullptr) const override;
     void read(xmlNodePtr node) override;
@@ -49,13 +54,13 @@ protected:
 
 private:
     void compileIfNeeded();
-    QJSValue callScript(const QVariantMap& context);
 
     QString m_script;
     QVariantMap m_payload;
     QString m_displayLabel;
-    QJSValue m_compiledFunction;
+    ScriptFunction m_compiledFunction;
     QVariant m_lastResult;
 
-    static QJSEngine* s_engine;
+    static ScriptEngine s_engine;
+    static int s_executionDepth;
 };
