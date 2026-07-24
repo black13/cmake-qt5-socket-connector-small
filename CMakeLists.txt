@@ -325,7 +325,7 @@ add_library(NodeGraphCore STATIC ${CORE_SOURCES})
 # 9.  Main executable target
 # ─────────────────────────────────────
 add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
-target_link_libraries(NodeGraph NodeGraphCore)
+target_link_libraries(NodeGraph PRIVATE NodeGraphCore)
 
 # ─────────────────────────────────────
 # 10. Test executable target DISABLED - GraphController testing via menu only
@@ -400,6 +400,59 @@ if(ENABLE_DUKTAPE)
 endif()
 
 target_link_libraries(NodeGraphCore ${CORE_LIBRARIES})
+
+# ─────────────────────────────────────
+# 11a. LLVM source-based code coverage instrumentation
+# ─────────────────────────────────────
+option(ENABLE_LLVM_COVERAGE "Enable LLVM source-based code coverage instrumentation" OFF)
+if(ENABLE_LLVM_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(COVERAGE_FLAGS -fprofile-instr-generate -fcoverage-mapping)
+        target_compile_options(NodeGraphCore PUBLIC ${COVERAGE_FLAGS})
+        target_compile_options(NodeGraph PRIVATE ${COVERAGE_FLAGS})
+
+        # Find LLVM profiling runtime library (needed for lld-link.exe which
+        # does not understand -fprofile-instr-generate as a linker flag)
+        if(WIN32)
+            # clang-cl + Ninja uses lld-link.exe directly, not clang-cl as linker driver
+            # We must explicitly link clang_rt.profile-x86_64.lib
+            execute_process(
+                COMMAND "${CMAKE_CXX_COMPILER}" -print-resource-dir
+                OUTPUT_VARIABLE CLANG_RESOURCE_DIR
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+            )
+            if(CLANG_RESOURCE_DIR)
+                set(PROFILE_RT_LIB "${CLANG_RESOURCE_DIR}/lib/windows/clang_rt.profile-x86_64.lib")
+                if(EXISTS "${PROFILE_RT_LIB}")
+                    message(STATUS "LLVM profiling runtime: ${PROFILE_RT_LIB}")
+                else()
+                    # Fallback: search under LLVM install
+                    find_library(PROFILE_RT_LIB
+                        NAMES clang_rt.profile-x86_64
+                        PATHS "${CLANG_RESOURCE_DIR}/lib/windows"
+                        NO_DEFAULT_PATH
+                    )
+                endif()
+            endif()
+            if(NOT PROFILE_RT_LIB OR NOT EXISTS "${PROFILE_RT_LIB}")
+                message(WARNING "LLVM profiling runtime not found - coverage .profraw files will NOT be written at runtime")
+            else()
+                target_link_libraries(NodeGraph PRIVATE "${PROFILE_RT_LIB}")
+            endif()
+        else()
+            target_link_options(NodeGraph PRIVATE -fprofile-instr-generate)
+        endif()
+
+        message(STATUS "LLVM source-based code coverage: ENABLED")
+        message(STATUS "  Runtime:  set LLVM_PROFILE_FILE=nodegraph_%%p_%%m.profraw && NodeGraph.exe")
+        message(STATUS "  Merge:    llvm-profdata merge -sparse *.profraw -o merged.profdata")
+        message(STATUS "  Report:   llvm-cov show NodeGraph.exe -instr-profile=merged.profdata")
+        message(STATUS "  HTML:     llvm-cov show NodeGraph.exe -instr-profile=merged.profdata -format=html -output-dir=coverage_report")
+    else()
+        message(WARNING "ENABLE_LLVM_COVERAGE requires Clang compiler (detected: ${CMAKE_CXX_COMPILER_ID})")
+    endif()
+endif()
 
 # ─────────────────────────────────────
 # 12. VS / Windows extras
