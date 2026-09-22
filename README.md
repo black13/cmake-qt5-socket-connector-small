@@ -30,6 +30,11 @@ Regression tests run headlessly through CTest. From the repository root:
 python scripts/build_and_test.py
 ```
 
+CTest runs the two Qt Test binaries plus two JavaScript suites
+(`tests/js_regression_suite.js`, `tests/coverage_suite.js`) through
+`NodeGraph --script`; the app exits nonzero when a JS check fails, so ctest
+reports it like any other test.
+
 The helper normalizes the Windows process environment for MSBuild and enables
 `BUILD_TESTING`. Use `--build-dir build_review` to choose the build directory,
 or `--libxml2-source <checkout>` to reuse a local libxml2 source tree offline.
