@@ -7,7 +7,11 @@ Quick Links
 - Development plan and session resume: `PLAN.MD`
 - Build (Linux/WSL): `mkdir -p build_linux && cd build_linux && cmake .. && make -j`
 - Build (Windows): Generate with CMake and build in Visual Studio
-- Run: `./NodeGraph`
+- Run (Windows): `.\run.ps1` — puts the build's Qt runtime on PATH and forwards
+  arguments, e.g. `.\run.ps1 --script scripts/drop_demo.js` or
+  `.\run.ps1 -Debug`. The executables are directly runnable too (Qt is deployed
+  next to them); `run.ps1` also works before deployment / for a bare Qt install.
+- Run (Linux/WSL): `./NodeGraph`
 - Concatenate sources for review: `bash concat.sh` (outputs `concatenated_code.txt`)
 
 Status
