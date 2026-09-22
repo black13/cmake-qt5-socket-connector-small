@@ -80,6 +80,10 @@ void Window::adoptFactory(GraphFactory* factory)
 
     // Create Graph facade - the new public API with JavaScript integration
     m_graph = new Graph(m_scene, m_factory, this);
+
+    // Script- and UI-side mutations share one history: facade calls now push
+    // commands onto this stack (batches collapse to a single undo step).
+    m_graph->setUndoStack(m_undoStack);
     qDebug() << "Graph facade created with JavaScript engine enabled";
 
     // Structural script-side ops invalidate the undo history (commands hold

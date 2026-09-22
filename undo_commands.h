@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QUndoCommand>
+#include <QList>
 #include <QPointF>
 #include <QString>
 #include <QStringList>
@@ -45,6 +46,7 @@ private:
     QPointF m_position;
     QUuid m_nodeId;   // set on first redo
     QString m_xml;    // snapshot taken on undo, replayed on redo
+    bool m_failed = false; // creation refused: stay on the stack as a no-op
 };
 
 /// Connect an output socket to an input socket (node UUID + socket index).
@@ -59,6 +61,8 @@ public:
     void redo() override;
     void undo() override;
 
+    [[nodiscard]] QUuid edgeId() const { return m_edgeId; }
+
 private:
     Scene* m_scene;
     GraphFactory* m_factory;
@@ -68,14 +72,20 @@ private:
     int m_toSocketIndex;
     QUuid m_edgeId;   // set on first redo
     QString m_xml;    // snapshot taken on undo, replayed on redo
+    bool m_failed = false; // connection refused: stay on the stack as a no-op
 };
 
-/// Delete the current selection: selected edges, selected nodes, and all
-/// edges incident to those nodes. Snapshots everything at construction.
+/// Delete nodes and/or edges atomically. The selection constructor captures
+/// the current scene selection plus incident edges; the explicit constructor
+/// is for facade calls (graph.deleteNode/deleteEdge). Snapshots at
+/// construction, so everything must still be alive when the command is built.
 class DeleteSelectionCommand : public QUndoCommand
 {
 public:
     DeleteSelectionCommand(Scene* scene, GraphFactory* factory,
+                           QUndoCommand* parent = nullptr);
+    DeleteSelectionCommand(Scene* scene, GraphFactory* factory,
+                           const QList<QUuid>& nodeIds, const QList<QUuid>& edgeIds,
                            QUndoCommand* parent = nullptr);
 
     void redo() override;
@@ -84,6 +94,8 @@ public:
     [[nodiscard]] bool isEmpty() const { return m_nodeIds.isEmpty() && m_edgeIds.isEmpty(); }
 
 private:
+    void initialize(const QList<QUuid>& nodeIds, const QList<QUuid>& edgeIds);
+
     Scene* m_scene;
     GraphFactory* m_factory;
     QList<QUuid> m_nodeIds;

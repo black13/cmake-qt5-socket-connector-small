@@ -30,6 +30,7 @@
 #include "socket.h"
 
 #include <QAction>
+#include <QUndoStack>
 #include <limits>
 #include <libxml/tree.h>
 
@@ -256,6 +257,76 @@ private slots:
         QVERIFY(m_world->graph->loadFromFile(path));
         QCOMPARE(m_world->scene->getNodes().size(), 1);
         QVERIFY(errors.count() >= 6);
+    }
+
+    void facadeMutationsAreUndoable()
+    {
+        QUndoStack stack;
+        m_world->graph->setUndoStack(&stack);
+
+        const QString a = m_world->graph->createNode("SOURCE", 0, 0);
+        const QString b = m_world->graph->createNode("TRANSFORM", 200, 0);
+        const QString c = m_world->graph->createNode("SINK", 400, 0);
+        const QString e1 = m_world->graph->connectNodes(a, 0, b, 0);
+        const QString e2 = m_world->graph->connectNodes(b, 1, c, 0);
+        QVERIFY(!a.isEmpty() && !b.isEmpty() && !c.isEmpty());
+        QVERIFY(!e1.isEmpty() && !e2.isEmpty());
+        QCOMPARE(stack.count(), 5);
+        QVERIFY(m_world->graph->canUndo());
+
+        // Connections: undo/redo preserves the original edge UUIDs
+        QVERIFY(m_world->graph->undo());
+        QCOMPARE(m_world->scene->getEdges().size(), 1);
+        QVERIFY(m_world->graph->undo());
+        QCOMPARE(m_world->scene->getEdges().size(), 0);
+        QVERIFY(m_world->graph->redo());
+        QVERIFY(m_world->graph->redo());
+        QCOMPARE(m_world->scene->getEdges().size(), 2);
+        QVERIFY(m_world->scene->getEdge(QUuid(e1)) != nullptr);
+        QVERIFY(m_world->scene->getEdge(QUuid(e2)) != nullptr);
+
+        // Deleting a middle node takes its edges; undo restores all three
+        QVERIFY(m_world->graph->deleteNode(b));
+        QCOMPARE(m_world->scene->getNodes().size(), 2);
+        QCOMPARE(m_world->scene->getEdges().size(), 0);
+        QVERIFY(m_world->graph->undo());
+        QCOMPARE(m_world->scene->getNodes().size(), 3);
+        QCOMPARE(m_world->scene->getEdges().size(), 2);
+        QVERIFY(m_world->scene->getNode(QUuid(b)) != nullptr);
+        QVERIFY(m_world->scene->getEdge(QUuid(e1)) != nullptr);
+        QVERIFY(m_world->graph->redo());
+        QCOMPARE(m_world->scene->getNodes().size(), 2);
+
+        // A batch is a single undo step
+        m_world->graph->beginBatch();
+        const QString d1 = m_world->graph->createNode("TRANSFORM", 600, 0);
+        const QString d2 = m_world->graph->createNode("TRANSFORM", 800, 0);
+        m_world->graph->endBatch();
+        QCOMPARE(m_world->scene->getNodes().size(), 4);
+        QVERIFY(m_world->graph->undo()); // one step removes both
+        QCOMPARE(m_world->scene->getNodes().size(), 2);
+        QVERIFY(m_world->graph->redo());
+        QCOMPARE(m_world->scene->getNodes().size(), 4);
+        QVERIFY(m_world->scene->getNode(QUuid(d1)) != nullptr);
+        QVERIFY(m_world->scene->getNode(QUuid(d2)) != nullptr);
+
+        // Moves are undoable
+        Node* moved = m_world->scene->getNode(QUuid(d1));
+        const QPointF before = moved->pos();
+        QVERIFY(m_world->graph->moveNode(d1, 25, 25));
+        QCOMPARE(m_world->scene->getNode(QUuid(d1))->pos(), before + QPointF(25, 25));
+        QVERIFY(m_world->graph->undo());
+        QCOMPARE(m_world->scene->getNode(QUuid(d1))->pos(), before);
+        QVERIFY(m_world->graph->redo());
+        QCOMPARE(m_world->scene->getNode(QUuid(d1))->pos(), before + QPointF(25, 25));
+
+        // An empty batch leaves no history entry
+        const int beforeCount = stack.count();
+        m_world->graph->beginBatch();
+        m_world->graph->endBatch();
+        QCOMPARE(stack.count(), beforeCount);
+
+        m_world->graph->setUndoStack(nullptr); // stack is about to go out of scope
     }
 
     void facadeLoadReplaces() // C6

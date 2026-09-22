@@ -11,6 +11,8 @@ class Scene;
 class GraphFactory;
 class Node;
 class Edge;
+class QUndoStack;
+class QUndoCommand;
 
 /**
  * Graph - Public API facade for graph operations with JavaScript integration
@@ -58,8 +60,8 @@ public:
      * createNode(); the node starts slightly offset and faded, then eases to
      * (x, y) with full opacity over durationMs (0 skips the animation).
      *
-     * Not undoable (the facade has no undo stack) - UI drops still go through
-     * Window::createNodeFromPalette and CreateNodeCommand.
+     * When an undo stack is attached the creation is undoable like any other
+     * facade mutation (the animation itself is not recorded).
      *
      * Two overloads (no default argument) so QJSEngine can invoke either
      * arity predictably; scripts may call dropNode(type, x, y).
@@ -208,6 +210,25 @@ public:
      */
     Q_INVOKABLE bool isBatchMode() const;
 
+    // ========== Undo / Redo ==========
+
+    /**
+     * Attach the window's undo stack so facade mutations (script or UI) become
+     * undoable. A beginBatch()/endBatch() group collapses into one undo step.
+     * Without a stack the facade mutates directly (headless tests).
+     */
+    void setUndoStack(QUndoStack* stack);
+
+    /**
+     * Undo/redo the last mutation; refused while a node script runs or a
+     * batch is open (macro integrity).
+     * @return true if an undo/redo step was performed
+     */
+    Q_INVOKABLE bool undo();
+    Q_INVOKABLE bool redo();
+    Q_INVOKABLE bool canUndo() const;
+    Q_INVOKABLE bool canRedo() const;
+
     // ========== Graph-wide Operations ==========
 
     /**
@@ -309,7 +330,17 @@ private:
     Scene* m_scene;              // Graphics management (non-owning)
     GraphFactory* m_factory;     // Object creation (non-owning)
     ScriptEngine m_scriptEngine; // Type-erased script engine (shared handle)
+    QUndoStack* m_undoStack = nullptr; // Non-owning; nullptr = direct mutation
 
+    // Batch bookkeeping: the outermost beginBatch() starts a QUndoStack macro
+    // lazily (on the first command push) and endBatch() closes it, so a script
+    // batch undoes as one step and empty batches leave no entry.
+    int m_ownBatchDepth = 0;
+    bool m_macroActive = false;
+
+    /// Push a command when a stack is attached; false otherwise. Starts the
+    /// batch macro lazily while a Graph batch is open.
+    bool pushCommand(QUndoCommand* command);
 
     // Internal helpers
     Node* findNode(const QString& uuidStr) const;
