@@ -103,8 +103,9 @@ endif()
 # ─────────────────────────────────────
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
-# Qml is required for QJSEngine (JavaScript integration in Graph facade)
-set(QT5_COMPONENTS Core Widgets Gui Qml Network)
+# Qml is required for QJSEngine (JavaScript integration in Graph facade);
+# Svg backs the qsvg icon-image plugin for the app's SVG action icons.
+set(QT5_COMPONENTS Core Widgets Gui Qml Network Svg)
 if(BUILD_TESTING)
     list(APPEND QT5_COMPONENTS Test)
 endif()
@@ -473,6 +474,36 @@ if(WIN32)
     
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                  PROPERTY VS_STARTUP_PROJECT NodeGraph)
+
+    # Make the build tree directly runnable: copy the Qt runtime (libraries +
+    # plugins) next to NodeGraph.exe so no PATH or plugin setup is needed for:
+    #   build_Release\Release\NodeGraph.exe --script scripts/drop_demo.js
+    # The debug-only Qt install trips windeployqt's suffix logic (it looks for
+    # Qt5Coredd.dll), so windeployqt deploys plugins only and the libraries are
+    # copied with copy_if_different from the imported targets.
+    add_custom_command(TARGET NodeGraph POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:Qt5::Core>
+                $<TARGET_FILE:Qt5::Gui>
+                $<TARGET_FILE:Qt5::Widgets>
+                $<TARGET_FILE:Qt5::Qml>
+                $<TARGET_FILE:Qt5::Network>
+                $<TARGET_FILE:Qt5::Svg>
+                "$<TARGET_FILE_DIR:NodeGraph>"
+        COMMAND "$<TARGET_FILE_DIR:Qt5::Core>/windeployqt.exe"
+                $<IF:$<CONFIG:Debug>,--debug,--release>
+                --no-libraries
+                --no-translations
+                --no-compiler-runtime
+                --no-system-d3d-compiler
+                --no-opengl-sw
+                --no-angle
+                --no-virtualkeyboard
+                --no-quick
+                --no-quick-import
+                "$<TARGET_FILE:NodeGraph>"
+        COMMENT "Deploying Qt runtime next to NodeGraph.exe"
+        VERBATIM)
 endif()
 
 # ─────────────────────────────────────
@@ -482,13 +513,14 @@ if(WIN32)
     install(TARGETS NodeGraph RUNTIME DESTINATION .)
 
     # Qt runtime DLLs the app actually imports. Qt5Qml (QJSEngine) pulls in
-    # Qt5Network, so both must ship with the executable.
+    # Qt5Network; Qt5Svg backs the qsvg icon-image plugin.
     install(FILES
         $<TARGET_FILE:Qt5::Core>
         $<TARGET_FILE:Qt5::Widgets>
         $<TARGET_FILE:Qt5::Gui>
         $<TARGET_FILE:Qt5::Qml>
         $<TARGET_FILE:Qt5::Network>
+        $<TARGET_FILE:Qt5::Svg>
         DESTINATION .
     )
 
@@ -507,6 +539,8 @@ if(WIN32)
         get_filename_component(_qt_plugins_dir "${_qt_bin_dir}/../plugins" ABSOLUTE)
         install(FILES "${_qt_plugins_dir}/platforms/qwindows$<IF:$<CONFIG:Debug>,d,>.dll"
                 DESTINATION platforms)
+        install(FILES "${_qt_plugins_dir}/imageformats/qsvg$<IF:$<CONFIG:Debug>,d,>.dll"
+                DESTINATION imageformats)
     else()
         message(WARNING "Could not locate Qt5::Core DLL; install the platform plugin with windeployqt")
     endif()
