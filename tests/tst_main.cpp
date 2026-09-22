@@ -23,11 +23,13 @@
 #include "graph_observer.h"
 #include "scripted_node.h"
 #include "synthetic_work.h"
+#include "window.h"
 #include "xml_autosave_observer.h"
 #include "node.h"
 #include "edge.h"
 #include "socket.h"
 
+#include <QAction>
 #include <libxml/tree.h>
 
 // ---------------------------------------------------------------------------
@@ -410,6 +412,45 @@ private:
 };
 
 // ===========================================================================
+// 7. Window guards (status bar before factory, shortcut ambiguity)
+// ===========================================================================
+class WindowGuardTests : public QObject
+{
+    Q_OBJECT
+private slots:
+    void statusBarBeforeFactoryAdoptionIsSafe()
+    {
+        // Window constructs with m_graph == nullptr; main() adopts the factory
+        // afterwards. updateStatusBar() must not dereference a null facade.
+        Window window;
+        window.updateStatusBar();
+        QVERIFY(true);
+    }
+
+    void qtActionShortcutsAreNotAmbiguous()
+    {
+        // Two enabled QActions sharing a key sequence make Qt fire neither and
+        // beep ("Ambiguous shortcut overload"). Ctrl+1 used to collide between
+        // Add Input and Zoom Reset.
+        Window window;
+        QHash<QString, QAction*> owner;
+        const QList<QAction*> actions = window.findChildren<QAction*>();
+        QVERIFY(!actions.isEmpty());
+        for (QAction* action : actions) {
+            for (const QKeySequence& sequence : action->shortcuts()) {
+                const QString key = sequence.toString();
+                if (key.isEmpty()) {
+                    continue;
+                }
+                QVERIFY2(!owner.contains(key) || owner.value(key) == action,
+                         qPrintable(QString("ambiguous QAction shortcut: %1").arg(key)));
+                owner.insert(key, action);
+            }
+        }
+    }
+};
+
+// ===========================================================================
 // main: run every class, exit code = number of failed classes
 // ===========================================================================
 int main(int argc, char** argv)
@@ -437,6 +478,7 @@ int main(int argc, char** argv)
     run(new SyntheticWorkTests);
     run(new ObserverTests);
     run(new LifetimeTests);
+    run(new WindowGuardTests);
     qInfo() << "=== NodeGraphTests done, failed classes:" << failedClasses << "===";
 
     return failedClasses;

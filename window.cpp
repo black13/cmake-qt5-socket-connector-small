@@ -186,17 +186,10 @@ void Window::setupActions()
 
 void Window::keyPressEvent(QKeyEvent* event)
 {
+    // Ctrl+1..3 are owned by the add-node QActions; handling them here as
+    // well duplicated (and, while zoom-reset shared Ctrl+1, raced) the actions.
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
-            case Qt::Key_1:
-                createInputNode();
-                break;
-            case Qt::Key_2:
-                createOutputNode();
-                break;
-            case Qt::Key_3:
-                createProcessorNode();
-                break;
             case Qt::Key_S:
                 if (event->modifiers() & Qt::ShiftModifier) {
                     // Ctrl+Shift+S = Save As
@@ -556,6 +549,7 @@ void Window::createEditMenu()
     QAction* deleteAction = new QAction("&Delete Selected", this);
     deleteAction->setShortcut(QKeySequence::Delete);
     deleteAction->setStatusTip("Delete selected nodes and edges");
+    connect(deleteAction, &QAction::triggered, this, &Window::deleteSelection);
     m_editMenu->addAction(deleteAction);
 }
 
@@ -583,7 +577,10 @@ void Window::createViewMenu()
     m_viewMenu->addAction(zoomFitAction);
     
     QAction* zoomResetAction = new QAction("&Reset Zoom", this);
-    zoomResetAction->setShortcut(QKeySequence("Ctrl+1"));
+    // Ctrl+1..3 belong to the add-input/output/processor actions; keep the
+    // standard Ctrl+0 for fit and use Ctrl+Shift+0 for reset so no two
+    // QActions share a shortcut (ambiguous shortcuts fire neither action).
+    zoomResetAction->setShortcut(QKeySequence("Ctrl+Shift+0"));
     zoomResetAction->setStatusTip("Reset zoom to 100%");
     connect(zoomResetAction, &QAction::triggered, this, &Window::zoomReset);
     m_viewMenu->addAction(zoomResetAction);
@@ -702,9 +699,10 @@ void Window::createStatusBarWidgets()
 
 void Window::connectStatusBarSignals()
 {
-    // Update status bar when scene changes
-    connect(m_scene, &Scene::sceneChanged, this, &Window::updateStatusBar);
-    
+    // updateStatusBar() is already routed through Window::onSceneChanged
+    // (connected in initializeUi); a second direct connection would run the
+    // status refresh twice per scene change, so keep exactly one path.
+
     // TODO: Connect view signals for mouse position and zoom updates
     // This would require extending the View class to emit these signals
 }
@@ -730,7 +728,9 @@ void Window::setupDockWidgets()
 
 void Window::updateStatusBar()
 {
-    if (!m_scene) {
+    // m_graph only exists after adoptFactory(); sceneChanged can fire before
+    // that (and tests call this directly), so guard both pointers.
+    if (!m_scene || !m_graph) {
         return;
     }
 
