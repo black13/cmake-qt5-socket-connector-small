@@ -96,10 +96,17 @@ public:
 
     /**
      * Connect two nodes by socket indices
+     *
+     * Socket indices are per-node and GLOBAL: inputs occupy 0..n-1, then
+     * outputs follow. This matches Socket::getIndex(), the index painted on
+     * each socket, XML persistence, and undo snapshots. Examples: SOURCE
+     * output = 0, TRANSFORM output = 1, MERGE inputs = 0/1 and output = 2,
+     * SPLIT input = 0 and outputs = 1/2.
+     *
      * @param fromNodeId UUID string of source node
-     * @param fromSocketIndex Index of output socket on source node
+     * @param fromSocketIndex Global index of an output socket on the source node
      * @param toNodeId UUID string of destination node
-     * @param toSocketIndex Index of input socket on destination node
+     * @param toSocketIndex Global index of an input socket on the destination node
      * @return UUID string of created edge, or empty string on failure
      */
     Q_INVOKABLE QString connectNodes(const QString& fromNodeId, int fromSocketIndex,

@@ -19,8 +19,8 @@ console.log("available types: " + graph.getAvailableNodeTypes().join(","));
 var src  = graph.createNode("SOURCE", 0, 0);
 var tr   = graph.createNode("TRANSFORM", 250, 0);
 var snk  = graph.createNode("SINK", 500, 0);
-var e1 = graph.connectNodes(src, 0, tr, 0);
-var e2 = graph.connectNodes(tr, 0, snk, 0);
+var e1 = graph.connectNodes(src, 0, tr, 0);   // SOURCE out 0 -> TRANSFORM in 0
+var e2 = graph.connectNodes(tr, 1, snk, 0);   // TRANSFORM out 1 -> SINK in 0
 check("setup.chain", e1 !== "" && e2 !== "", "e1=" + e1 + " e2=" + e2);
 
 var saved = graph.saveToFile("logs/smoke_roundtrip.xml");

@@ -71,25 +71,27 @@ Every node is a `ScriptedNode`, so two optional children may follow:
 The reader also accepts legacy aliases: `from`/`to` for the node ids and
 `from-socket`/`to-socket` for the indices (`Edge::read`).
 
-## 5. Socket indexing — the part that trips everyone up
+## 5. Socket indexing
 
-**The XML stores GLOBAL per-node indices: inputs first (0..n-1), then
-outputs (n..n+m-1).** The runtime connect API (`graph.connectNodes`,
-ghost-edge drags) uses **per-role** indices (first output = 0).
+**Socket indices are per-node and GLOBAL everywhere: inputs first (0..n-1),
+then outputs (n..n+m-1).** XML, `graph.connectNodes`, `graph.getEdgeData`,
+ghost-edge drags, undo snapshots, and the index painted on each socket all
+use this one scheme. `connectNodes` additionally validates the socket roles
+(the `from` index must name an output, the `to` index an input).
 
-| Node type | Sockets | XML index of first input | XML index of first output |
-|---|---|---|---|
-| SOURCE | 0 in / 1 out | — | 0 |
-| SINK | 1 in / 0 out | 0 | — |
-| TRANSFORM / SCRIPT | 1 in / 1 out | 0 | **1** |
-| MERGE | 2 in / 1 out | 0 | **2** |
-| SPLIT | 1 in / 2 out | 0 | **1** |
+| Node type | Sockets | Global index(es) |
+|---|---|---|
+| SOURCE | 0 in / 1 out | out 0 |
+| SINK | 1 in / 0 out | in 0 |
+| TRANSFORM / SCRIPT | 1 in / 1 out | in 0, out **1** |
+| MERGE | 2 in / 1 out | in 0/1, out **2** |
+| SPLIT | 1 in / 2 out | in 0, out **1/2** |
 
 Example from a real saved file: an edge leaving a TRANSFORM's output is
 written `fromSocketIndex="1"`, because that node type's input occupies index 0.
 
-Consequence for hand-authored files: use the global scheme above, or your
-edges will resolve to the wrong sockets (or fail validation).
+Consequence for hand-authored files and scripts: use the global scheme above,
+or your edges will resolve to the wrong sockets (or fail validation).
 
 ## 6. The load pipeline (`GraphFactory::loadFromXmlFile`)
 

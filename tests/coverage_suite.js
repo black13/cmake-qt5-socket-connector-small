@@ -73,10 +73,10 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     var tr  = graph.createNode("TRANSFORM", 200, 0);
     var snk = graph.createNode("SINK", 400, 0);
 
-    var e1 = graph.connectNodes(src, 0, tr, 0);
+    var e1 = graph.connectNodes(src, 0, tr, 0);   // SOURCE out 0
     test("edge_create", e1 !== "");
 
-    var e2 = graph.connectNodes(tr, 0, snk, 0);
+    var e2 = graph.connectNodes(tr, 1, snk, 0);   // TRANSFORM out is global 1
     test("edge_create2", e2 !== "");
 
     // Duplicate output connection refused
@@ -88,6 +88,9 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     test("edge_bad_srcIdx", bad1 === "");
     var bad2 = graph.connectNodes(src, 0, tr, 99);
     test("edge_bad_dstIdx", bad2 === "");
+    // Role mismatch: TRANSFORM's global 0 is its INPUT, not an output
+    var badRole = graph.connectNodes(tr, 0, snk, 0);
+    test("edge_bad_role", badRole === "");
 
     // Nonexistent nodes
     var bad3 = graph.connectNodes("deadbeef-dead-beef-dead-beefdeadbeef", 0, tr, 0);
@@ -96,10 +99,12 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     var stats = graph.getGraphStats();
     test("edge_count_2", stats.edgeCount === 2);
 
-    // getEdgeData
+    // getEdgeData reports the same global indices connectNodes consumes
     var ed = graph.getEdgeData(e1);
     test("getEdgeData_fromNode", ed.fromNode === src);
     test("getEdgeData_toNode", ed.toNode === tr);
+    test("getEdgeData_fromSocketIndex", ed.fromSocketIndex === 0);
+    test("getEdgeData_toSocketIndex", ed.toSocketIndex === 0);
     test("getEdgeData_bad", graph.getEdgeData("00000000-0000-0000-0000-000000000000") === null);
 
     // getNodeEdges
@@ -218,7 +223,7 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     var tr  = graph.createNode("TRANSFORM", 300, 200);
     var snk = graph.createNode("SINK", 500, 200);
     graph.connectNodes(src, 0, tr, 0);
-    graph.connectNodes(tr, 0, snk, 0);
+    graph.connectNodes(tr, 1, snk, 0);
 
     var xml = graph.toXml();
     test("toXml_not_empty", xml.length > 40);
@@ -246,22 +251,22 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     console.log("--- Complex Topologies ---");
     graph.clearGraph();
 
-    // SPLIT: 1 input -> 2 outputs
+    // SPLIT: 1 input -> 2 outputs; global indices: in 0, out 1, out 2
     var src  = graph.createNode("SOURCE", 0, 0);
     var split = graph.createNode("SPLIT", 200, 0);
     var t1   = graph.createNode("TRANSFORM", 400, -50);
     var t2   = graph.createNode("TRANSFORM", 400, 50);
     graph.connectNodes(src, 0, split, 0);
-    graph.connectNodes(split, 0, t1, 0);
-    graph.connectNodes(split, 1, t2, 0);
+    graph.connectNodes(split, 1, t1, 0);
+    graph.connectNodes(split, 2, t2, 0);
     test("split_topo", graph.getNodeEdges(split).length === 3, "got " + graph.getNodeEdges(split).length);
 
-    // MERGE: 2 inputs -> 1 output
+    // MERGE: 2 inputs -> 1 output; global indices: in 0/1, out 2
     var merge = graph.createNode("MERGE", 600, 0);
     var snk   = graph.createNode("SINK", 800, 0);
-    graph.connectNodes(t1, 0, merge, 0);
-    graph.connectNodes(t2, 0, merge, 1);
-    graph.connectNodes(merge, 0, snk, 0);
+    graph.connectNodes(t1, 1, merge, 0);
+    graph.connectNodes(t2, 1, merge, 1);
+    graph.connectNodes(merge, 2, snk, 0);
     test("merge_topo", graph.getNodeEdges(merge).length === 3);
 
     // Move nodes around

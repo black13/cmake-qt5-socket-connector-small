@@ -153,6 +153,46 @@ private slots:
         QCOMPARE(m_world->scene->getEdges().size(), 1);
     }
 
+    void connectNodesUsesGlobalSocketIndices()
+    {
+        // TRANSFORM sockets are global 0 (input) and 1 (output): the scripting
+        // API, getEdgeData(), XML, and undo all speak the same global scheme.
+        const QString t1 = m_world->graph->createNode("TRANSFORM", 0, 0);
+        const QString t2 = m_world->graph->createNode("TRANSFORM", 300, 0);
+        QVERIFY(!t1.isEmpty() && !t2.isEmpty());
+
+        QVERIFY2(m_world->graph->connectNodes(t1, 0, t2, 0).isEmpty(),
+                 "global index 0 on TRANSFORM is its input, not an output");
+
+        const QString edge = m_world->graph->connectNodes(t1, 1, t2, 0);
+        QVERIFY2(!edge.isEmpty(), "TRANSFORM output is global index 1");
+
+        const QVariantMap data = m_world->graph->getEdgeData(edge);
+        QCOMPARE(data["fromSocketIndex"].toInt(), 1);
+        QCOMPARE(data["toSocketIndex"].toInt(), 0);
+    }
+
+    void multiSocketGlobalIndices()
+    {
+        // SPLIT: in 0, out 1, out 2. MERGE: in 0/1, out 2.
+        const QString split = m_world->graph->createNode("SPLIT", 0, 0);
+        const QString t1 = m_world->graph->createNode("TRANSFORM", 300, -100);
+        const QString t2 = m_world->graph->createNode("TRANSFORM", 300, 100);
+        QVERIFY(!split.isEmpty() && !t1.isEmpty() && !t2.isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(split, 1, t1, 0).isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(split, 2, t2, 0).isEmpty());
+        QVERIFY2(m_world->graph->connectNodes(split, 0, t1, 0).isEmpty(),
+                 "SPLIT global index 0 is its input");
+
+        const QString merge = m_world->graph->createNode("MERGE", 600, 0);
+        const QString sink = m_world->graph->createNode("SINK", 900, 0);
+        QVERIFY(!merge.isEmpty() && !sink.isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(t1, 1, merge, 0).isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(t2, 1, merge, 1).isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(merge, 2, sink, 0).isEmpty());
+        QCOMPARE(m_world->scene->getEdges().size(), 5);
+    }
+
     void facadeLoadReplaces() // C6
     {
         m_world->graph->createNode("SINK", 900, 900); // stray, never saved
@@ -355,7 +395,7 @@ private slots:
         const QString t = m_world->graph->createNode("TRANSFORM", 250, 0);
         const QString s = m_world->graph->createNode("SINK", 500, 0);
         m_world->graph->connectNodes(source, 0, t, 0);
-        m_world->graph->connectNodes(t, 0, s, 0);
+        m_world->graph->connectNodes(t, 1, s, 0);
         QCOMPARE(m_world->scene->getEdges().size(), 2);
         // Deleting the scene outright (base ~QGraphicsScene deletes items in
         // arbitrary order) must not crash: the whole point of B1.

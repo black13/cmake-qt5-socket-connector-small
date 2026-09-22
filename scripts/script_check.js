@@ -3,7 +3,7 @@ var transformId = graph.createNode("TRANSFORM", 0, 0);
 var sinkId = graph.createNode("SINK", 200, 0);
 
 graph.connectNodes(sourceId, 0, transformId, 0);
-graph.connectNodes(transformId, 0, sinkId, 0);
+graph.connectNodes(transformId, 1, sinkId, 0);
 
 graph.setNodeScript(transformId, `
     var count = node.payloadValue("count") || 0;

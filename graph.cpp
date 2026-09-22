@@ -288,26 +288,25 @@ QString Graph::connectNodes(const QString& fromNodeId, int fromSocketIndex,
              << toNodeId << "[" << toSocketIndex << "]";
 
     try {
-        // Get sockets from nodes
-        const QVector<Socket*>& outputSockets = fromNode->getOutputSockets();
-        const QVector<Socket*>& inputSockets = toNode->getInputSockets();
-
-        if (fromSocketIndex < 0 || fromSocketIndex >= outputSockets.size()) {
+        // Socket indices are per-node and GLOBAL: inputs occupy 0..n-1, then
+        // outputs follow. This matches Socket::getIndex(), the index painted on
+        // each socket, XML persistence, undo snapshots, and ghost-edge drags.
+        // (TRANSFORM output = 1, MERGE output = 2, SPLIT outputs = 1,2.)
+        Socket* fromSocket = fromNode->getSocketByIndex(fromSocketIndex);
+        if (!fromSocket || fromSocket->getRole() != Socket::Output) {
             QString error = QString("Invalid output socket index: %1").arg(fromSocketIndex);
             qWarning() << "Graph::connectNodes:" << error;
             emit errorOccurred(error);
             return QString();
         }
 
-        if (toSocketIndex < 0 || toSocketIndex >= inputSockets.size()) {
+        Socket* toSocket = toNode->getSocketByIndex(toSocketIndex);
+        if (!toSocket || toSocket->getRole() != Socket::Input) {
             QString error = QString("Invalid input socket index: %1").arg(toSocketIndex);
             qWarning() << "Graph::connectNodes:" << error;
             emit errorOccurred(error);
             return QString();
         }
-
-        Socket* fromSocket = outputSockets[fromSocketIndex];
-        Socket* toSocket = inputSockets[toSocketIndex];
 
         // Use factory to create edge (use connectSockets for socket-based connection)
         Edge* edge = m_factory->connectSockets(fromSocket, toSocket);
