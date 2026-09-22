@@ -240,11 +240,30 @@ QVariant Graph::executeNodeScript(const QString& nodeId, const QVariantMap& cont
 {
     ScriptedNode* scripted = asScripted(findNode(nodeId));
     if (!scripted) {
-        qWarning() << "Graph::executeNodeScript: node is not SCRIPT type" << nodeId;
+        const QString error = QString("executeNodeScript: node not found: %1").arg(nodeId);
+        qWarning() << "Graph::executeNodeScript:" << error;
+        emit errorOccurred(error);
         return QVariant();
     }
 
-    return scripted->evaluate(context);
+    const QVariant result = scripted->evaluate(context);
+
+    // A failed run and a script that legitimately returned null both produce
+    // an empty QVariant - the node's lastError() is the discriminator.
+    if (!scripted->lastError().isEmpty()) {
+        const QString error = QString("Script error in node %1: %2")
+                                  .arg(nodeId.left(8), scripted->lastError());
+        qWarning() << "Graph::executeNodeScript:" << error;
+        emit errorOccurred(error);
+    }
+
+    return result;
+}
+
+QString Graph::getNodeScriptError(const QString& nodeId) const
+{
+    const ScriptedNode* scripted = asScripted(findNode(nodeId));
+    return scripted ? scripted->lastError() : QString();
 }
 
 bool Graph::setNodePayload(const QString& nodeId, const QVariantMap& payload)

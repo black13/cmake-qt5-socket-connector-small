@@ -88,6 +88,13 @@ public:
     Q_INVOKABLE bool setNodeScript(const QString& nodeId, const QString& scriptCode);
     Q_INVOKABLE QString getNodeScript(const QString& nodeId) const;
     Q_INVOKABLE QVariant executeNodeScript(const QString& nodeId, const QVariantMap& context = QVariantMap());
+
+    /**
+     * Get the error from the node's most recent script evaluation
+     * @param nodeId UUID string of node
+     * @return Error text, or empty string if the last run succeeded
+     */
+    Q_INVOKABLE QString getNodeScriptError(const QString& nodeId) const;
     Q_INVOKABLE bool setNodePayload(const QString& nodeId, const QVariantMap& payload);
     Q_INVOKABLE QVariantMap getNodePayload(const QString& nodeId) const;
     Q_INVOKABLE QVariantMap runSyntheticWork(const QVariantMap& request) const;

@@ -83,6 +83,9 @@ public slots:
     void onSceneChanged();
     void onSelectionChanged();
 
+    /// Surface Graph facade errors (script failures, load errors) in the UI.
+    void onGraphError(const QString& message);
+
     /**
      * @brief Open scripted-node context menu (invoked from View).
      */

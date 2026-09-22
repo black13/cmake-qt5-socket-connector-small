@@ -89,6 +89,10 @@ void Window::adoptFactory(GraphFactory* factory)
     connect(m_graph, &Graph::graphCleared, m_undoStack, &QUndoStack::clear);
     connect(m_graph, &Graph::graphLoaded, m_undoStack, &QUndoStack::clear);
 
+    // Facade errors (bad scripts, failed loads) were previously log-only
+    // because nothing consumed errorOccurred.
+    connect(m_graph, &Graph::errorOccurred, this, &Window::onGraphError);
+
     // Route scene interaction intents through the undo stack (needs m_factory)
     connect(m_scene, &Scene::connectionRequested, this, &Window::onConnectionRequested);
     connect(m_scene, &Scene::nodesMoved, this, &Window::onNodesMoved);
@@ -767,6 +771,14 @@ void Window::onSceneChanged()
     updateStatusBar();
 }
 
+void Window::onGraphError(const QString& message)
+{
+    qWarning() << "[Graph]" << message;
+    if (statusBar()) {
+        statusBar()->showMessage(message, 5000);
+    }
+}
+
 void Window::onSelectionChanged()
 {
     updateSelectionInfo();
@@ -986,12 +998,22 @@ bool Window::runScriptForNode(Node* node)
                                   node->getId().toString(QUuid::WithoutBraces).left(8));
     qDebug() << "[ScriptRunner] Running script for" << label;
 
-    QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
-    qDebug() << "[ScriptRunner] Result for" << label << ":" << result;
+    const QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
+    const QString error = m_graph->getNodeScriptError(nodeId);
 
-    QString message = QString("Script executed on %1").arg(label);
+    // A failed run also returns an empty QVariant, so success is decided by
+    // the node's recorded error, not by the return value.
+    if (!error.isEmpty()) {
+        qWarning() << "[ScriptRunner] Script failed for" << label << ":" << error;
+        if (statusBar()) {
+            statusBar()->showMessage(QString("Script failed on %1: %2").arg(label, error), 5000);
+        }
+        return false;
+    }
+
+    qDebug() << "[ScriptRunner] Result for" << label << ":" << result;
     if (statusBar()) {
-        statusBar()->showMessage(message, 3000);
+        statusBar()->showMessage(QString("Script executed on %1").arg(label), 3000);
     }
     return true;
 }

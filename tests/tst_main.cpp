@@ -258,6 +258,32 @@ private slots:
         QVERIFY(m_world->scene->getNode(QUuid(id)) != nullptr);
     }
 
+    void scriptErrorsAreReported()
+    {
+        const QString id = m_world->graph->createNode("TRANSFORM", 0, 0);
+        QVERIFY(!id.isEmpty());
+
+        // Runtime error: queryable through the facade and emitted as a signal
+        QVERIFY(m_world->graph->setNodeScript(id, "throw new Error('boom');"));
+        QSignalSpy errors(m_world->graph, &Graph::errorOccurred);
+        m_world->graph->executeNodeScript(id, {});
+        QVERIFY2(!m_world->graph->getNodeScriptError(id).isEmpty(),
+                 "runtime error must be queryable via getNodeScriptError");
+        QVERIFY2(errors.count() >= 1, "runtime error must emit errorOccurred");
+
+        // A failed run must not be mistaken for a script returning null
+        QVERIFY(m_world->graph->setNodeScript(id, "1 + 1;"));
+        m_world->graph->executeNodeScript(id, {});
+        QVERIFY2(m_world->graph->getNodeScriptError(id).isEmpty(),
+                 "successful run must clear the previous error");
+
+        // Compile failure is reported as well
+        QVERIFY(m_world->graph->setNodeScript(id, "function ( {"));
+        m_world->graph->executeNodeScript(id, {});
+        QVERIFY2(!m_world->graph->getNodeScriptError(id).isEmpty(),
+                 "compile failure must be reported");
+    }
+
     void watchdogInterruptsInfiniteScript() // C2 (slow: ~5s by design)
     {
         const QString id = m_world->graph->createNode("TRANSFORM", 0, 0);
