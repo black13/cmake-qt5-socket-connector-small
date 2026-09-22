@@ -348,6 +348,29 @@ if(BUILD_TESTING)
         endif()
         set_tests_properties(${test_target} PROPERTIES TIMEOUT 60)
     endforeach()
+
+    # JavaScript suites: the app executes the script and exits with 0 only
+    # when every check passed (graph.quit(code)), so CTest reports failures.
+    # Working directory is the source root so logs/ paths resolve.
+    set(JS_SUITES
+        tests/js_regression_suite.js
+        tests/coverage_suite.js
+    )
+    foreach(js_suite ${JS_SUITES})
+        get_filename_component(js_name ${js_suite} NAME_WE)
+        if(WIN32)
+            add_test(NAME ${js_name} COMMAND ${CMAKE_COMMAND} -E env
+                "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt5::Core>/../plugins/platforms"
+                "PATH=$<TARGET_FILE_DIR:Qt5::Core>;$ENV{PATH}"
+                $<TARGET_FILE:NodeGraph> --script ${CMAKE_CURRENT_SOURCE_DIR}/${js_suite})
+        else()
+            add_test(NAME ${js_name} COMMAND $<TARGET_FILE:NodeGraph> --script ${CMAKE_CURRENT_SOURCE_DIR}/${js_suite})
+            set_tests_properties(${js_name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        endif()
+        set_tests_properties(${js_name} PROPERTIES TIMEOUT 120
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    endforeach()
 endif()
 
 # ─────────────────────────────────────

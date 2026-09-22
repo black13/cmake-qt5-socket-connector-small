@@ -13,6 +13,17 @@ QString readTask(const QVariantMap& request)
     return request.value(QStringLiteral("task"), QStringLiteral("noop")).toString().toLower();
 }
 
+// Unknown tasks used to fall through to a silent no-op, so a typo in a script
+// looked like successful work. Report them instead.
+QVariantMap unknownTask(const QString& task, const QElapsedTimer& timer)
+{
+    QVariantMap result;
+    result.insert(QStringLiteral("status"), QStringLiteral("error"));
+    result.insert(QStringLiteral("error"), QStringLiteral("unknown task: %1").arg(task));
+    result.insert(QStringLiteral("durationMs"), timer.elapsed());
+    return result;
+}
+
 // NOTE: helpers receive the started timer and sample elapsed() at the END,
 // after the work has actually run (previously durationMs was sampled at
 // argument-evaluation time - before the work - so it always reported ~0).
@@ -98,5 +109,8 @@ QVariantMap SyntheticWork::run(const QVariantMap& request)
     if (task == QStringLiteral("delay")) {
         return runDelay(request, timer);
     }
-    return runNoop(timer);
+    if (task == QStringLiteral("noop")) {
+        return runNoop(timer);
+    }
+    return unknownTask(task, timer);
 }

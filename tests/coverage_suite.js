@@ -105,7 +105,9 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     test("getEdgeData_toNode", ed.toNode === tr);
     test("getEdgeData_fromSocketIndex", ed.fromSocketIndex === 0);
     test("getEdgeData_toSocketIndex", ed.toSocketIndex === 0);
-    test("getEdgeData_bad", graph.getEdgeData("00000000-0000-0000-0000-000000000000") === null);
+    // Nonexistent edge: empty map (undefined/null/{} depending on the bridge)
+    var badEdge = graph.getEdgeData("00000000-0000-0000-0000-000000000000");
+    test("getEdgeData_bad", badEdge === null || badEdge === undefined || Object.keys(badEdge).length === 0);
 
     // getNodeEdges
     var edges = graph.getNodeEdges(tr);
@@ -192,8 +194,9 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     var got = graph.getNodePayload(sc);
     test("payload_get", got.key === "val" && got.num === 42);
 
-    // Execute: write to payload
-    graph.setNodeScript(sc, "var p = JSON.parse(node.payload()); p.executed = true; node.setPayload(JSON.stringify(p)); 'ok';");
+    // Execute: write to payload. node.payload() is a property map, not JSON,
+    // and script bodies need an explicit return (they compile as a function).
+    graph.setNodeScript(sc, "node.setPayloadValue('executed', true); return 'ok';");
     var result = graph.executeNodeScript(sc, {input: "hello"});
     test("script_execute", result === "ok");
     var updated = graph.getNodePayload(sc);
@@ -201,7 +204,7 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
 
     // Execute on non-scripted node
     var src = graph.createNode("SOURCE", 300, 100);
-    test("script_on_source", graph.setNodeScript(src, "42;") === true);
+    test("script_on_source", graph.setNodeScript(src, "return 42;") === true);
     var r2 = graph.executeNodeScript(src, {});
     test("script_source_exec", r2 === 42);
 
@@ -214,17 +217,19 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
 (function() {
     console.log("--- Synthetic Work ---");
 
-    var h = graph.runSyntheticWork({task: "hash", data: "hello world"});
-    test("work_hash", h.hash && h.hash.length > 0);
+    var h = graph.runSyntheticWork({task: "hash", payload: "hello world"});
+    test("work_hash", h.result && h.result.length > 0, "result=" + h.result);
+    test("work_hash_status", h.status === "ok");
 
-    var l = graph.runSyntheticWork({task: "loop", iterations: 5000});
+    var l = graph.runSyntheticWork({task: "loop", iterations: 200000});
     test("work_loop", l.durationMs > 0, "durationMs=" + l.durationMs);
+    test("work_loop_iterations", l.iterations === 200000);
 
     var d = graph.runSyntheticWork({task: "delay", delayMs: 10});
     test("work_delay", d.delayMs === 10);
 
     var bad = graph.runSyntheticWork({task: "bogus"});
-    test("work_bad", bad.error !== undefined);
+    test("work_bad", bad.status === "error" && bad.error !== undefined, "error=" + bad.error);
 })();
 
 // ── XML Serialization ───────────────────────────────────
@@ -319,5 +324,5 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
 console.log("");
 console.log("=== COVERAGE SUITE COMPLETE ===");
 console.log("PASS: " + passes + "  FAIL: " + fails);
-console.log("Exiting via graph.quit() ...");
-graph.quit();
+console.log("Exiting via graph.quit(" + (fails === 0 ? 0 : 1) + ") ...");
+graph.quit(fails === 0 ? 0 : 1);

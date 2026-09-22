@@ -286,6 +286,10 @@ public:
 
     Q_INVOKABLE void quit();
 
+    /// Quit with an explicit process exit code. JS test suites use this to
+    /// fail the process (and therefore CTest) when checks fail.
+    Q_INVOKABLE void quit(int exitCode);
+
 signals:
     // Change notifications (for JavaScript listeners and UI)
     void nodeCreated(const QString& nodeId);

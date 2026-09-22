@@ -92,6 +92,11 @@ void Graph::quit()
     QCoreApplication::quit();
 }
 
+void Graph::quit(int exitCode)
+{
+    QCoreApplication::exit(exitCode);
+}
+
 void Graph::initializeScripting()
 {
     // Expose this Graph object to scripts as global "graph".
