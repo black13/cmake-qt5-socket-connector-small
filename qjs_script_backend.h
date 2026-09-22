@@ -27,11 +27,12 @@ public:
     class Compiled
     {
     public:
-        Compiled(std::shared_ptr<QJSEngine> engine, QJSValue function);
+        Compiled(std::shared_ptr<QJSEngine> engine, QJSValue guard, QJSValue function);
         ScriptResult call(QObject* api, const QVariantMap& context);
 
     private:
         std::shared_ptr<QJSEngine> m_engine; // keeps the heap alive
+        QJSValue m_guard;                    // depth-guard factory (see .cpp)
         QJSValue m_function;
     };
 
@@ -47,4 +48,5 @@ public:
 
 private:
     std::shared_ptr<QJSEngine> m_engine;
+    QJSValue m_guard; // factory that wraps host objects with depth checks
 };

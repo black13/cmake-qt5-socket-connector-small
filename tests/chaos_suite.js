@@ -153,6 +153,25 @@ graph.setNodeScript(scripted, "graph.clearGraph(); return 'cleared';");
 attempt(function() { return graph.executeNodeScript(scripted, {}); });
 test("script.clear_during_run_refused", counts()[0] > 0);
 
+console.log("--- payload depth guard ---");
+var depthNode = graph.createNode("TRANSFORM", 0, 0);
+var deep600 = {}; var c600 = deep600;
+for (var dp = 0; dp < 600; dp++) { c600.next = {}; c600 = c600.next; }
+var deepResult = attempt(function() { return graph.setNodePayload(depthNode, deep600); });
+test("depth.facade_refused", deepResult === "__threw__" || refused(deepResult),
+     "result=" + deepResult);
+
+// The per-node API is the path that used to hard-crash the process: the
+// QJSEngine argument marshalling recursed on the native stack first.
+graph.setNodeScript(depthNode,
+    "var d = {}; var c = d;" +
+    "for (var i = 0; i < 600; i++) { c.n = {}; c = c.n; }" +
+    "node.setPayload(d); return 'ok';");
+var nodeDeepResult = attempt(function() { return graph.executeNodeScript(depthNode, {}); });
+test("depth.node_api_refused", nodeDeepResult !== "ok", "result=" + nodeDeepResult);
+test("depth.node_api_reported", graph.getNodeScriptError(depthNode).length > 0);
+test("depth.app_survived", alive(depthNode));
+
 console.log("--- stress: create/delete churn ---");
 graph.clearGraph();
 var churnOk = true;

@@ -1,5 +1,6 @@
 #include "qjs_script_backend.h"
 
+#include <QDebug>
 #include <QJSEngine>
 #include <QJSValueList>
 #include <QQmlEngine>
@@ -17,11 +18,100 @@ ScriptResult resultFromJsValue(const QJSValue& value)
     return {value.toVariant(), QString()};
 }
 
+/// JS factory that wraps a host QObject: structure-taking methods get an
+/// iterative (non-recursive), depth- and node-capped argument check. Without
+/// this, QJSEngine's own QJSValue -> QVariantMap conversion recurses on the
+/// native stack and a ~1000-deep object crashes the process
+/// (STATUS_STACK_OVERFLOW) before any C++ validation can run.
+const char* const kDepthGuardSource = R"JS(
+(function(api) {
+    var MAX_DEPTH = 512;
+    var MAX_NODES = 100000;
+    function tooDeep(value) {
+        if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
+            return false;
+        }
+        var stack = [value];
+        var depths = [0];
+        var nodes = 0;
+        while (stack.length > 0) {
+            var v = stack.pop();
+            var d = depths.pop();
+            if (++nodes > MAX_NODES || d > MAX_DEPTH) {
+                return true; // also stops cyclic structures at the caps
+            }
+            if (v === null || (typeof v !== 'object' && typeof v !== 'function')) {
+                continue;
+            }
+            var keys = Object.keys(v);
+            for (var i = 0; i < keys.length; ++i) {
+                stack.push(v[keys[i]]);
+                depths.push(d + 1);
+            }
+        }
+        return false;
+    }
+    var guardedNames = ['setPayload', 'setPayloadValue', 'runWork',
+                        'setNodePayload', 'executeNodeScript', 'runSyntheticWork'];
+    var wrapper = Object.create(api);
+    for (var i = 0; i < guardedNames.length; ++i) {
+        var name = guardedNames[i];
+        if (typeof api[name] !== 'function') {
+            continue;
+        }
+        // defineProperty, not assignment: the inherited QObject method is
+        // read-only, so `wrapper[name] = fn` throws after Object.create(api).
+        Object.defineProperty(wrapper, name, {
+            value: (function(methodName, method) {
+                return function() {
+                    for (var a = 0; a < arguments.length; ++a) {
+                        if (tooDeep(arguments[a])) {
+                            throw new Error(methodName +
+                                ': argument is too large or too deeply nested (max depth ' +
+                                MAX_DEPTH + ')');
+                        }
+                    }
+                    return method.apply(api, arguments);
+                };
+            })(name, api[name]),
+            writable: true,
+            enumerable: false,
+            configurable: true
+        });
+    }
+    return wrapper;
+})
+)JS";
+
+QJSValue wrapApi(QJSEngine* engine, QJSValue& guard, QObject* object)
+{
+    if (guard.isCallable()) {
+        QJSValueList args;
+        args << engine->newQObject(object);
+        const QJSValue wrapped = guard.call(args); // QJSValue::call is non-const
+        if (wrapped.isObject() && !wrapped.isError()) {
+            return wrapped;
+        }
+        qWarning() << "wrapApi: guard fallback, isObject=" << wrapped.isObject()
+                   << "isError=" << wrapped.isError() << wrapped.toString();
+    } else {
+        qWarning() << "wrapApi: guard missing, isError=" << guard.isError()
+                   << "isCallable=" << guard.isCallable() << guard.toString();
+    }
+    return engine->newQObject(object);
+}
+
 } // namespace
 
 QJsBackend::QJsBackend()
     : m_engine(std::make_shared<QJSEngine>())
 {
+    m_guard = m_engine->evaluate(QString::fromLatin1(kDepthGuardSource),
+                                 QStringLiteral("nodegraph_guard.js"));
+    if (m_guard.isError()) {
+        qWarning() << "QJsBackend: depth guard failed to install:"
+                   << m_guard.toString();
+    }
 }
 
 ScriptResult QJsBackend::evaluate(const QString& code, const QString& fileName)
@@ -30,8 +120,9 @@ ScriptResult QJsBackend::evaluate(const QString& code, const QString& fileName)
     return resultFromJsValue(m_engine->evaluate(code, fileName));
 }
 
-QJsBackend::Compiled::Compiled(std::shared_ptr<QJSEngine> engine, QJSValue function)
+QJsBackend::Compiled::Compiled(std::shared_ptr<QJSEngine> engine, QJSValue guard, QJSValue function)
     : m_engine(std::move(engine))
+    , m_guard(std::move(guard))
     , m_function(std::move(function))
 {
 }
@@ -49,7 +140,7 @@ ScriptResult QJsBackend::Compiled::call(QObject* api, const QVariantMap& context
     QQmlEngine::setObjectOwnership(api, QQmlEngine::CppOwnership);
 
     QJSValueList args;
-    args << m_engine->newQObject(api)
+    args << wrapApi(m_engine.get(), m_guard, api)
          << m_engine->toScriptValue(context);
 
     return resultFromJsValue(m_function.call(args));
@@ -79,13 +170,14 @@ QJsBackend::Compiled QJsBackend::compile(const QString& functionBody, QString* e
         }
     }
 
-    return Compiled(m_engine, function);
+    return Compiled(m_engine, m_guard, function);
 }
 
 void QJsBackend::registerObject(const QString& globalName, QObject* object)
 {
     QQmlEngine::setObjectOwnership(object, QQmlEngine::CppOwnership);
-    m_engine->globalObject().setProperty(globalName, m_engine->newQObject(object));
+    m_engine->globalObject().setProperty(globalName,
+                                         wrapApi(m_engine.get(), m_guard, object));
 }
 
 void QJsBackend::interrupt()
