@@ -133,6 +133,17 @@ public:
     Q_INVOKABLE bool snapNode(const QString& nodeId);
     Q_INVOKABLE int snapNodes();
 
+    /**
+     * Lay the whole graph out by topology: sources to the left, each following
+     * layer one column to the right (longest-path layering), rows centered
+     * per column, everything aligned to the grid. One undoable move command.
+     * Cyclic/remaining nodes are parked in a final column so the layout is
+     * always finite.
+     *
+     * @return number of nodes whose position changed
+     */
+    Q_INVOKABLE int alignGraph();
+
     // ========== Edge Operations ==========
 
     /**

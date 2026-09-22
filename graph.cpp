@@ -20,7 +20,9 @@
 #include <QUndoStack>
 #include <QVariantAnimation>
 #include <QEasingCurve>
+#include <algorithm>
 #include <cmath>
+#include <QMap>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
@@ -480,6 +482,116 @@ int Graph::snapNodes()
     if (!moves.isEmpty()) {
         pushCommand(new MoveNodesCommand(m_scene, moves));
     }
+    return moves.size();
+}
+
+int Graph::alignGraph()
+{
+    const QHash<QUuid, Node*>& nodes = m_scene->getNodes();
+    if (nodes.isEmpty()) {
+        return 0;
+    }
+
+    // --- Layer assignment: longest path from source nodes (Kahn). ---
+    QHash<QUuid, int> layer;
+    QHash<QUuid, int> indegree;
+    QHash<QUuid, QList<QUuid>> adjacency;
+    for (auto it = nodes.constBegin(); it != nodes.constEnd(); ++it) {
+        layer.insert(it.key(), 0);
+        indegree.insert(it.key(), 0);
+    }
+    for (Edge* edge : m_scene->getEdges().values()) {
+        if (!edge) {
+            continue;
+        }
+        Node* from = edge->getFromNode();
+        Node* to = edge->getToNode();
+        if (!from || !to || from == to) {
+            continue;
+        }
+        adjacency[from->getId()].append(to->getId());
+        indegree[to->getId()] += 1;
+    }
+
+    QList<QUuid> queue;
+    for (auto it = indegree.constBegin(); it != indegree.constEnd(); ++it) {
+        if (it.value() == 0) {
+            queue.append(it.key());
+        }
+    }
+    while (!queue.isEmpty()) {
+        const QUuid id = queue.takeFirst();
+        for (const QUuid& next : adjacency.value(id)) {
+            layer[next] = qMax(layer.value(next), layer.value(id) + 1);
+            if (--indegree[next] == 0) {
+                queue.append(next);
+            }
+        }
+    }
+
+    // Nodes still carrying indegree are in (or downstream of) a cycle: park
+    // them in one extra column so the layout stays finite and deterministic.
+    int maxProcessedLayer = 0;
+    for (auto it = nodes.constBegin(); it != nodes.constEnd(); ++it) {
+        if (indegree.value(it.key()) == 0) {
+            maxProcessedLayer = qMax(maxProcessedLayer, layer.value(it.key()));
+        }
+    }
+
+    QMap<int, QList<QUuid>> columns;
+    for (auto it = nodes.constBegin(); it != nodes.constEnd(); ++it) {
+        const QUuid id = it.key();
+        const int column = (indegree.value(id) == 0)
+                               ? layer.value(id)
+                               : maxProcessedLayer + 1;
+        columns[column].append(id);
+    }
+
+    // Deterministic row order within each column.
+    int maxRows = 0;
+    for (auto it = columns.begin(); it != columns.end(); ++it) {
+        std::sort(it.value().begin(), it.value().end(),
+                  [](const QUuid& a, const QUuid& b) {
+                      return a.toString() < b.toString();
+                  });
+        maxRows = qMax(maxRows, it.value().size());
+    }
+
+    // Grid-aligned spacing/margins (must be multiples of Scene::gridSize()).
+    constexpr qreal spacingX = 280.0;
+    constexpr qreal spacingY = 160.0;
+    constexpr qreal marginX = 120.0;
+    constexpr qreal marginY = 80.0;
+
+    QVector<NodeMove> moves;
+    for (auto it = columns.constBegin(); it != columns.constEnd(); ++it) {
+        const int column = it.key();
+        const QList<QUuid>& ids = it.value();
+        const qreal centeredOffset = (maxRows - ids.size()) * spacingY / 2.0;
+        for (int row = 0; row < ids.size(); ++row) {
+            Node* node = m_scene->getNode(ids.at(row));
+            if (!node) {
+                continue;
+            }
+            const QPointF target(marginX + column * spacingX,
+                                 marginY + centeredOffset + row * spacingY);
+            const QPointF oldPos = node->pos();
+            if (target == oldPos) {
+                continue;
+            }
+            node->setPos(target);
+            node->updateConnectedEdges();
+            moves.append(NodeMove{ids.at(row), oldPos, target});
+            emit nodeMoved(ids.at(row).toString());
+        }
+    }
+
+    if (!moves.isEmpty()) {
+        pushCommand(new MoveNodesCommand(m_scene, moves));
+    }
+
+    qCDebug(ngVerbose) << "Graph::alignGraph: columns=" << columns.size()
+                       << "moved=" << moves.size();
     return moves.size();
 }
 
