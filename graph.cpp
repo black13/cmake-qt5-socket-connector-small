@@ -10,12 +10,14 @@
 #include "synthetic_work.h"
 #include "qjs_script_backend.h"
 #include "duktape_script_backend.h"
+#include "undo_commands.h"
 #include <QDebug>
 #include "nodegraph_logging.h"
 #include <QFile>
 #include <QGraphicsItem>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QUndoStack>
 #include <QVariantAnimation>
 #include <QEasingCurve>
 #include <cmath>
@@ -140,6 +142,22 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
     qCDebug(ngVerbose) << "Graph::createNode:" << type << "at" << x << "," << y;
 
     try {
+        if (m_undoStack) {
+            auto* command = new CreateNodeCommand(m_scene, m_factory, type, QPointF(x, y));
+            pushCommand(command);
+            const QUuid uuid = command->nodeId();
+            if (uuid.isNull()) {
+                const QString error = QString("Failed to create node of type %1").arg(type);
+                qCritical() << "Graph::createNode:" << error;
+                emit errorOccurred(error);
+                return QString();
+            }
+            const QString id = uuid.toString();
+            emit nodeCreated(id);
+            qCDebug(ngVerbose) << "Graph::createNode: Created node" << id;
+            return id;
+        }
+
         // Use factory to create node
         Node* node = m_factory->createNode(type, QPointF(x, y));
         if (node) {
@@ -228,7 +246,12 @@ bool Graph::deleteNode(const QString& nodeId)
 
     try {
         QUuid uuid = parseUuid(nodeId);
-        m_scene->deleteNode(uuid);
+        if (m_undoStack) {
+            pushCommand(new DeleteSelectionCommand(m_scene, m_factory,
+                                                   QList<QUuid>{uuid}, QList<QUuid>{}));
+        } else {
+            m_scene->deleteNode(uuid);
+        }
         emit nodeDeleted(nodeId);
         return true;
     } catch (const std::exception& e) {
@@ -261,6 +284,8 @@ bool Graph::moveNode(const QString& nodeId, qreal dx, qreal dy)
     }
 
     node->setPos(newPos);
+    pushCommand(new MoveNodesCommand(m_scene,
+        QVector<NodeMove>{NodeMove{parseUuid(nodeId), currentPos, newPos}}));
     emit nodeMoved(nodeId);
 
     return true;
@@ -281,7 +306,10 @@ bool Graph::setNodePosition(const QString& nodeId, qreal x, qreal y)
         return false;
     }
 
+    const QPointF oldPos = node->pos();
     node->setPos(QPointF(x, y));
+    pushCommand(new MoveNodesCommand(m_scene,
+        QVector<NodeMove>{NodeMove{parseUuid(nodeId), oldPos, QPointF(x, y)}}));
     emit nodeMoved(nodeId);
 
     return true;
@@ -416,6 +444,39 @@ QString Graph::connectNodes(const QString& fromNodeId, int fromSocketIndex,
             return QString();
         }
 
+        // Mirror the factory's policy checks so the error surfaces here (and
+        // so a pushed command cannot fail on its first redo).
+        if (fromSocket->isConnected() || toSocket->isConnected()) {
+            const QString error = "Cannot connect: socket already connected";
+            qWarning() << "Graph::connectNodes:" << error;
+            emit errorOccurred(error);
+            return QString();
+        }
+        if (fromSocket->getParentNode() == toSocket->getParentNode()) {
+            const QString error = "Cannot connect: self-loop not allowed";
+            qWarning() << "Graph::connectNodes:" << error;
+            emit errorOccurred(error);
+            return QString();
+        }
+
+        if (m_undoStack) {
+            auto* command = new ConnectEdgeCommand(m_scene, m_factory,
+                                                   fromNode->getId(), fromSocketIndex,
+                                                   toNode->getId(), toSocketIndex);
+            pushCommand(command);
+            const QUuid edgeUuid = command->edgeId();
+            if (edgeUuid.isNull()) {
+                const QString error = "Error connecting nodes: connection refused";
+                qCritical() << "Graph::connectNodes:" << error;
+                emit errorOccurred(error);
+                return QString();
+            }
+            const QString edgeId = edgeUuid.toString();
+            emit edgeCreated(edgeId);
+            qCDebug(ngVerbose) << "Graph::connectNodes: Created edge" << edgeId;
+            return edgeId;
+        }
+
         // Use factory to create edge (use connectSockets for socket-based connection)
         Edge* edge = m_factory->connectSockets(fromSocket, toSocket);
         if (edge) {
@@ -445,7 +506,12 @@ bool Graph::deleteEdge(const QString& edgeId)
 
     try {
         QUuid uuid = parseUuid(edgeId);
-        m_scene->deleteEdge(uuid);
+        if (m_undoStack) {
+            pushCommand(new DeleteSelectionCommand(m_scene, m_factory,
+                                                   QList<QUuid>{}, QList<QUuid>{uuid}));
+        } else {
+            m_scene->deleteEdge(uuid);
+        }
         emit edgeDeleted(edgeId);
         return true;
     } catch (const std::exception& e) {
@@ -580,14 +646,22 @@ void Graph::beginBatch()
 {
     // Forward to the REAL batch mechanism (GraphSubject): notifications are
     // muted during the batch and observers get a single onBatchEnded() flush
-    // when the outermost batch ends. (Previously this only flipped a private
-    // flag that nothing read - scripts got zero behavior change.)
+    // when the outermost batch ends. The undo macro starts lazily on the first
+    // command push, so empty batches leave no history entry.
     GraphSubject::beginBatch();
+    ++m_ownBatchDepth;
     qDebug() << "Graph: Batch started (GraphSubject)";
 }
 
 void Graph::endBatch()
 {
+    if (m_ownBatchDepth > 0) {
+        --m_ownBatchDepth;
+        if (m_ownBatchDepth == 0 && m_macroActive && m_undoStack) {
+            m_undoStack->endMacro();
+            m_macroActive = false;
+        }
+    }
     GraphSubject::endBatch();
     qDebug() << "Graph: Batch ended (GraphSubject)";
 }
@@ -595,6 +669,98 @@ void Graph::endBatch()
 bool Graph::isBatchMode() const
 {
     return GraphSubject::isInBatch();
+}
+
+// ========== Undo / Redo ==========
+
+void Graph::setUndoStack(QUndoStack* stack)
+{
+    if (m_undoStack == stack) {
+        return;
+    }
+    if (m_macroActive && m_undoStack) {
+        m_undoStack->endMacro();
+        m_macroActive = false;
+    }
+    m_undoStack = stack;
+}
+
+bool Graph::pushCommand(QUndoCommand* command)
+{
+    if (!m_undoStack || !command) {
+        delete command;
+        return false;
+    }
+    if (m_ownBatchDepth > 0 && !m_macroActive) {
+        m_undoStack->beginMacro(QStringLiteral("Script batch"));
+        m_macroActive = true;
+    }
+    m_undoStack->push(command);
+    return true;
+}
+
+bool Graph::undo()
+{
+    if (!m_undoStack) {
+        const QString msg = QStringLiteral("Undo unavailable: no undo stack attached");
+        qWarning() << "Graph::undo:" << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+    if (ScriptedNode::isExecuting()) {
+        const QString msg = QStringLiteral("Undo refused while a node script is executing");
+        qWarning() << "Graph::undo:" << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+    if (m_ownBatchDepth > 0 || GraphSubject::isInBatch()) {
+        const QString msg = QStringLiteral("Undo refused while a batch is open");
+        qWarning() << "Graph::undo:" << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+    if (!m_undoStack->canUndo()) {
+        return false;
+    }
+    m_undoStack->undo();
+    return true;
+}
+
+bool Graph::redo()
+{
+    if (!m_undoStack) {
+        const QString msg = QStringLiteral("Redo unavailable: no undo stack attached");
+        qWarning() << "Graph::redo:" << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+    if (ScriptedNode::isExecuting()) {
+        const QString msg = QStringLiteral("Redo refused while a node script is executing");
+        qWarning() << "Graph::redo:" << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+    if (m_ownBatchDepth > 0 || GraphSubject::isInBatch()) {
+        const QString msg = QStringLiteral("Redo refused while a batch is open");
+        qWarning() << "Graph::redo:" << msg;
+        emit errorOccurred(msg);
+        return false;
+    }
+    if (!m_undoStack->canRedo()) {
+        return false;
+    }
+    m_undoStack->redo();
+    return true;
+}
+
+bool Graph::canUndo() const
+{
+    return m_undoStack && m_undoStack->canUndo();
+}
+
+bool Graph::canRedo() const
+{
+    return m_undoStack && m_undoStack->canRedo();
 }
 
 // ========== Graph-wide Operations ==========
@@ -636,7 +802,7 @@ bool Graph::deleteSelection()
     qDebug() << "Graph::deleteSelection: deleting" << selectedNodes.size()
              << "nodes and" << selectedEdges.size() << "edges";
 
-    GraphSubject::beginBatch();
+    beginBatch();
 
     bool deletedAnything = false;
     for (const QVariant& edgeVar : selectedEdges) {
@@ -653,7 +819,7 @@ bool Graph::deleteSelection()
         }
     }
 
-    GraphSubject::endBatch();
+    endBatch();
     return deletedAnything;
 }
 

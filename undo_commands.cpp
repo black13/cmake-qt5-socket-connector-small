@@ -122,12 +122,18 @@ CreateNodeCommand::CreateNodeCommand(Scene* scene, GraphFactory* factory,
 
 void CreateNodeCommand::redo()
 {
+    if (m_failed) {
+        return;
+    }
     if (m_nodeId.isNull()) {
         // First execution: create fresh through the template pathway
         Node* node = m_factory->createNode(m_nodeType, m_position);
         if (!node) {
+            // No setObsolete(): the facade reads nodeId() after push() and a
+            // deleted command would be a use-after-free. A failed command
+            // stays on the stack as a no-op instead.
             qWarning() << "CreateNodeCommand: creation failed for type" << m_nodeType;
-            setObsolete(true);
+            m_failed = true;
             return;
         }
         m_nodeId = node->getId();
@@ -170,12 +176,17 @@ ConnectEdgeCommand::ConnectEdgeCommand(Scene* scene, GraphFactory* factory,
 
 void ConnectEdgeCommand::redo()
 {
+    if (m_failed) {
+        return;
+    }
     if (m_edgeId.isNull()) {
         Edge* edge = m_factory->connectByIds(m_fromNodeId, m_fromSocketIndex,
                                              m_toNodeId, m_toSocketIndex);
         if (!edge) {
+            // See CreateNodeCommand::redo: stay alive so the facade can read
+            // edgeId() after push().
             qWarning() << "ConnectEdgeCommand: connection failed";
-            setObsolete(true);
+            m_failed = true;
             return;
         }
         m_edgeId = edge->getId();
@@ -205,24 +216,48 @@ DeleteSelectionCommand::DeleteSelectionCommand(Scene* scene, GraphFactory* facto
     , m_scene(scene)
     , m_factory(factory)
 {
-    // Capture selected nodes
+    // Capture selected nodes and edges, then let initialize() add incident
+    // edges and snapshot everything.
+    QList<QUuid> nodeIds;
     for (Node* node : m_scene->selectedNodes()) {
-        m_nodeIds.append(node->getId());
+        nodeIds.append(node->getId());
     }
-
-    // Capture selected edges PLUS edges incident to selected nodes (dedup)
-    QSet<QUuid> edgeIds;
+    QList<QUuid> edgeIds;
     for (Edge* edge : m_scene->selectedEdges()) {
-        edgeIds.insert(edge->getId());
+        edgeIds.append(edge->getId());
+    }
+    initialize(nodeIds, edgeIds);
+}
+
+DeleteSelectionCommand::DeleteSelectionCommand(Scene* scene, GraphFactory* factory,
+                                               const QList<QUuid>& nodeIds,
+                                               const QList<QUuid>& edgeIds,
+                                               QUndoCommand* parent)
+    : QUndoCommand(QObject::tr("Delete"), parent)
+    , m_scene(scene)
+    , m_factory(factory)
+{
+    initialize(nodeIds, edgeIds);
+}
+
+void DeleteSelectionCommand::initialize(const QList<QUuid>& nodeIds,
+                                        const QList<QUuid>& edgeIds)
+{
+    m_nodeIds = nodeIds;
+
+    // Requested edges PLUS edges incident to the requested nodes (dedup)
+    QSet<QUuid> edgeSet;
+    for (const QUuid& edgeId : edgeIds) {
+        edgeSet.insert(edgeId);
     }
     for (const QUuid& nodeId : m_nodeIds) {
         for (auto it = m_scene->getEdges().constBegin(); it != m_scene->getEdges().constEnd(); ++it) {
             if (it.value()->isConnectedToNode(nodeId)) {
-                edgeIds.insert(it.key());
+                edgeSet.insert(it.key());
             }
         }
     }
-    m_edgeIds = edgeIds.values();
+    m_edgeIds = edgeSet.values();
 
     // Snapshot everything now, while it is alive
     for (const QUuid& edgeId : m_edgeIds) {

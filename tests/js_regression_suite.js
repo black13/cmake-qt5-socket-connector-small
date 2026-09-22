@@ -132,6 +132,57 @@ graph.endBatch();
 test("batch.ended", graph.isBatchMode() === false && counts()[0] === 2,
      "nodes=" + counts()[0]);
 
+// ── Undo / redo (facade mutations are undoable) ────────────────────────────
+console.log("--- undo/redo ---");
+graph.clearGraph();
+test("undo.empty", graph.canUndo() === false);
+
+graph.beginBatch();
+var uSrc = graph.createNode("SOURCE", 0, 0);
+var uTr = graph.createNode("TRANSFORM", 200, 0);
+var uSnk = graph.createNode("SINK", 400, 0);
+var uE1 = graph.connectNodes(uSrc, 0, uTr, 0);
+var uE2 = graph.connectNodes(uTr, 1, uSnk, 0);
+graph.endBatch();
+test("undo.batch_created", counts()[0] === 3 && counts()[1] === 2,
+     "counts=" + counts().join("/"));
+test("undo.can", graph.canUndo() === true);
+
+graph.undo();
+test("undo.batch_undone", counts()[0] === 0 && counts()[1] === 0,
+     "counts=" + counts().join("/"));
+test("undo.redoable", graph.canRedo() === true);
+
+graph.redo();
+test("undo.batch_redone", counts()[0] === 3 && counts()[1] === 2,
+     "counts=" + counts().join("/"));
+test("undo.ids_stable",
+     alive(uSrc) && alive(uTr) && alive(uSnk) &&
+     graph.getAllEdges().indexOf(uE1) !== -1 && graph.getAllEdges().indexOf(uE2) !== -1);
+
+// Delete cascades; undo restores the node and its edges with the same ids
+graph.deleteNode(uTr);
+test("undo.delete_cascade", counts()[0] === 2 && counts()[1] === 0,
+     "counts=" + counts().join("/"));
+graph.undo();
+test("undo.delete_restored",
+     counts()[0] === 3 && counts()[1] === 2 && alive(uTr) &&
+     graph.getAllEdges().indexOf(uE1) !== -1, "counts=" + counts().join("/"));
+graph.redo();
+test("undo.delete_redone", counts()[0] === 2 && counts()[1] === 0);
+graph.undo(); // full graph again
+
+// Moves are undoable
+var x0 = graph.getNodeData(uSnk).x;
+graph.moveNode(uSnk, 50, 0);
+var x1 = graph.getNodeData(uSnk).x;
+graph.undo();
+test("undo.move_restored", graph.getNodeData(uSnk).x === x0,
+     "x=" + graph.getNodeData(uSnk).x + " expected=" + x0);
+graph.redo();
+test("undo.move_redone", graph.getNodeData(uSnk).x === x1);
+graph.undo(); // leave the history at the full graph
+
 // ── Done ───────────────────────────────────────────────────────────────────
 console.log("");
 console.log("=== JS REGRESSION SUITE COMPLETE ===");

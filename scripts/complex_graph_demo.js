@@ -157,6 +157,41 @@ if (before !== after) {
 var executed = graph.executeNodeScript(t2[3], {});
 test("script.survives_reload", executed === 6, "result=" + executed);
 
+// ── 5. Remove a layer, save, undo/redo, reload ─────────────────────────────
+graph.beginBatch();
+var tRemove = now();
+for (var i = 0; i < t2.length; ++i) { graph.deleteNode(t2[i]); }
+graph.endBatch();
+console.log("DEMO removed layer t2 (8 nodes) in " + (now() - tRemove) + "ms");
+test("remove.counts", counts()[0] === 32 && counts()[1] === 27,
+     "counts=" + counts().join("/"));
+test("remove.can_undo", graph.canUndo() === true);
+
+var tRemoveSave = now();
+var saveRemovedOk = graph.saveToFile("logs/complex_graph_removed.xml");
+console.log("DEMO saved removed graph ok=" + saveRemovedOk +
+            " in " + (now() - tRemoveSave) + "ms");
+
+// Undo puts the graph back exactly (ids, positions, payloads, scripts, edges)
+graph.undo();
+test("undo.restores_full",
+     counts()[0] === 40 && counts()[1] === 43 && snapshot() === before,
+     "counts=" + counts().join("/"));
+graph.redo();
+test("redo.removes_again", counts()[0] === 32 && counts()[1] === 27,
+     "counts=" + counts().join("/"));
+
+// The removed graph persists across clear + reload
+graph.clearGraph();
+var tRemovedLoad = now();
+var removedLoadOk = graph.loadFromFile("logs/complex_graph_removed.xml");
+console.log("DEMO loaded removed graph ok=" + removedLoadOk +
+            " nodes=" + counts()[0] + " edges=" + counts()[1] +
+            " in " + (now() - tRemovedLoad) + "ms");
+test("remove.file_roundtrip",
+     removedLoadOk === true && counts()[0] === 32 && counts()[1] === 27,
+     "counts=" + counts().join("/"));
+
 console.log("");
 console.log("=== COMPLEX GRAPH DEMO COMPLETE ===");
 console.log("PASS: " + passes + "  FAIL: " + fails);
