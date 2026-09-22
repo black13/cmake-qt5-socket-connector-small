@@ -160,4 +160,6 @@ test("script.survives_reload", executed === 6, "result=" + executed);
 console.log("");
 console.log("=== COMPLEX GRAPH DEMO COMPLETE ===");
 console.log("PASS: " + passes + "  FAIL: " + fails);
-graph.quit(fails === 0 ? 0 : 1);
+// Intentionally no graph.quit() here: when run interactively the window stays
+// open on the reloaded graph (close it when done). CTest runs this through
+// tests/complex_graph_ctest.js, which turns the count into an exit code.

@@ -356,7 +356,7 @@ if(BUILD_TESTING)
         tests/js_regression_suite.js
         tests/coverage_suite.js
         tests/chaos_suite.js
-        scripts/complex_graph_demo.js
+        tests/complex_graph_ctest.js
     )
     foreach(js_suite ${JS_SUITES})
         get_filename_component(js_name ${js_suite} NAME_WE)
