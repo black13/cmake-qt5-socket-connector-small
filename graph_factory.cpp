@@ -10,13 +10,19 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QDebug>
+#include "nodegraph_logging.h"
+#include <QFile>
+#include <QSignalBlocker>
+#include <cmath>
+#include <memory>
+#include <vector>
 #include <libxml/tree.h>
 
 GraphFactory::GraphFactory(Scene* scene, xmlDocPtr xmlDoc)
     : m_scene(scene)
     , m_xmlDocument(xmlDoc)
 {
-    qDebug() << "GraphFactory initialized with scene and XML document";
+    qCDebug(ngVerbose) << "GraphFactory initialized with scene and XML document";
 }
 
 Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode, bool addToScene)
@@ -61,7 +67,7 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode, bool addToScene)
         m_scene->addNode(node);
     }
     
-    qDebug() << "GraphFactory: Created node from XML, type:" << nodeType 
+    qCDebug(ngVerbose) << "GraphFactory: Created node from XML, type:" << nodeType 
              << "id:" << node->getId().toString(QUuid::WithoutBraces).left(8);
     
     return node;
@@ -99,7 +105,7 @@ Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge, bool addToScene)
         m_scene->addEdge(edge);
     }
     
-    qDebug() << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
+    qCDebug(ngVerbose) << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
              << "from node:" << fromNode.left(8) << "socket" << fromIndex
              << "to node:" << toNode.left(8) << "socket" << toIndex;
     
@@ -113,7 +119,7 @@ Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position,
     timer.start();
     #endif
     
-    qDebug() << "GraphFactory::createNode - UNIFIED XML-FIRST CREATION for type:" << nodeType;
+    qCDebug(ngVerbose) << "GraphFactory::createNode - UNIFIED XML-FIRST CREATION for type:" << nodeType;
     
     // Generate XML specification from template system (ignores inputs/outputs params - template has correct config)
     QString xmlSpecification = NodeTypeTemplates::generateNodeXml(nodeType, position);
@@ -147,7 +153,7 @@ Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position,
         #ifdef QT_DEBUG
         qint64 elapsed = timer.elapsed();
         int sockets = node->getSocketCount();
-        qDebug() << "createNode(type=" << nodeType << "):" << elapsed << "ms"
+        qCDebug(ngVerbose) << "createNode(type=" << nodeType << "):" << elapsed << "ms"
                  << "(uuid=" << node->getId().toString(QUuid::WithoutBraces).left(8) 
                  << "sockets=" << sockets << ")";
         #endif
@@ -186,7 +192,7 @@ Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode
         return nullptr;
     }
     
-    qDebug() << "GraphFactory: Created XML edge from node" << fromNode->getId().toString(QUuid::WithoutBraces).left(8) 
+    qCDebug(ngVerbose) << "GraphFactory: Created XML edge from node" << fromNode->getId().toString(QUuid::WithoutBraces).left(8) 
              << "socket" << fromSocketIndex << "to node" << toNode->getId().toString(QUuid::WithoutBraces).left(8)
              << "socket" << toSocketIndex;
     
@@ -195,7 +201,7 @@ Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode
     if (edge) {
         // Immediately resolve connections for JavaScript-created edges
         if (m_scene && edge->resolveConnections(m_scene)) {
-            qDebug() << "GraphFactory: Edge connections resolved successfully";
+            qCDebug(ngVerbose) << "GraphFactory: Edge connections resolved successfully";
         } else {
             qWarning() << "GraphFactory: Failed to resolve edge connections";
         }
@@ -278,7 +284,7 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
     fromSocket->setConnectedEdge(edge);
     toSocket->setConnectedEdge(edge);
     
-    qDebug() << "GraphFactory: Atomically connected sockets" 
+    qCDebug(ngVerbose) << "GraphFactory: Atomically connected sockets" 
              << "index" << fromSocket->getIndex()
              << "to index" << toSocket->getIndex();
     
@@ -309,316 +315,137 @@ Edge* GraphFactory::connectByIds(const QUuid& fromNodeId, int fromSocketIndex,
 
 bool GraphFactory::loadFromXmlFile(const QString& filePath)
 {
-    qDebug() << "=== GraphFactory: Loading from XML File ===" << filePath;
-    
-    // Parse XML file first for validation
-    xmlDocPtr doc = xmlParseFile(filePath.toUtf8().constData());
+    if (!m_scene) {
+        return false;
+    }
+
+    // QFile handles native Unicode paths on Windows; parse the bytes with
+    // libxml2 rather than handing a UTF-8 filename to its narrow file API.
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning() << "Cannot open graph:" << filePath << file.errorString();
+        return false;
+    }
+    const QByteArray data = file.readAll();
+    if (file.error() != QFileDevice::NoError) {
+        qWarning() << "Cannot read graph:" << filePath << file.errorString();
+        return false;
+    }
+    using XmlDocument = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>;
+    XmlDocument doc(xmlReadMemory(data.constData(), data.size(), nullptr, nullptr,
+                                  XML_PARSE_NONET), &xmlFreeDoc);
     if (!doc) {
-        qCritical() << "XML VALIDATION FAILED: Unable to parse file:" << filePath;
-        qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
+        qWarning() << "Cannot parse graph:" << filePath;
         return false;
     }
-    
-    xmlNodePtr root = xmlDocGetRootElement(doc);
-    if (!root) {
-        qCritical() << "XML VALIDATION FAILED: No root element in file:" << filePath;
-        qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-        xmlFreeDoc(doc);
+    xmlNodePtr root = xmlDocGetRootElement(doc.get());
+    if (!root || xmlStrcmp(root->name, BAD_CAST "graph") != 0 ||
+        doc->intSubset || doc->extSubset) {
+        qWarning() << "Expected a graph document without a DTD:" << filePath;
         return false;
     }
-    
-    if (xmlStrcmp(root->name, (const xmlChar*)"graph") != 0) {
-        qCritical() << "XML VALIDATION FAILED: Root element must be 'graph', found:" << (const char*)root->name;
-        qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-        xmlFreeDoc(doc);
-        return false;
-    }
-    
-    // ALL-OR-NOTHING VALIDATION: Parse and validate entire file structure before making any changes
-    qDebug() << "=== Phase 1: Validating XML Structure (No Scene Changes) ===";
-    
-    // Temporary storage for validation - no scene modifications yet
-    QVector<xmlNodePtr> validNodeElements;
-    QVector<xmlNodePtr> validEdgeElements;
-    
-    // Check if nodes are direct children or nested under <nodes>
-    xmlNodePtr nodesContainer = nullptr;
+
+    QVector<xmlNodePtr> nodeElements;
+    QVector<xmlNodePtr> edgeElements;
+    // Manual saves use direct children; autosaves use <nodes>/<connections>.
     for (xmlNodePtr child = root->children; child; child = child->next) {
-        if (child->type == XML_ELEMENT_NODE && xmlStrcmp(child->name, (const xmlChar*)"nodes") == 0) {
-            nodesContainer = child;
-            break;
+        if (child->type != XML_ELEMENT_NODE) {
+            continue;
+        }
+        if (xmlStrEqual(child->name, BAD_CAST "node")) {
+            nodeElements.append(child);
+        } else if (xmlStrEqual(child->name, BAD_CAST "edge")) {
+            edgeElements.append(child);
+        } else if (xmlStrEqual(child->name, BAD_CAST "nodes") ||
+                   xmlStrEqual(child->name, BAD_CAST "connections")) {
+            const bool nodes = xmlStrEqual(child->name, BAD_CAST "nodes");
+            for (xmlNodePtr item = child->children; item; item = item->next) {
+                if (item->type == XML_ELEMENT_NODE &&
+                    xmlStrEqual(item->name, nodes ? BAD_CAST "node" : BAD_CAST "edge")) {
+                    (nodes ? nodeElements : edgeElements).append(item);
+                }
+            }
         }
     }
-    
-    // Validate all nodes without creating them
-    xmlNodePtr nodeParent = nodesContainer ? nodesContainer : root;
-    qDebug() << "Validating nodes" << (nodesContainer ? "from <nodes> wrapper" : "directly from root");
-    
-    for (xmlNodePtr xmlNode = nodeParent->children; xmlNode; xmlNode = xmlNode->next) {
-        if (xmlNode->type == XML_ELEMENT_NODE && xmlStrcmp(xmlNode->name, (const xmlChar*)"node") == 0) {
-            
-            // Validate node format
-            xmlChar* inputsAttr = xmlGetProp(xmlNode, BAD_CAST "inputs");
-            xmlChar* outputsAttr = xmlGetProp(xmlNode, BAD_CAST "outputs");
-            xmlChar* typeAttr = xmlGetProp(xmlNode, BAD_CAST "type");
-            xmlChar* idAttr = xmlGetProp(xmlNode, BAD_CAST "id");
-            
-            if (!inputsAttr || !outputsAttr || !typeAttr || !idAttr) {
-                qCritical() << "XML VALIDATION FAILED: Node missing required attributes";
-                qCritical() << "  Required: id, type, inputs, outputs";
-                qCritical() << "  Found: id=" << (idAttr ? "present" : "MISSING")
-                           << " type=" << (typeAttr ? "present" : "MISSING")
-                           << " inputs=" << (inputsAttr ? "present" : "MISSING")
-                           << " outputs=" << (outputsAttr ? "present" : "MISSING");
-                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-                
-                // Clean up attributes
-                if (inputsAttr) xmlFree(inputsAttr);
-                if (outputsAttr) xmlFree(outputsAttr);
-                if (typeAttr) xmlFree(typeAttr);
-                if (idAttr) xmlFree(idAttr);
-                
-                xmlFreeDoc(doc);
-                return false;
-            }
-            
-            // Validate node type against template system
-            QString nodeType = QString::fromUtf8((const char*)typeAttr);
-            if (!NodeTypeTemplates::hasNodeType(nodeType)) {
-                qCritical() << "XML VALIDATION FAILED: Invalid node type:" << nodeType;
-                qCritical() << "Available types:" << NodeTypeTemplates::getAvailableTypes();
-                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-                
-                xmlFree(inputsAttr);
-                xmlFree(outputsAttr);
-                xmlFree(typeAttr);
-                xmlFree(idAttr);
-                xmlFreeDoc(doc);
-                return false;
-            }
-            
-            validNodeElements.append(xmlNode);
-            
-            xmlFree(inputsAttr);
-            xmlFree(outputsAttr);
-            xmlFree(typeAttr);
-            xmlFree(idAttr);
-        }
-    }
-    
-    // Validate all edges without creating them
-    qDebug() << "Validating edges from root";
-    for (xmlNodePtr xmlNode = root->children; xmlNode; xmlNode = xmlNode->next) {
-        if (xmlNode->type == XML_ELEMENT_NODE && xmlStrcmp(xmlNode->name, (const xmlChar*)"edge") == 0) {
-            
-            // Validate edge format
-            xmlChar* idAttr = xmlGetProp(xmlNode, BAD_CAST "id");
-            xmlChar* fromNodeAttr = xmlGetProp(xmlNode, BAD_CAST "fromNode");
-            xmlChar* toNodeAttr = xmlGetProp(xmlNode, BAD_CAST "toNode");
-            xmlChar* fromIndexAttr = xmlGetProp(xmlNode, BAD_CAST "fromSocketIndex");
-            xmlChar* toIndexAttr = xmlGetProp(xmlNode, BAD_CAST "toSocketIndex");
-            
-            if (!idAttr || !fromNodeAttr || !toNodeAttr || !fromIndexAttr || !toIndexAttr) {
-                qCritical() << "XML VALIDATION FAILED: Edge missing required attributes";
-                qCritical() << "  Required: id, fromNode, toNode, fromSocketIndex, toSocketIndex";
-                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-                
-                // Clean up attributes
-                if (idAttr) xmlFree(idAttr);
-                if (fromNodeAttr) xmlFree(fromNodeAttr);
-                if (toNodeAttr) xmlFree(toNodeAttr);
-                if (fromIndexAttr) xmlFree(fromIndexAttr);
-                if (toIndexAttr) xmlFree(toIndexAttr);
-                
-                xmlFreeDoc(doc);
-                return false;
-            }
-            
-            validEdgeElements.append(xmlNode);
-            
-            xmlFree(idAttr);
-            xmlFree(fromNodeAttr);
-            xmlFree(toNodeAttr);
-            xmlFree(fromIndexAttr);
-            xmlFree(toIndexAttr);
-        }
-    }
-    
-    qDebug() << "XML VALIDATION PASSED:" << validNodeElements.size() << "nodes," << validEdgeElements.size() << "edges";
-    
-    // PHASE 2: All validation passed - now safely modify the scene
-    qDebug() << "=== Phase 2: Creating Objects (Scene Will Be Modified) ===";
-    
-    // Enable batch mode to prevent observer storm during bulk loading
-    GraphSubject::BatchGuard batchGuard; // RAII: ends batch on EVERY return path (replaces the 5 manual endBatch calls below)
-    
-    // Create all validated nodes
-    QVector<Node*> allNodes;
-    qDebug() << "Creating" << validNodeElements.size() << "nodes from XML...";
-    for (xmlNodePtr xmlNode : validNodeElements) {
-        Node* node = createNodeFromXml(xmlNode, false);
-        if (node) {
-            allNodes.append(node);
-            qDebug() << "  [" << allNodes.size() << "/" << validNodeElements.size() << "] Created node:"
-                     << node->getNodeType() << "ID:" << node->getId().toString(QUuid::WithoutBraces).left(8);
-        } else {
-            qCritical() << "INTERNAL ERROR: Failed to create validated node";
-            // Cleanup: delete all nodes created so far to prevent memory leak
-            for (Node* n : allNodes) {
-                delete n;
-            }
-            allNodes.clear();
-            // batch now ends via the RAII BatchGuard at the top of this function
-            xmlFreeDoc(doc);
+
+    // Own the proposed graph independently until every connection is valid.
+    // Declare edges last so rollback disconnects them before deleting nodes.
+    std::vector<std::unique_ptr<Node>> nodes;
+    std::vector<std::unique_ptr<Edge>> edges;
+    QHash<QUuid, Node*> nodesById;
+    QSet<QUuid> edgeIds;
+    for (xmlNodePtr element : nodeElements) {
+        const QUuid id(getXmlProperty(element, "id"));
+        bool inputsOk = false;
+        bool outputsOk = false;
+        const int inputs = getXmlProperty(element, "inputs").toInt(&inputsOk);
+        const int outputs = getXmlProperty(element, "outputs").toInt(&outputsOk);
+        // Bound allocations and the arithmetic used to lay out sockets.
+        constexpr int maxSockets = 4096;
+        if (id.isNull() || nodesById.contains(id) ||
+            !NodeTypeTemplates::hasNodeType(getXmlProperty(element, "type")) ||
+            !inputsOk || !outputsOk || inputs < 0 || outputs < 0 ||
+            inputs > maxSockets || outputs > maxSockets - inputs) {
+            qWarning() << "Invalid or duplicate node in graph:" << filePath;
             return false;
         }
-    }
-    qDebug() << "Phase 2: Created" << allNodes.size() << "nodes in memory (not yet in scene)";
-    
-    // Create all validated edges (no connections yet)
-    QVector<Edge*> allEdges;
-    qDebug() << "Creating" << validEdgeElements.size() << "edges from XML...";
-    for (xmlNodePtr xmlNode : validEdgeElements) {
-        Edge* edge = createEdgeFromXml(xmlNode, false);
-        if (edge) {
-            allEdges.append(edge);
-            qDebug() << "  [" << allEdges.size() << "/" << validEdgeElements.size() << "] Created edge:"
-                     << edge->getId().toString(QUuid::WithoutBraces).left(8);
-        } else {
-            qCritical() << "INTERNAL ERROR: Failed to create validated edge";
-            // Cleanup: delete all nodes and edges created to prevent memory leak
-            for (Node* n : allNodes) {
-                delete n;
+        for (const char* coordinate : {"x", "y"}) {
+            if (xmlHasProp(element, BAD_CAST coordinate)) {
+                bool ok = false;
+                const double value = getXmlProperty(element, coordinate).toDouble(&ok);
+                if (!ok || !std::isfinite(value)) {
+                    qWarning() << "Invalid node coordinate in graph:" << filePath;
+                    return false;
+                }
             }
-            allNodes.clear();
-            for (Edge* e : allEdges) {
-                delete e;
-            }
-            allEdges.clear();
-            // batch now ends via the RAII BatchGuard at the top of this function
-            xmlFreeDoc(doc);
+        }
+        std::unique_ptr<Node> node(createNodeFromXml(element, false));
+        if (!node) {
             return false;
         }
-    }
-    qDebug() << "Phase 2: Created" << allEdges.size() << "edges in memory (not yet in scene)";
-    
-    xmlFreeDoc(doc);
-    
-    // PHASE 3: Validate and resolve all edge connections
-    qDebug() << "=== Phase 3: Validating Edge Connections ===";
-    
-    // Track socket usage to detect duplicates BEFORE making connections
-    QHash<QString, QString> socketUsage; // "dir:nodeId:socketIndex" -> "edgeId" (dir = out/in)
-
-    for (Edge* edge : allEdges) {
-            QString edgeDebugId = edge->getId().toString(QUuid::WithoutBraces).left(8);
-            
-            // Get connection data
-            QString fromNodeId = edge->getFromNodeId();
-            QString toNodeId = edge->getToNodeId();
-            int fromSocketIndex = edge->getFromSocketIndex();
-            int toSocketIndex = edge->getToSocketIndex();
-            
-            // Create socket keys
-            QString fromSocketKey = QString("out:%1:%2").arg(fromNodeId).arg(fromSocketIndex);
-            QString toSocketKey = QString("in:%1:%2").arg(toNodeId).arg(toSocketIndex);
-            
-            // Check for duplicate output socket usage
-            if (socketUsage.contains(fromSocketKey)) {
-                qCritical() << "XML VALIDATION FAILED: Duplicate edge from output socket";
-                qCritical() << "  Output socket:" << fromSocketKey << "already used by edge:" << socketUsage[fromSocketKey];
-                qCritical() << "  Conflicting edge:" << edgeDebugId;
-                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-
-                // Manual cleanup: we own these objects, must delete them explicitly
-                for (Node* n : allNodes) {
-                    delete n;
-                }
-                for (Edge* e : allEdges) {
-                    delete e;
-                }
-                // batch now ends via the RAII BatchGuard at the top of this function
-                return false;
-            }
-            
-            // Check for duplicate input socket usage
-            if (socketUsage.contains(toSocketKey)) {
-                qCritical() << "XML VALIDATION FAILED: Duplicate edge to input socket";
-                qCritical() << "  Input socket:" << toSocketKey << "already used by edge:" << socketUsage[toSocketKey];
-                qCritical() << "  Conflicting edge:" << edgeDebugId;
-                qCritical() << "MALFORMED FILE REJECTED - System remains in clean state";
-
-                // Manual cleanup: we own these objects, must delete them explicitly
-                for (Node* n : allNodes) {
-                    delete n;
-                }
-                for (Edge* e : allEdges) {
-                    delete e;
-                }
-                // batch now ends via the RAII BatchGuard at the top of this function
-                return false;
-            }
-            
-            // Record socket usage
-            socketUsage[fromSocketKey] = edgeDebugId;
-            socketUsage[toSocketKey] = edgeDebugId;
-        }
-        
-        // All socket validation passed - now add nodes and edges to scene
-        qDebug() << "Socket validation passed!";
-        qDebug() << "Adding" << allNodes.size() << "nodes to scene...";
-
-        // Add all nodes to scene
-        int nodesAdded = 0;
-        for (Node* node : allNodes) {
-            m_scene->addNode(node);
-            nodesAdded++;
-            if (nodesAdded % 20 == 0 || nodesAdded == allNodes.size()) {
-                qDebug() << "  Added" << nodesAdded << "/" << allNodes.size() << "nodes to scene";
-            }
-        }
-        qDebug() << "Phase 3a: All" << allNodes.size() << "nodes added to scene successfully";
-
-        // Add all edges to scene
-        qDebug() << "Adding" << allEdges.size() << "edges to scene...";
-        int edgesAdded = 0;
-        for (Edge* edge : allEdges) {
-            m_scene->addEdge(edge);
-            edgesAdded++;
-            if (edgesAdded % 20 == 0 || edgesAdded == allEdges.size()) {
-                qDebug() << "  Added" << edgesAdded << "/" << allEdges.size() << "edges to scene";
-            }
-        }
-        qDebug() << "Phase 3b: All" << allEdges.size() << "edges added to scene successfully";
-
-        // Now resolve edge connections
-        qDebug() << "Phase 3c: Resolving" << allEdges.size() << "edge connections...";
-        int successfulConnections = 0;
-
-    for (Edge* edge : allEdges) {
-        if (edge->resolveConnections(m_scene)) {
-            successfulConnections++;
-        } else {
-            qCritical() << "INTERNAL ERROR: Edge connection failed after validation";
-            // This is unexpected after validation - log but don't abort
-        }
+        nodesById.insert(id, node.get());
+        nodes.push_back(std::move(node));
     }
 
-    qDebug() << "=== LOAD COMPLETE ===";
-    qDebug() << "  Nodes: " << allNodes.size() << "created and added to scene";
-    qDebug() << "  Edges: " << allEdges.size() << "created and added to scene";
-    qDebug() << "  Connections: " << successfulConnections << "/" << allEdges.size() << "edges connected successfully";
-    
-    // End batch mode to resume normal observer notifications
-    // batch now ends via the RAII BatchGuard at the top of this function
-    
-    // Validate graph integrity in debug builds
-    #ifdef QT_DEBUG
-    if (!validateGraphIntegrity()) {
-        qWarning() << "Graph integrity validation failed after loading";
+    for (xmlNodePtr element : edgeElements) {
+        const QUuid id(getXmlProperty(element, "id"));
+        Node* from = nodesById.value(QUuid(getXmlProperty(element, "fromNode")), nullptr);
+        Node* to = nodesById.value(QUuid(getXmlProperty(element, "toNode")), nullptr);
+        bool fromOk = false;
+        bool toOk = false;
+        const int fromIndex = getXmlProperty(element, "fromSocketIndex").toInt(&fromOk);
+        const int toIndex = getXmlProperty(element, "toSocketIndex").toInt(&toOk);
+        if (id.isNull() || edgeIds.contains(id) || !from || !to || from == to ||
+            !fromOk || !toOk || fromIndex < 0 || toIndex < 0 ||
+            fromIndex >= from->getAllSockets().size() ||
+            toIndex >= to->getAllSockets().size()) {
+            qWarning() << "Invalid or duplicate edge in graph:" << filePath;
+            return false;
+        }
+        std::unique_ptr<Edge> edge(createEdgeFromXml(element, false));
+        if (!edge || !edge->setResolvedSockets(from->getAllSockets().at(fromIndex),
+                                               to->getAllSockets().at(toIndex))) {
+            qWarning() << "Invalid socket connection in graph:" << filePath;
+            return false;
+        }
+        edgeIds.insert(id);
+        edges.push_back(std::move(edge));
     }
-    #endif
-    
+    // Commit once. Failed loads never clear selection, ghost drags, undo
+    // history, or autosave state, and never emit a batch-completion event.
+    // The commit mutates under a batch, so Scene defers sceneChanged and the
+    // batch flush delivers exactly one signal when the guard above ends.
+    {
+        GraphSubject::BatchGuard batchGuard;
+        QSignalBlocker signalBlocker(m_scene);
+        m_scene->clearGraph();
+        for (auto& node : nodes) {
+            m_scene->addNode(node.release());
+        }
+        for (auto& edge : edges) {
+            m_scene->addEdge(edge.release());
+        }
+    }
     return true;
 }
 
@@ -654,7 +481,7 @@ xmlNodePtr GraphFactory::createXmlNode(const QString& nodeType, const QPointF& p
     xmlSetProp(nodeElement, BAD_CAST "inputs", BAD_CAST QString::number(inputs).toUtf8().constData());
     xmlSetProp(nodeElement, BAD_CAST "outputs", BAD_CAST QString::number(outputs).toUtf8().constData());
     
-    qDebug() << "GraphFactory: Created XML node, type:" << nodeType << "id:" << nodeId.toString(QUuid::WithoutBraces).left(8)
+    qCDebug(ngVerbose) << "GraphFactory: Created XML node, type:" << nodeType << "id:" << nodeId.toString(QUuid::WithoutBraces).left(8)
              << "inputs:" << inputs << "outputs:" << outputs;
     
     return nodeElement;
@@ -679,7 +506,7 @@ xmlNodePtr GraphFactory::createXmlEdgeNodeIndex(const QUuid& fromNodeId, int fro
     xmlSetProp(edgeElement, BAD_CAST "fromSocketIndex", BAD_CAST QString::number(fromSocketIndex).toUtf8().constData());
     xmlSetProp(edgeElement, BAD_CAST "toSocketIndex", BAD_CAST QString::number(toSocketIndex).toUtf8().constData());
     
-    qDebug() << "GraphFactory: Created XML edge, id:" << edgeId.toString(QUuid::WithoutBraces).left(8)
+    qCDebug(ngVerbose) << "GraphFactory: Created XML edge, id:" << edgeId.toString(QUuid::WithoutBraces).left(8)
              << "from node:" << fromNodeId.toString(QUuid::WithoutBraces).left(8) << "socket" << fromSocketIndex
              << "to node:" << toNodeId.toString(QUuid::WithoutBraces).left(8) << "socket" << toSocketIndex;
     
@@ -795,7 +622,7 @@ bool GraphFactory::validateGraphIntegrity() const
     }
     
     if (valid) {
-        // qDebug() << "Graph integrity validation passed";
+        // qCDebug(ngVerbose) << "Graph integrity validation passed";
     }
     
     return valid;
@@ -815,7 +642,7 @@ Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int inde
         return nullptr;
     }
     
-    qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
+    qCDebug(ngVerbose) << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
              << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
     
     return socket;

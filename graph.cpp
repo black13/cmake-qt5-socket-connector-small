@@ -11,9 +11,11 @@
 #include "qjs_script_backend.h"
 #include "duktape_script_backend.h"
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QFile>
 #include <QGraphicsItem>
 #include <QTextStream>
+#include <QCoreApplication>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
@@ -78,7 +80,14 @@ Graph::~Graph()
 
 void Graph::jsLog(const QString& message)
 {
+    // Script output (console.log) is user-facing; keep it on the default
+    // category instead of the opt-in verbose one.
     qDebug() << "[JS]" << message;
+}
+
+void Graph::quit()
+{
+    QCoreApplication::quit();
 }
 
 void Graph::initializeScripting()
@@ -109,7 +118,7 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
         return QString();
     }
 
-    qDebug() << "Graph::createNode:" << type << "at" << x << "," << y;
+    qCDebug(ngVerbose) << "Graph::createNode:" << type << "at" << x << "," << y;
 
     try {
         // Use factory to create node
@@ -117,7 +126,7 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
         if (node) {
             QString uuid = node->getId().toString();
             emit nodeCreated(uuid);
-            qDebug() << "Graph::createNode: Created node" << uuid;
+            qCDebug(ngVerbose) << "Graph::createNode: Created node" << uuid;
             return uuid;
         }
     } catch (const std::exception& e) {
@@ -146,7 +155,7 @@ bool Graph::deleteNode(const QString& nodeId)
         return false;
     }
 
-    qDebug() << "Graph::deleteNode:" << nodeId;
+    qCDebug(ngVerbose) << "Graph::deleteNode:" << nodeId;
 
     try {
         QUuid uuid = parseUuid(nodeId);
@@ -234,11 +243,30 @@ QVariant Graph::executeNodeScript(const QString& nodeId, const QVariantMap& cont
 {
     ScriptedNode* scripted = asScripted(findNode(nodeId));
     if (!scripted) {
-        qWarning() << "Graph::executeNodeScript: node is not SCRIPT type" << nodeId;
+        const QString error = QString("executeNodeScript: node not found: %1").arg(nodeId);
+        qWarning() << "Graph::executeNodeScript:" << error;
+        emit errorOccurred(error);
         return QVariant();
     }
 
-    return scripted->evaluate(context);
+    const QVariant result = scripted->evaluate(context);
+
+    // A failed run and a script that legitimately returned null both produce
+    // an empty QVariant - the node's lastError() is the discriminator.
+    if (!scripted->lastError().isEmpty()) {
+        const QString error = QString("Script error in node %1: %2")
+                                  .arg(nodeId.left(8), scripted->lastError());
+        qWarning() << "Graph::executeNodeScript:" << error;
+        emit errorOccurred(error);
+    }
+
+    return result;
+}
+
+QString Graph::getNodeScriptError(const QString& nodeId) const
+{
+    const ScriptedNode* scripted = asScripted(findNode(nodeId));
+    return scripted ? scripted->lastError() : QString();
 }
 
 bool Graph::setNodePayload(const QString& nodeId, const QVariantMap& payload)
@@ -278,37 +306,36 @@ QString Graph::connectNodes(const QString& fromNodeId, int fromSocketIndex,
         return QString();
     }
 
-    qDebug() << "Graph::connectNodes:" << fromNodeId << "[" << fromSocketIndex << "] ->"
+    qCDebug(ngVerbose) << "Graph::connectNodes:" << fromNodeId << "[" << fromSocketIndex << "] ->"
              << toNodeId << "[" << toSocketIndex << "]";
 
     try {
-        // Get sockets from nodes
-        const QVector<Socket*>& outputSockets = fromNode->getOutputSockets();
-        const QVector<Socket*>& inputSockets = toNode->getInputSockets();
-
-        if (fromSocketIndex < 0 || fromSocketIndex >= outputSockets.size()) {
+        // Socket indices are per-node and GLOBAL: inputs occupy 0..n-1, then
+        // outputs follow. This matches Socket::getIndex(), the index painted on
+        // each socket, XML persistence, undo snapshots, and ghost-edge drags.
+        // (TRANSFORM output = 1, MERGE output = 2, SPLIT outputs = 1,2.)
+        Socket* fromSocket = fromNode->getSocketByIndex(fromSocketIndex);
+        if (!fromSocket || fromSocket->getRole() != Socket::Output) {
             QString error = QString("Invalid output socket index: %1").arg(fromSocketIndex);
             qWarning() << "Graph::connectNodes:" << error;
             emit errorOccurred(error);
             return QString();
         }
 
-        if (toSocketIndex < 0 || toSocketIndex >= inputSockets.size()) {
+        Socket* toSocket = toNode->getSocketByIndex(toSocketIndex);
+        if (!toSocket || toSocket->getRole() != Socket::Input) {
             QString error = QString("Invalid input socket index: %1").arg(toSocketIndex);
             qWarning() << "Graph::connectNodes:" << error;
             emit errorOccurred(error);
             return QString();
         }
 
-        Socket* fromSocket = outputSockets[fromSocketIndex];
-        Socket* toSocket = inputSockets[toSocketIndex];
-
         // Use factory to create edge (use connectSockets for socket-based connection)
         Edge* edge = m_factory->connectSockets(fromSocket, toSocket);
         if (edge) {
             QString edgeId = edge->getId().toString();
             emit edgeCreated(edgeId);
-            qDebug() << "Graph::connectNodes: Created edge" << edgeId;
+            qCDebug(ngVerbose) << "Graph::connectNodes: Created edge" << edgeId;
             return edgeId;
         }
     } catch (const std::exception& e) {
@@ -328,7 +355,7 @@ bool Graph::deleteEdge(const QString& edgeId)
         return false;
     }
 
-    qDebug() << "Graph::deleteEdge:" << edgeId;
+    qCDebug(ngVerbose) << "Graph::deleteEdge:" << edgeId;
 
     try {
         QUuid uuid = parseUuid(edgeId);
@@ -548,38 +575,29 @@ bool Graph::saveToFile(const QString& filePath)
 {
     qDebug() << "Graph::saveToFile:" << filePath;
 
-    // Create XML document
-    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
-    if (!doc) {
-        qWarning() << "Graph::saveToFile: Failed to create XML document";
+    // Serialize through toXml() (the single serialization path), then write
+    // the bytes with QFile: QFile handles native Unicode paths on Windows,
+    // while libxml2's file API takes a narrow path and cannot open
+    // non-ASCII filenames there.
+    const QString xml = toXml();
+    if (xml.isEmpty()) {
+        qWarning() << "Graph::saveToFile: serialization failed for" << filePath;
         return false;
     }
 
-    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-    if (!root) {
-        qWarning() << "Graph::saveToFile: Failed to create root node";
-        xmlFreeDoc(doc);
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "Graph::saveToFile: cannot open" << filePath << file.errorString();
         return false;
     }
-    xmlDocSetRootElement(doc, root);
-    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
 
-    // Save all nodes
-    for (Node* node : m_scene->getNodes().values()) {
-        if (node) node->write(doc, root);
-    }
+    const QByteArray bytes = xml.toUtf8();
+    const qint64 written = file.write(bytes);
+    const bool ok = (written == bytes.size()) && file.flush();
+    file.close();
 
-    // Save all edges
-    for (Edge* edge : m_scene->getEdges().values()) {
-        if (edge) edge->write(doc, root);
-    }
-
-    // Write to file (pretty-printed, UTF-8)
-    int result = xmlSaveFormatFileEnc(filePath.toUtf8().constData(), doc, "UTF-8", 1);
-    xmlFreeDoc(doc);
-
-    if (result == -1) {
-        qWarning() << "Graph::saveToFile: xmlSaveFormatFileEnc failed for" << filePath;
+    if (!ok) {
+        qWarning() << "Graph::saveToFile: write failed for" << filePath << file.errorString();
         return false;
     }
 
@@ -606,14 +624,9 @@ bool Graph::loadFromFile(const QString& filePath)
         return false;
     }
 
-    // Loading REPLACES the current graph (same semantics as File->Open);
-    // previously a script-side load silently MERGED the file into the scene.
-    m_scene->clearGraph();
-
-    // Use batch mode for efficient loading
-    beginBatch();
+    // The factory validates a complete replacement before committing it.
+    // Leave the document and its observers untouched if loading fails.
     bool ok = m_factory->loadFromXmlFile(filePath);
-    endBatch();
 
     if (ok) {
         qDebug() << "Graph::loadFromFile: Successfully loaded" << filePath;
@@ -628,9 +641,10 @@ bool Graph::loadFromFile(const QString& filePath)
 
 QString Graph::toXml() const
 {
-    // Real implementation: serialize the live scene the same way saveToFile /
-    // Window::saveGraph do (previously returned a constant "<graph></graph>"
-    // fake - the worst kind of API: silently wrong).
+    // Single serialization path: saveToFile() writes these bytes and
+    // Window::saveGraph() delegates to the facade. (Previously saveGraph
+    // duplicated this code and toXml returned a constant "<graph></graph>"
+    // fake - the worst kind of API: silently wrong.)
     if (!m_scene) {
         return QString();
     }
@@ -639,6 +653,8 @@ QString Graph::toXml() const
     if (!doc) {
         return QString();
     }
+    // Declare UTF-8 so dumps match the old xmlSaveFormatFileEnc output.
+    doc->encoding = xmlStrdup(BAD_CAST "UTF-8");
     xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
     xmlDocSetRootElement(doc, root);
     xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");

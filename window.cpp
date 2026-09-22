@@ -13,6 +13,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QAction>
@@ -38,8 +39,6 @@
 #include <QDateTime>
 #include <QFileDialog>
 #include <QSet>
-#include <libxml/tree.h>
-#include <libxml/xmlsave.h>
 
 Window::Window(QWidget* parent)
     : QMainWindow(parent)
@@ -88,6 +87,10 @@ void Window::adoptFactory(GraphFactory* factory)
     // or loaded via the facade so undo can't resurrect stale snapshots.
     connect(m_graph, &Graph::graphCleared, m_undoStack, &QUndoStack::clear);
     connect(m_graph, &Graph::graphLoaded, m_undoStack, &QUndoStack::clear);
+
+    // Facade errors (bad scripts, failed loads) were previously log-only
+    // because nothing consumed errorOccurred.
+    connect(m_graph, &Graph::errorOccurred, this, &Window::onGraphError);
 
     // Route scene interaction intents through the undo stack (needs m_factory)
     connect(m_scene, &Scene::connectionRequested, this, &Window::onConnectionRequested);
@@ -186,17 +189,10 @@ void Window::setupActions()
 
 void Window::keyPressEvent(QKeyEvent* event)
 {
+    // Ctrl+1..3 are owned by the add-node QActions; handling them here as
+    // well duplicated (and, while zoom-reset shared Ctrl+1, raced) the actions.
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
-            case Qt::Key_1:
-                createInputNode();
-                break;
-            case Qt::Key_2:
-                createOutputNode();
-                break;
-            case Qt::Key_3:
-                createProcessorNode();
-                break;
             case Qt::Key_S:
                 if (event->modifiers() & Qt::ShiftModifier) {
                     // Ctrl+Shift+S = Save As
@@ -284,66 +280,52 @@ void Window::setStartupScript(const QString& scriptPath)
 }
 
 /**
- * @brief Serialize the graph to disk using Node/Edge::write().
+ * @brief Save the graph to disk via the Graph facade.
+ *
+ * The facade owns serialization (Node/Edge::write + UTF-8 encoding) and the
+ * Unicode-safe QFile write, so the window only adds timing, stats, and UI.
  */
 bool Window::saveGraph(const QString& filename)
 {
     qDebug() << "Saving graph to:" << filename;
-    
+
+    if (!m_graph) {
+        qWarning() << "Window::saveGraph: Graph facade not available";
+        QMessageBox::critical(this, "Save Error", "Graph facade not available.");
+        return false;
+    }
+
     QElapsedTimer timer;
     timer.start();
-    
-    // Create XML document
-    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
-    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-    xmlDocSetRootElement(doc, root);
-    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
-    
-    // Step 1: Save all nodes
-    for (Node* node : m_scene->getNodes().values()) {
-        xmlNodePtr nodeXml = node->write(doc, root);
-        Q_UNUSED(nodeXml)
-    }
-    
-    // Step 2: Save all edges
-    for (Edge* edge : m_scene->getEdges().values()) {
-        xmlNodePtr edgeXml = edge->write(doc, root);
-        Q_UNUSED(edgeXml)
-    }
-    
-    // Step 3: Save to file
-    int result = xmlSaveFormatFileEnc(filename.toUtf8().constData(), doc, "UTF-8", 1);
-    xmlFreeDoc(doc);
-    
-    qint64 elapsed = timer.elapsed();
-    
-    if (result != -1) {
-        QFileInfo fileInfo(filename);
-        qint64 fileSize = fileInfo.size();
-        QVariantMap stats = m_graph->getGraphStats();
-        int nodeCount = stats["nodeCount"].toInt();
-        int edgeCount = stats["edgeCount"].toInt();
-        
-        qDebug() << "Manual save complete:";
-        qDebug() << "   File:" << fileInfo.fileName();
-        qDebug() << "   Time:" << elapsed << "ms";
-        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   Nodes:" << nodeCount;
-        qDebug() << "   Edges:" << edgeCount;
-        
-        QMessageBox::information(this, "Save Complete", 
-            QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
-            .arg(fileInfo.fileName())
-            .arg(nodeCount)
-            .arg(edgeCount)
-            .arg(elapsed)
-            .arg(fileSize / 1024.0, 0, 'f', 1));
-        return true;
-    } else {
-        qDebug() << "Failed to save graph";
+
+    if (!m_graph->saveToFile(filename)) {
+        qDebug() << "Failed to save graph to:" << filename;
         QMessageBox::critical(this, "Save Error", "Failed to save graph to file.");
         return false;
     }
+
+    const qint64 elapsed = timer.elapsed();
+    const QFileInfo fileInfo(filename);
+    const qint64 fileSize = fileInfo.size();
+    const QVariantMap stats = m_graph->getGraphStats();
+    const int nodeCount = stats["nodeCount"].toInt();
+    const int edgeCount = stats["edgeCount"].toInt();
+
+    qDebug() << "Manual save complete:";
+    qDebug() << "   File:" << fileInfo.fileName();
+    qDebug() << "   Time:" << elapsed << "ms";
+    qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
+    qDebug() << "   Nodes:" << nodeCount;
+    qDebug() << "   Edges:" << edgeCount;
+
+    QMessageBox::information(this, "Save Complete",
+        QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
+        .arg(fileInfo.fileName())
+        .arg(nodeCount)
+        .arg(edgeCount)
+        .arg(elapsed)
+        .arg(fileSize / 1024.0, 0, 'f', 1));
+    return true;
 }
 
 /**
@@ -356,28 +338,12 @@ bool Window::loadGraph(const QString& filename)
         return false;
     }
 
-    if (m_autosaveObserver) {
-        m_autosaveObserver->setEnabled(false);
-    }
-
-    // A new document invalidates all undo snapshots
-    m_undoStack->clear();
-
-    // Graph facade handles batch mode and clearing internally
-    m_graph->clearGraph();
-
+    // graphLoaded clears the undo stack only after a successful replacement.
     const bool ok = m_graph->loadFromFile(filename);
     if (ok) {
         setCurrentFile(filename);
         updateStatusBar();
     }
-    // Graph facade handles batch mode internally (removed endBatch)
-
-    if (m_autosaveObserver) {
-        m_autosaveObserver->saveNow();
-        m_autosaveObserver->setEnabled(true);
-    }
-
     return ok;
 }
 
@@ -572,6 +538,7 @@ void Window::createEditMenu()
     QAction* deleteAction = new QAction("&Delete Selected", this);
     deleteAction->setShortcut(QKeySequence::Delete);
     deleteAction->setStatusTip("Delete selected nodes and edges");
+    connect(deleteAction, &QAction::triggered, this, &Window::deleteSelection);
     m_editMenu->addAction(deleteAction);
 }
 
@@ -599,7 +566,10 @@ void Window::createViewMenu()
     m_viewMenu->addAction(zoomFitAction);
     
     QAction* zoomResetAction = new QAction("&Reset Zoom", this);
-    zoomResetAction->setShortcut(QKeySequence("Ctrl+1"));
+    // Ctrl+1..3 belong to the add-input/output/processor actions; keep the
+    // standard Ctrl+0 for fit and use Ctrl+Shift+0 for reset so no two
+    // QActions share a shortcut (ambiguous shortcuts fire neither action).
+    zoomResetAction->setShortcut(QKeySequence("Ctrl+Shift+0"));
     zoomResetAction->setStatusTip("Reset zoom to 100%");
     connect(zoomResetAction, &QAction::triggered, this, &Window::zoomReset);
     m_viewMenu->addAction(zoomResetAction);
@@ -718,9 +688,10 @@ void Window::createStatusBarWidgets()
 
 void Window::connectStatusBarSignals()
 {
-    // Update status bar when scene changes
-    connect(m_scene, &Scene::sceneChanged, this, &Window::updateStatusBar);
-    
+    // updateStatusBar() is already routed through Window::onSceneChanged
+    // (connected in initializeUi); a second direct connection would run the
+    // status refresh twice per scene change, so keep exactly one path.
+
     // TODO: Connect view signals for mouse position and zoom updates
     // This would require extending the View class to emit these signals
 }
@@ -746,7 +717,9 @@ void Window::setupDockWidgets()
 
 void Window::updateStatusBar()
 {
-    if (!m_scene) {
+    // m_graph only exists after adoptFactory(); sceneChanged can fire before
+    // that (and tests call this directly), so guard both pointers.
+    if (!m_scene || !m_graph) {
         return;
     }
 
@@ -754,7 +727,7 @@ void Window::updateStatusBar()
     QVariantMap stats = m_graph->getGraphStats();
     int nodeCount = stats["nodeCount"].toInt();
     int edgeCount = stats["edgeCount"].toInt();
-    qDebug() << "[FACADE-TEST] updateStatusBar: getGraphStats() returned nodes=" << nodeCount << ", edges=" << edgeCount;
+    qCDebug(ngVerbose) << "[FACADE-TEST] updateStatusBar: getGraphStats() returned nodes=" << nodeCount << ", edges=" << edgeCount;
     m_graphStatsLabel->setText(QString("Nodes: %1 | Edges: %2").arg(nodeCount).arg(edgeCount));
     
     // Update file info
@@ -781,6 +754,14 @@ void Window::updateStatusBar()
 void Window::onSceneChanged()
 {
     updateStatusBar();
+}
+
+void Window::onGraphError(const QString& message)
+{
+    qWarning() << "[Graph]" << message;
+    if (statusBar()) {
+        statusBar()->showMessage(message, 5000);
+    }
 }
 
 void Window::onSelectionChanged()
@@ -1002,12 +983,22 @@ bool Window::runScriptForNode(Node* node)
                                   node->getId().toString(QUuid::WithoutBraces).left(8));
     qDebug() << "[ScriptRunner] Running script for" << label;
 
-    QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
-    qDebug() << "[ScriptRunner] Result for" << label << ":" << result;
+    const QVariant result = m_graph->executeNodeScript(nodeId, QVariantMap());
+    const QString error = m_graph->getNodeScriptError(nodeId);
 
-    QString message = QString("Script executed on %1").arg(label);
+    // A failed run also returns an empty QVariant, so success is decided by
+    // the node's recorded error, not by the return value.
+    if (!error.isEmpty()) {
+        qWarning() << "[ScriptRunner] Script failed for" << label << ":" << error;
+        if (statusBar()) {
+            statusBar()->showMessage(QString("Script failed on %1: %2").arg(label, error), 5000);
+        }
+        return false;
+    }
+
+    qDebug() << "[ScriptRunner] Result for" << label << ":" << result;
     if (statusBar()) {
-        statusBar()->showMessage(message, 3000);
+        statusBar()->showMessage(QString("Script executed on %1").arg(label), 3000);
     }
     return true;
 }

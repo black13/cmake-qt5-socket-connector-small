@@ -9,6 +9,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QApplication>
 #include <QContextMenuEvent>
 #include <QtMath>
@@ -50,7 +51,7 @@ void View::mousePressEvent(QMouseEvent* event)
         QPointF scenePos = mapToScene(event->pos());
         QGraphicsItem* graphicsItem = itemAt(event->pos());
         Node* node = dynamic_cast<Node*>(graphicsItem);
-        qDebug() << "View: Shift+Left context trigger at" << event->pos()
+        qCDebug(ngVerbose) << "View: Shift+Left context trigger at" << event->pos()
                  << "scene" << scenePos
                  << "node" << (node ? node->getNodeType() : "<none>");
         emit contextMenuRequested(node, event->globalPos(), scenePos);
@@ -76,12 +77,12 @@ void View::mouseMoveEvent(QMouseEvent* event)
     if (m_rubberBandSelecting && !m_rubberBandActive) {
         if ((event->pos() - m_rubberBandStartViewport).manhattanLength() >= QApplication::startDragDistance()) {
             m_rubberBandActive = true;
-            qDebug() << "View: Rubber band selection started at" << m_rubberBandStartScene;
+            qCDebug(ngVerbose) << "View: Rubber band selection started at" << m_rubberBandStartScene;
         }
     } else if (m_rubberBandActive) {
         if (++m_rubberBandMoveCounter % 15 == 0) {
             QPointF current = mapToScene(event->pos());
-            qDebug() << "View: Rubber band update, current scene pos" << current;
+            qCDebug(ngVerbose) << "View: Rubber band update, current scene pos" << current;
         }
     }
     QGraphicsView::mouseMoveEvent(event);
@@ -123,20 +124,20 @@ void View::wheelEvent(QWheelEvent* event)
  */
 void View::dragEnterEvent(QDragEnterEvent* event)
 {
-    qDebug() << "View: Drag enter event received";
-    qDebug() << "View: Available mime formats:" << event->mimeData()->formats();
+    qCDebug(ngVerbose) << "View: Drag enter event received";
+    qCDebug(ngVerbose) << "View: Available mime formats:" << event->mimeData()->formats();
     
     // Check if the drag contains node template data
     if (event->mimeData()->hasFormat("application/x-node-template")) {
         QByteArray nodeData = event->mimeData()->data("application/x-node-template");
         QString nodeString = QString::fromUtf8(nodeData);
-        qDebug() << "View: Node template data detected:" << nodeString;
+        qCDebug(ngVerbose) << "View: Node template data detected:" << nodeString;
         
         event->acceptProposedAction();
-        qDebug() << "View: Drag enter accepted - node template detected";
+        qCDebug(ngVerbose) << "View: Drag enter accepted - node template detected";
     } else {
         event->ignore();
-        qDebug() << "View: Drag enter ignored - no node template data";
+        qCDebug(ngVerbose) << "View: Drag enter ignored - no node template data";
     }
 }
 
@@ -152,11 +153,11 @@ void View::dragMoveEvent(QDragMoveEvent* event)
         static int moveCount = 0;
         if (++moveCount % 10 == 0) {
             QPointF scenePos = mapToScene(event->pos());
-            qDebug() << "View: Drag move accepted at scene position:" << scenePos;
+            qCDebug(ngVerbose) << "View: Drag move accepted at scene position:" << scenePos;
         }
     } else {
         event->ignore();
-        qDebug() << "View: Drag move ignored - no node template data";
+        qCDebug(ngVerbose) << "View: Drag move ignored - no node template data";
     }  
 }
 
@@ -165,16 +166,16 @@ void View::dragMoveEvent(QDragMoveEvent* event)
  */
 void View::dropEvent(QDropEvent* event)
 {
-    qDebug() << "View: Drop event received";
+    qCDebug(ngVerbose) << "View: Drop event received";
     
     // Handle node template drop
     if (event->mimeData()->hasFormat("application/x-node-template")) {
         QByteArray nodeData = event->mimeData()->data("application/x-node-template");
         QString nodeString = QString::fromUtf8(nodeData);
-        qDebug() << "View: Decoding drop data:" << nodeString;
+        qCDebug(ngVerbose) << "View: Decoding drop data:" << nodeString;
         
         QStringList parts = nodeString.split("|");
-        qDebug() << "View: Split into" << parts.size() << "parts:" << parts;
+        qCDebug(ngVerbose) << "View: Split into" << parts.size() << "parts:" << parts;
         
         if (parts.size() >= 5) {
             QString nodeType = parts[0];
@@ -186,27 +187,27 @@ void View::dropEvent(QDropEvent* event)
             // Convert drop position to scene coordinates
             QPointF scenePos = mapToScene(event->pos());
             
-            qDebug() << "View: Parsed node data:";
-            qDebug() << "  - Type:" << nodeType;
-            qDebug() << "  - Name:" << name;
-            qDebug() << "  - Description:" << description;
-            qDebug() << "  - Input sockets:" << inputSockets;
-            qDebug() << "  - Output sockets:" << outputSockets;
-            qDebug() << "  - Scene position:" << scenePos;
+            qCDebug(ngVerbose) << "View: Parsed node data:";
+            qCDebug(ngVerbose) << "  - Type:" << nodeType;
+            qCDebug(ngVerbose) << "  - Name:" << name;
+            qCDebug(ngVerbose) << "  - Description:" << description;
+            qCDebug(ngVerbose) << "  - Input sockets:" << inputSockets;
+            qCDebug(ngVerbose) << "  - Output sockets:" << outputSockets;
+            qCDebug(ngVerbose) << "  - Scene position:" << scenePos;
             
-            qDebug() << "View: Emitting nodeDropped signal to Window";
+            qCDebug(ngVerbose) << "View: Emitting nodeDropped signal to Window";
             
             // Emit signal to notify the window
             emit nodeDropped(scenePos, nodeType, name, inputSockets, outputSockets);
             
             event->acceptProposedAction();
-            qDebug() << "View: Drop event accepted and processed";
+            qCDebug(ngVerbose) << "View: Drop event accepted and processed";
         } else {
             qWarning() << "View: Invalid node template data format - expected 5 parts, got" << parts.size();
             event->ignore();
         }
     } else {
-        qDebug() << "View: Drop event ignored - no node template data";
+        qCDebug(ngVerbose) << "View: Drop event ignored - no node template data";
         event->ignore();
     }
 }
@@ -267,7 +268,7 @@ void View::drawBackground(QPainter* painter, const QRectF& rect)
 void View::contextMenuEvent(QContextMenuEvent* event)
 {
     Q_UNUSED(event);
-    qDebug() << "View: Native context menu suppressed. Use Shift+Left click.";
+    qCDebug(ngVerbose) << "View: Native context menu suppressed. Use Shift+Left click.";
 }
 
 /**

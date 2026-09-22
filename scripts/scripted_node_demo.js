@@ -14,7 +14,7 @@ graph.setNodeScript(scriptedId, `
 `);
 
 graph.connectNodes(sourceId, 0, scriptedId, 0);
-graph.connectNodes(scriptedId, 0, sinkId, 0);
+graph.connectNodes(scriptedId, 1, sinkId, 0);
 
 console.log("Created scriptable node:", scriptedId);
 

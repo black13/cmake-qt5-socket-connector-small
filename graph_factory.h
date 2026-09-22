@@ -46,7 +46,8 @@ public:
     // Post-load validation
     bool validateGraphIntegrity() const;
     
-    // XML file loading
+    // Replace the graph only after validating all nodes and connections.
+    // On failure the current scene is unchanged.
     bool loadFromXmlFile(const QString& filePath);
     
     // Clean design: socket resolution handled by edges internally

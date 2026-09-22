@@ -35,6 +35,11 @@ public:
 
     QVariant evaluate(const QVariantMap& context = QVariantMap());
 
+    /// Error text from the last evaluate()/compile attempt; empty on success.
+    /// Lets Graph (and the UI) distinguish a failed run from one that
+    /// legitimately returned an empty value.
+    [[nodiscard]] QString lastError() const { return m_lastError; }
+
     void setDisplayLabel(const QString& text);
     [[nodiscard]] QString displayLabel() const { return m_displayLabel; }
 
@@ -58,6 +63,7 @@ private:
     QString m_script;
     QVariantMap m_payload;
     QString m_displayLabel;
+    QString m_lastError;
     ScriptFunction m_compiledFunction;
     QVariant m_lastResult;
 

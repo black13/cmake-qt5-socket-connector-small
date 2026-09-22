@@ -87,9 +87,16 @@ void setupLogging()
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    
+
     // Setup file logging
     setupLogging();
+
+    // Hot-path diagnostics (nodegraph.verbose) are off by default: a 400-node
+    // workload otherwise writes a multi-megabyte log and the logging dominates
+    // mutation cost. QT_LOGGING_RULES overrides this, so opt in per session:
+    //   QT_LOGGING_RULES="nodegraph.verbose.debug=true" NodeGraph.exe
+    QLoggingCategory::setFilterRules(QStringLiteral("nodegraph.verbose.debug=false"));
+    qInfo() << "Verbose diagnostics off (enable with QT_LOGGING_RULES=nodegraph.verbose.debug=true)";
     
     // Session identification for log correlation (ChatGPT suggestion)
     QString sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);

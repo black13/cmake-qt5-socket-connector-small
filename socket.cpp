@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QDateTime>
 #include <QtMath>
 #include <libxml/tree.h>
@@ -35,7 +36,7 @@ Socket::Socket(Role role, Node* parentNode, int index)
         parentNode->registerSocket(this, m_index);
     }
     
-    qDebug() << "+Socket" << m_index << (m_role == Input ? "IN" : "OUT");
+    qCDebug(ngVerbose) << "+Socket" << m_index << (m_role == Input ? "IN" : "OUT");
 }
 
 Socket::~Socket()
@@ -183,17 +184,17 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
     
     // DISABLE dragging from connected sockets
     if (isConnected()) {
-        qDebug() << "Socket" << m_index << "is connected - dragging disabled";
+        qCDebug(ngVerbose) << "Socket" << m_index << "is connected - dragging disabled";
         event->ignore(); // Don't start drag operations on connected sockets
         return;
     }
     
     if (event->button() == Qt::LeftButton) {
-        qDebug() << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
+        qCDebug(ngVerbose) << "Socket clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // TODO: Start edge creation drag
         event->accept();
     } else if (event->button() == Qt::RightButton && m_role == Output) {
-        qDebug() << "Socket right-clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
+        qCDebug(ngVerbose) << "Socket right-clicked: index:" << m_index << "role:" << (m_role == Input ? "Input" : "Output");
         // Start ghost edge from output socket
         Scene* scene = qobject_cast<Scene*>(this->scene());
         if (scene) {
@@ -210,7 +211,7 @@ void Socket::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
     update(); // Remove pressed state
     
     if (event->button() == Qt::LeftButton) {
-        qDebug() << "Socket released: index:" << m_index;
+        qCDebug(ngVerbose) << "Socket released: index:" << m_index;
         // TODO: Complete edge connection
         event->accept();
     }
@@ -253,13 +254,13 @@ QVariant Socket::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == ItemSelectedHasChanged) {
         bool isNowSelected = value.toBool();
-        qDebug() << "Socket" << roleToString(m_role) << "index" << m_index 
+        qCDebug(ngVerbose) << "Socket" << roleToString(m_role) << "index" << m_index 
                  << (isNowSelected ? "SELECTED" : "DESELECTED");
         
         // CRITICAL: When selected, take keyboard focus for delete key events
         if (isNowSelected) {
             setFocus(Qt::MouseFocusReason);
-            qDebug() << "Socket: Taking keyboard focus for delete key handling";
+            qCDebug(ngVerbose) << "Socket: Taking keyboard focus for delete key handling";
         }
         
         // Trigger visual update when selection changes

@@ -199,11 +199,21 @@ QVariant ScriptedNode::evaluate(const QVariantMap& context)
     if (s_executionDepth >= kMaxExecutionDepth) {
         qWarning() << "ScriptedNode: max script recursion depth" << kMaxExecutionDepth
                    << "exceeded - refusing nested evaluate";
+        m_lastError = QStringLiteral("max script recursion depth (%1) exceeded")
+                          .arg(kMaxExecutionDepth);
         return {};
     }
 
+    // Cleared at the start of each run; set below on any failure. Deliberately
+    // not cleared again on success so a failed nested executeNodeScript() stays
+    // visible to the caller.
+    m_lastError.clear();
+
     compileIfNeeded();
     if (!m_compiledFunction.isValid()) {
+        if (m_lastError.isEmpty()) {
+            m_lastError = QStringLiteral("script failed to compile");
+        }
         return {};
     }
 
@@ -250,6 +260,7 @@ QVariant ScriptedNode::evaluate(const QVariantMap& context)
         qWarning() << "ScriptedNode: script error in"
                    << getId().toString(QUuid::WithoutBraces)
                    << result.error;
+        m_lastError = result.error;
         m_lastResult.clear();
         return {};
     }
@@ -284,7 +295,7 @@ xmlNodePtr ScriptedNode::write(xmlDocPtr doc, xmlNodePtr repr) const
         xmlNodePtr scriptNode = xmlNewChild(nodeElement, nullptr, BAD_CAST "script", nullptr);
         xmlSetProp(scriptNode, BAD_CAST "language", BAD_CAST "javascript");
         QByteArray utf8 = m_script.toUtf8();
-        xmlNodeSetContent(scriptNode, BAD_CAST utf8.constData());
+        xmlAddChild(scriptNode, xmlNewTextLen(BAD_CAST utf8.constData(), utf8.size()));
     }
 
     if (!m_payload.isEmpty()) {
@@ -292,7 +303,7 @@ xmlNodePtr ScriptedNode::write(xmlDocPtr doc, xmlNodePtr repr) const
         QByteArray payloadJson = payloadDoc.toJson(QJsonDocument::Compact);
         xmlNodePtr payloadNode = xmlNewChild(nodeElement, nullptr, BAD_CAST "payload", nullptr);
         xmlSetProp(payloadNode, BAD_CAST "format", BAD_CAST "json");
-        xmlNodeSetContent(payloadNode, BAD_CAST payloadJson.constData());
+        xmlAddChild(payloadNode, xmlNewTextLen(BAD_CAST payloadJson.constData(), payloadJson.size()));
     }
 
     return nodeElement;
@@ -360,6 +371,7 @@ void ScriptedNode::compileIfNeeded()
     m_compiledFunction = s_engine.compile(m_script, &error);
 
     if (!error.isEmpty()) {
+        m_lastError = error;
         qWarning() << "ScriptedNode: failed to compile script" << error;
     }
 }

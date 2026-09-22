@@ -10,6 +10,7 @@
 #define NG_ENABLE_AUTOSAVE_VALIDATION 0
 #endif
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QFile>
@@ -95,7 +96,7 @@ void XmlAutosaveObserver::onNodeMoved(const QUuid& nodeId, QPointF oldPos, QPoin
 {
     Q_UNUSED(oldPos)
     Q_UNUSED(newPos)
-    qDebug().noquote() << "[AUTOSAVE] Node moved:" << nodeId.toString(QUuid::WithoutBraces).left(8);
+    qCDebug(ngVerbose).noquote() << "[AUTOSAVE] Node moved:" << nodeId.toString(QUuid::WithoutBraces).left(8);
     scheduleAutosave();
 }
 
@@ -144,7 +145,7 @@ void XmlAutosaveObserver::scheduleAutosave()
     }
     
     m_pendingChanges = true;
-    qDebug().noquote() << "[AUTOSAVE] markDirty() called. Timer started:" 
+    qCDebug(ngVerbose).noquote() << "[AUTOSAVE] markDirty() called. Timer started:" 
                        << m_saveTimer->interval() << "ms";
     m_saveTimer->start(); // Restart timer - delays save until activity stops
 }

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(NodeGraph VERSION 1.0.0 LANGUAGES CXX)
+include(CTest)
 
 # ─────────────────────────────────────
 # NOTE: Code Review Compendium Script
@@ -103,7 +104,10 @@ endif()
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
 # Qml is required for QJSEngine (JavaScript integration in Graph facade)
-set(QT5_COMPONENTS Core Widgets Gui Test Qml)
+set(QT5_COMPONENTS Core Widgets Gui Qml Network)
+if(BUILD_TESTING)
+    list(APPEND QT5_COMPONENTS Test)
+endif()
 
 find_package(Qt5 REQUIRED COMPONENTS ${QT5_COMPONENTS})
 
@@ -247,6 +251,10 @@ set(CORE_SOURCES
     ghost_edge.cpp
     synthetic_work.h
     synthetic_work.cpp
+
+    # Opt-in verbose logging category (default off; see nodegraph_logging.h)
+    nodegraph_logging.h
+    nodegraph_logging.cpp
     
     
     # XML-first factory
@@ -305,64 +313,41 @@ set(MAIN_SOURCES
     icons.qrc
 )
 
-# Test application sources DISABLED - GraphController testing via menu only
-# set(TEST_SOURCES
-#     tst_main.h
-#     tst_main.cpp
-# )
-
-# Facade test sources DISABLED
-# set(FACADE_TEST_SOURCES
-#     test_facade_core.cpp
-# )
 
 # ─────────────────────────────────────
 # 8.  Shared core library - compile once, use twice
 # ─────────────────────────────────────
 add_library(NodeGraphCore STATIC ${CORE_SOURCES})
+target_include_directories(NodeGraphCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # ─────────────────────────────────────
 # 9.  Main executable target
 # ─────────────────────────────────────
 add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
-target_link_libraries(NodeGraph NodeGraphCore)
+target_link_libraries(NodeGraph PRIVATE NodeGraphCore)
 
 # ─────────────────────────────────────
-# 10. Test executable target DISABLED - GraphController testing via menu only
+# 10. Headless regression tests
 # ─────────────────────────────────────
-# add_executable(NodeGraphTests ${TEST_SOURCES})
-# target_link_libraries(NodeGraphTests NodeGraphCore)
-
-# ─────────────────────────────────────
-# 11. Phase 11 Facade Test executable DISABLED
-# ─────────────────────────────────────
-# option(BUILD_FACADE_TESTS "Build Phase 11 facade tests" OFF)
-# if(BUILD_FACADE_TESTS)
-#     add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
-#     target_link_libraries(TestFacadeCore NodeGraphCore)
-#     message(STATUS "Building Phase 11 facade tests")
-# endif()
-
-# ─────────────────────────────────────
-# 12. Automatic Testing Setup DISABLED - GraphController testing via menu only
-# ─────────────────────────────────────
-# option(ENABLE_AUTOMATIC_TESTS "Enable automatic test execution" ON)
-# if(ENABLE_AUTOMATIC_TESTS)
-#     enable_testing()
-#     
-#     # Add main test suite (now includes JavaScript engine tests)
-#     add_test(NAME MainTests COMMAND NodeGraphTests)
-#     
-#     # Add facade tests if enabled
-#     if(BUILD_FACADE_TESTS)
-#         add_test(NAME FacadeTests COMMAND TestFacadeCore)
-#     endif()
-#     
-#     message(STATUS "Automatic testing enabled - run 'ctest' to execute all tests")
-#     message(STATUS "JavaScript engine tests integrated into MainTests")
-# endif()
-
-message(STATUS "Testing DISABLED - GraphController validation via menu system only")
+if(BUILD_TESTING)
+    add_executable(NodeGraphTests tests/tst_main.cpp)
+    target_link_libraries(NodeGraphTests PRIVATE NodeGraphCore Qt5::Test)
+    add_executable(NodeGraphLoadingTests tests/tst_loading.cpp)
+    target_link_libraries(NodeGraphLoadingTests PRIVATE NodeGraphCore Qt5::Test)
+    foreach(test_target NodeGraphTests NodeGraphLoadingTests)
+        if(WIN32)
+            add_test(NAME ${test_target} COMMAND ${CMAKE_COMMAND} -E env
+                "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt5::Core>/../plugins/platforms"
+                "PATH=$<TARGET_FILE_DIR:Qt5::Core>;$ENV{PATH}"
+                $<TARGET_FILE:${test_target}>)
+        else()
+            add_test(NAME ${test_target} COMMAND ${test_target})
+            set_tests_properties(${test_target} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        endif()
+        set_tests_properties(${test_target} PROPERTIES TIMEOUT 60)
+    endforeach()
+endif()
 
 # ─────────────────────────────────────
 # Optional Duktape script engine backend
@@ -390,7 +375,6 @@ set(CORE_LIBRARIES
     Qt5::Core
     Qt5::Widgets
     Qt5::Gui
-    Qt5::Test
     Qt5::Qml  # Required for QJSEngine in Graph facade
     LibXml2::LibXml2
 )
@@ -400,6 +384,59 @@ if(ENABLE_DUKTAPE)
 endif()
 
 target_link_libraries(NodeGraphCore ${CORE_LIBRARIES})
+
+# ─────────────────────────────────────
+# 11a. LLVM source-based code coverage instrumentation
+# ─────────────────────────────────────
+option(ENABLE_LLVM_COVERAGE "Enable LLVM source-based code coverage instrumentation" OFF)
+if(ENABLE_LLVM_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(COVERAGE_FLAGS -fprofile-instr-generate -fcoverage-mapping)
+        target_compile_options(NodeGraphCore PUBLIC ${COVERAGE_FLAGS})
+        target_compile_options(NodeGraph PRIVATE ${COVERAGE_FLAGS})
+
+        # Find LLVM profiling runtime library (needed for lld-link.exe which
+        # does not understand -fprofile-instr-generate as a linker flag)
+        if(WIN32)
+            # clang-cl + Ninja uses lld-link.exe directly, not clang-cl as linker driver
+            # We must explicitly link clang_rt.profile-x86_64.lib
+            execute_process(
+                COMMAND "${CMAKE_CXX_COMPILER}" -print-resource-dir
+                OUTPUT_VARIABLE CLANG_RESOURCE_DIR
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+            )
+            if(CLANG_RESOURCE_DIR)
+                set(PROFILE_RT_LIB "${CLANG_RESOURCE_DIR}/lib/windows/clang_rt.profile-x86_64.lib")
+                if(EXISTS "${PROFILE_RT_LIB}")
+                    message(STATUS "LLVM profiling runtime: ${PROFILE_RT_LIB}")
+                else()
+                    # Fallback: search under LLVM install
+                    find_library(PROFILE_RT_LIB
+                        NAMES clang_rt.profile-x86_64
+                        PATHS "${CLANG_RESOURCE_DIR}/lib/windows"
+                        NO_DEFAULT_PATH
+                    )
+                endif()
+            endif()
+            if(NOT PROFILE_RT_LIB OR NOT EXISTS "${PROFILE_RT_LIB}")
+                message(WARNING "LLVM profiling runtime not found - coverage .profraw files will NOT be written at runtime")
+            else()
+                target_link_libraries(NodeGraphCore PUBLIC "${PROFILE_RT_LIB}")
+            endif()
+        else()
+            target_link_options(NodeGraphCore INTERFACE -fprofile-instr-generate)
+        endif()
+
+        message(STATUS "LLVM source-based code coverage: ENABLED")
+        message(STATUS "  Runtime:  set LLVM_PROFILE_FILE=nodegraph_%%p_%%m.profraw && NodeGraph.exe")
+        message(STATUS "  Merge:    llvm-profdata merge -sparse *.profraw -o merged.profdata")
+        message(STATUS "  Report:   llvm-cov show NodeGraph.exe -instr-profile=merged.profdata")
+        message(STATUS "  HTML:     llvm-cov show NodeGraph.exe -instr-profile=merged.profdata -format=html -output-dir=coverage_report")
+    else()
+        message(WARNING "ENABLE_LLVM_COVERAGE requires Clang compiler (detected: ${CMAKE_CXX_COMPILER_ID})")
+    endif()
+endif()
 
 # ─────────────────────────────────────
 # 12. VS / Windows extras
@@ -443,12 +480,36 @@ endif()
 # ─────────────────────────────────────
 if(WIN32)
     install(TARGETS NodeGraph RUNTIME DESTINATION .)
+
+    # Qt runtime DLLs the app actually imports. Qt5Qml (QJSEngine) pulls in
+    # Qt5Network, so both must ship with the executable.
     install(FILES
         $<TARGET_FILE:Qt5::Core>
         $<TARGET_FILE:Qt5::Widgets>
         $<TARGET_FILE:Qt5::Gui>
+        $<TARGET_FILE:Qt5::Qml>
+        $<TARGET_FILE:Qt5::Network>
         DESTINATION .
     )
+
+    # A GUI app cannot start without the platform plugin. Derive the plugin
+    # directory from the imported Qt5::Core location; debug plugins use a
+    # 'd' suffix (qwindowsd.dll).
+    get_target_property(_qt_core_dll Qt5::Core IMPORTED_LOCATION)
+    if(NOT _qt_core_dll)
+        get_target_property(_qt_core_dll Qt5::Core IMPORTED_LOCATION_DEBUG)
+    endif()
+    if(NOT _qt_core_dll)
+        get_target_property(_qt_core_dll Qt5::Core IMPORTED_LOCATION_RELEASE)
+    endif()
+    if(_qt_core_dll)
+        get_filename_component(_qt_bin_dir "${_qt_core_dll}" DIRECTORY)
+        get_filename_component(_qt_plugins_dir "${_qt_bin_dir}/../plugins" ABSOLUTE)
+        install(FILES "${_qt_plugins_dir}/platforms/qwindows$<IF:$<CONFIG:Debug>,d,>.dll"
+                DESTINATION platforms)
+    else()
+        message(WARNING "Could not locate Qt5::Core DLL; install the platform plugin with windeployqt")
+    endif()
 endif()
 
 # ─────────────────────────────────────

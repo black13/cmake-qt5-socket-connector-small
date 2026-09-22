@@ -88,6 +88,13 @@ public:
     Q_INVOKABLE bool setNodeScript(const QString& nodeId, const QString& scriptCode);
     Q_INVOKABLE QString getNodeScript(const QString& nodeId) const;
     Q_INVOKABLE QVariant executeNodeScript(const QString& nodeId, const QVariantMap& context = QVariantMap());
+
+    /**
+     * Get the error from the node's most recent script evaluation
+     * @param nodeId UUID string of node
+     * @return Error text, or empty string if the last run succeeded
+     */
+    Q_INVOKABLE QString getNodeScriptError(const QString& nodeId) const;
     Q_INVOKABLE bool setNodePayload(const QString& nodeId, const QVariantMap& payload);
     Q_INVOKABLE QVariantMap getNodePayload(const QString& nodeId) const;
     Q_INVOKABLE QVariantMap runSyntheticWork(const QVariantMap& request) const;
@@ -96,10 +103,17 @@ public:
 
     /**
      * Connect two nodes by socket indices
+     *
+     * Socket indices are per-node and GLOBAL: inputs occupy 0..n-1, then
+     * outputs follow. This matches Socket::getIndex(), the index painted on
+     * each socket, XML persistence, and undo snapshots. Examples: SOURCE
+     * output = 0, TRANSFORM output = 1, MERGE inputs = 0/1 and output = 2,
+     * SPLIT input = 0 and outputs = 1/2.
+     *
      * @param fromNodeId UUID string of source node
-     * @param fromSocketIndex Index of output socket on source node
+     * @param fromSocketIndex Global index of an output socket on the source node
      * @param toNodeId UUID string of destination node
-     * @param toSocketIndex Index of input socket on destination node
+     * @param toSocketIndex Global index of an input socket on the destination node
      * @return UUID string of created edge, or empty string on failure
      */
     Q_INVOKABLE QString connectNodes(const QString& fromNodeId, int fromSocketIndex,
@@ -252,6 +266,8 @@ public:
      * @param message Message to log
      */
     Q_INVOKABLE void jsLog(const QString& message);
+
+    Q_INVOKABLE void quit();
 
 signals:
     // Change notifications (for JavaScript listeners and UI)
