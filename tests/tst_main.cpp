@@ -30,6 +30,7 @@
 #include "socket.h"
 
 #include <QAction>
+#include <limits>
 #include <libxml/tree.h>
 
 // ---------------------------------------------------------------------------
@@ -225,6 +226,36 @@ private slots:
         QVERIFY(m_world->graph->deleteNode(id));
         QTest::qWait(700); // animation ticks must not touch the freed node
         QVERIFY(true);
+    }
+
+    void nonFiniteCoordinatesAreRejected()
+    {
+        // Non-finite positions poisoned the scene and serialized as nan/inf,
+        // which the loader then refused - save/load round-trip was broken.
+        const qreal nan = std::numeric_limits<qreal>::quiet_NaN();
+        const qreal inf = std::numeric_limits<qreal>::infinity();
+
+        QSignalSpy errors(m_world->graph, &Graph::errorOccurred);
+        QVERIFY(m_world->graph->createNode("SOURCE", nan, 0).isEmpty());
+        QVERIFY(m_world->graph->createNode("SOURCE", inf, 0).isEmpty());
+        QVERIFY(m_world->graph->createNode("SOURCE", 0, -inf).isEmpty());
+        QCOMPARE(m_world->scene->getNodes().size(), 0);
+
+        const QString id = m_world->graph->createNode("SOURCE", 10, 10);
+        QVERIFY(!id.isEmpty());
+        QVERIFY(!m_world->graph->moveNode(id, nan, 0));
+        QVERIFY(!m_world->graph->moveNode(id, inf, inf)); // finite delta, inf result
+        QVERIFY(!m_world->graph->setNodePosition(id, inf, inf));
+        QCOMPARE(m_world->scene->getNode(QUuid(id))->pos(), QPointF(10, 10));
+
+        // What survives must round-trip through save/load unchanged.
+        const QString path = writeTempFile(*m_dir, "finite.xml",
+                                           m_world->graph->toXml().toUtf8());
+        QVERIFY(!path.isEmpty());
+        m_world->graph->clearGraph();
+        QVERIFY(m_world->graph->loadFromFile(path));
+        QCOMPARE(m_world->scene->getNodes().size(), 1);
+        QVERIFY(errors.count() >= 6);
     }
 
     void facadeLoadReplaces() // C6
