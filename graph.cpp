@@ -18,6 +18,7 @@
 #include <QCoreApplication>
 #include <QVariantAnimation>
 #include <QEasingCurve>
+#include <cmath>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
@@ -121,6 +122,17 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
     if (!isValidNodeType(type)) {
         QString error = QString("Invalid node type: %1").arg(type);
         qCritical() << "Graph::createNode:" << error;
+        emit errorOccurred(error);
+        return QString();
+    }
+
+    // Non-finite coordinates would poison the scene, serialization writes them
+    // as "nan"/"inf", and the loader rejects non-finite values - so a graph
+    // saved with such a node could never be loaded again.
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        QString error = QString("Invalid node position: (%1, %2) - coordinates must be finite")
+                            .arg(x).arg(y);
+        qWarning() << "Graph::createNode:" << error;
         emit errorOccurred(error);
         return QString();
     }
@@ -238,6 +250,16 @@ bool Graph::moveNode(const QString& nodeId, qreal dx, qreal dy)
     QPointF currentPos = node->pos();
     QPointF newPos = currentPos + QPointF(dx, dy);
 
+    // A finite delta can still overflow to infinity; reject both cases so a
+    // non-finite position can never reach the scene/serializer.
+    if (!std::isfinite(dx) || !std::isfinite(dy) ||
+        !std::isfinite(newPos.x()) || !std::isfinite(newPos.y())) {
+        const QString error = QString("Graph::moveNode: non-finite move for %1").arg(nodeId);
+        qWarning() << error;
+        emit errorOccurred(error);
+        return false;
+    }
+
     node->setPos(newPos);
     emit nodeMoved(nodeId);
 
@@ -249,6 +271,13 @@ bool Graph::setNodePosition(const QString& nodeId, qreal x, qreal y)
     Node* node = findNode(nodeId);
     if (!node) {
         qWarning() << "Graph::setNodePosition: Node not found:" << nodeId;
+        return false;
+    }
+
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        const QString error = QString("Graph::setNodePosition: non-finite position for %1").arg(nodeId);
+        qWarning() << error;
+        emit errorOccurred(error);
         return false;
     }
 
