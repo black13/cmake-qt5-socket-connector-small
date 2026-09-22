@@ -54,7 +54,7 @@ void Scene::addNode(Node* node)
     notifyNodeAdded(*node);
     
     // Emit signal for UI updates
-    emit sceneChanged();
+    emitSceneChanged();
 }
 
 void Scene::addEdge(Edge* edge)
@@ -75,7 +75,7 @@ void Scene::addEdge(Edge* edge)
     notifyEdgeAdded(*edge);
     
     // Emit signal for UI updates
-    emit sceneChanged();
+    emitSceneChanged();
     
     // Clean design: edges manage their own socket connections via resolveConnections()
 }
@@ -261,7 +261,10 @@ void Scene::deleteNode(const QUuid& nodeId)
         qWarning() << "Scene::deleteNode - node not found:" << nodeId.toString(QUuid::WithoutBraces).left(8);
         return;
     }
-    
+
+    // One logical mutation: incident edges + node emit a single sceneChanged.
+    ScopedChangeCoalescing coalesce(*this);
+
     qCDebug(ngVerbose) << "Deleting node:" << nodeId.toString(QUuid::WithoutBraces).left(8);
     
     // First, find and delete all edges connected to this node
@@ -288,7 +291,7 @@ void Scene::deleteNode(const QUuid& nodeId)
     delete node;
     
     // Emit signal for UI updates
-    emit sceneChanged();
+    emitSceneChanged();
     
     qCDebug(ngVerbose) << "Node deleted with" << edgesToDelete.size() << "connected edges - Observer notified";
 }
@@ -315,7 +318,7 @@ void Scene::deleteEdge(const QUuid& edgeId)
     delete edge;
     
     // Emit signal for UI updates
-    emit sceneChanged();
+    emitSceneChanged();
     
     qCDebug(ngVerbose) << "Edge deleted - Observer notified";
 }
@@ -353,7 +356,7 @@ void Scene::clear()
     }
 
     notifyGraphCleared();
-    emit sceneChanged();
+    emitSceneChanged();
 
     if (ngVerbose().isDebugEnabled()) {
         logSceneState("Scene::clear (after QGraphicsScene::clear)");
@@ -365,6 +368,43 @@ void Scene::clearGraph()
 {
     qCDebug(ngVerbose) << "Scene::clearGraph requested";
     clear();
+}
+
+// ============================================================================
+// sceneChanged coalescing (bulk mutations + GraphSubject batches)
+// ============================================================================
+
+void Scene::beginBulkChange()
+{
+    ++m_bulkChangeDepth;
+}
+
+void Scene::endBulkChange()
+{
+    if (m_bulkChangeDepth > 0) {
+        --m_bulkChangeDepth;
+    }
+    if (m_bulkChangeDepth == 0) {
+        emitSceneChanged();
+    }
+}
+
+void Scene::emitSceneChanged()
+{
+    if (m_bulkChangeDepth > 0 || GraphSubject::isInBatch()) {
+        m_pendingSceneChanged = true;
+        return;
+    }
+    m_pendingSceneChanged = false;
+    emit sceneChanged();
+}
+
+void Scene::onBatchFlushed()
+{
+    if (m_pendingSceneChanged) {
+        m_pendingSceneChanged = false;
+        emit sceneChanged();
+    }
 }
 
 // ============================================================================

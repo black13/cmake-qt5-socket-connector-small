@@ -215,6 +215,31 @@ private slots:
         QVERIFY(xml != "<graph></graph>");
     }
 
+    void bulkMutationsEmitSceneChangedOnce()
+    {
+        const QString src = m_world->graph->createNode("SOURCE", 0, 0);
+        const QString mid = m_world->graph->createNode("TRANSFORM", 250, 0);
+        const QString snk = m_world->graph->createNode("SINK", 500, 0);
+        QVERIFY(!src.isEmpty() && !mid.isEmpty() && !snk.isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(src, 0, mid, 0).isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(mid, 1, snk, 0).isEmpty());
+
+        // One node with two incident edges used to refresh the UI 3 times.
+        QSignalSpy changed(m_world->scene, &Scene::sceneChanged);
+        QVERIFY(m_world->graph->deleteNode(mid));
+        QCOMPARE(changed.count(), 1);
+
+        // A GraphSubject batch defers everything to a single flush.
+        changed.clear();
+        m_world->graph->beginBatch();
+        m_world->graph->deleteNode(src);
+        m_world->graph->deleteNode(snk);
+        m_world->graph->createNode("SINK", 100, 100);
+        QCOMPARE(changed.count(), 0);
+        m_world->graph->endBatch();
+        QCOMPARE(changed.count(), 1);
+    }
+
     void saveToUnicodePathRoundTrips()
     {
         // libxml's file API takes a narrow path; saveToFile must go through

@@ -224,6 +224,7 @@ void GraphSubject::endBatch()
             for (GraphSubject* subject : subjects) {
                 if (subject) {
                     subject->flushBatchObservers();
+                    subject->onBatchFlushed();
                 }
             }
         }

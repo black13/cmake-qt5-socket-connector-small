@@ -239,6 +239,11 @@ DeleteSelectionCommand::DeleteSelectionCommand(Scene* scene, GraphFactory* facto
 
 void DeleteSelectionCommand::redo()
 {
+    // One UI refresh and one observer flush for the whole deletion instead of
+    // one per edge/node.
+    Scene::ScopedChangeCoalescing coalesce(*m_scene);
+    GraphSubject::BatchGuard batch;
+
     // Edges first (they reference sockets), then nodes
     for (const QUuid& edgeId : m_edgeIds) {
         m_scene->deleteEdge(edgeId);
@@ -250,6 +255,9 @@ void DeleteSelectionCommand::redo()
 
 void DeleteSelectionCommand::undo()
 {
+    Scene::ScopedChangeCoalescing coalesce(*m_scene);
+    GraphSubject::BatchGuard batch;
+
     // Nodes first, then the edges that connect them
     for (const QString& xml : m_nodeXml) {
         restoreNode(m_factory, xml);
@@ -276,6 +284,9 @@ MoveNodesCommand::MoveNodesCommand(Scene* scene, const QVector<NodeMove>& moves,
 
 void MoveNodesCommand::applyPositions(bool useNewPos)
 {
+    // One observer flush for the whole drag gesture instead of one per node.
+    GraphSubject::BatchGuard batch;
+
     for (const NodeMove& move : m_moves) {
         if (Node* node = m_scene->getNode(move.nodeId)) {
             node->setPos(useNewPos ? move.newPos : move.oldPos);

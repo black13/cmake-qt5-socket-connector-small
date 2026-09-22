@@ -100,7 +100,15 @@ protected:
 private:
     // Deliver onBatchEnded() to all observers of this subject (end-of-batch flush)
     void flushBatchObservers();
-    
+
+protected:
+    /// Called on every live subject when the outermost batch ends, right after
+    /// that subject's observers received onBatchEnded(). Subjects that muted
+    /// their own outputs during the batch (e.g. Scene::sceneChanged) flush
+    /// them here.
+    virtual void onBatchFlushed() {}
+
+private:
     QSet<GraphObserver*> m_observers;
     
     // Static batch control

@@ -55,7 +55,25 @@ public:
         bool& f;
     };
 
+    // Coalesce sceneChanged() while a bulk mutation runs: nested guards are
+    // counted and the signal fires once when the outermost guard ends (or at
+    // the end of a GraphSubject batch). Without this, deleting a node with k
+    // incident edges refreshed the UI k+1 times.
+    class ScopedChangeCoalescing
+    {
+    public:
+        explicit ScopedChangeCoalescing(Scene& scene) : m_scene(scene) { m_scene.beginBulkChange(); }
+        ~ScopedChangeCoalescing() { m_scene.endBulkChange(); }
+        ScopedChangeCoalescing(const ScopedChangeCoalescing&) = delete;
+        ScopedChangeCoalescing& operator=(const ScopedChangeCoalescing&) = delete;
+    private:
+        Scene& m_scene;
+    };
+
     static bool isClearingGraph() { return s_clearingGraph; }
+
+    void beginBulkChange();
+    void endBulkChange();
 
     explicit Scene(QObject* parent = nullptr);
     
@@ -130,7 +148,14 @@ protected:
     // Intercept clear() so QGraphicsScene ownership stays synchronized
     void clear();
 
+    // Batch-end flush hook from GraphSubject: emits one deferred sceneChanged.
+    void onBatchFlushed() override;
+
 private:
+    // Emit sceneChanged() unless a bulk guard or GraphSubject batch is active;
+    // suppression sets m_pendingSceneChanged for the flush paths above.
+    void emitSceneChanged();
+
     // QElectroTech-style typed collections with UUID keys
     QHash<QUuid, Node*> m_nodes;
     QHash<QUuid, Edge*> m_edges;
@@ -156,6 +181,10 @@ private:
     
     // Shutdown coordination flag
     bool m_shutdownInProgress;
+    
+    // Bulk-change coalescing state (see ScopedChangeCoalescing)
+    int m_bulkChangeDepth = 0;
+    bool m_pendingSceneChanged = false;
     
     // Factory for consistent edge creation (non-owning)
     GraphFactory* m_graphFactory;

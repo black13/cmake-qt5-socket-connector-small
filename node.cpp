@@ -180,6 +180,9 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Otherwise edges keep stale Socket* pointers and crash on updatePath()
     Scene* typedScene = qobject_cast<Scene*>(scene());
     if (typedScene) {
+        // Socket recreation drops every incident edge: one UI refresh total.
+        Scene::ScopedChangeCoalescing coalesce(*typedScene);
+
         QList<QUuid> edgesToDelete;
         for (auto it = typedScene->getEdges().begin(); it != typedScene->getEdges().end(); ++it) {
             Edge* edge = it.value();

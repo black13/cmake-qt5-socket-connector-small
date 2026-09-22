@@ -433,6 +433,8 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
     }
     // Commit once. Failed loads never clear selection, ghost drags, undo
     // history, or autosave state, and never emit a batch-completion event.
+    // The commit mutates under a batch, so Scene defers sceneChanged and the
+    // batch flush delivers exactly one signal when the guard above ends.
     {
         GraphSubject::BatchGuard batchGuard;
         QSignalBlocker signalBlocker(m_scene);
@@ -444,7 +446,6 @@ bool GraphFactory::loadFromXmlFile(const QString& filePath)
             m_scene->addEdge(edge.release());
         }
     }
-    emit m_scene->sceneChanged();
     return true;
 }
 
