@@ -120,6 +120,19 @@ console.log("=== LLVM COVERAGE TEST SUITE ===");
     test("deleteNode_cascade", stats2.edgeCount === 0);
 })();
 
+// ── Scripted Drop ───────────────────────────────────────
+(function() {
+    console.log("--- Scripted Drop ---");
+    graph.clearGraph();
+
+    var dropped = graph.dropNode("SINK", 640, 360, 60);
+    test("dropNode_created", dropped !== "" && graph.getNodeData(dropped).id === dropped);
+
+    var droppedDefault = graph.dropNode("SOURCE", 100, 100);
+    test("dropNode_default_duration", droppedDefault !== "");
+    test("dropNode_bad_type", graph.dropNode("NOPE", 0, 0, 60) === "");
+})();
+
 // ── Node Mutation ───────────────────────────────────────
 (function() {
     console.log("--- Node Mutation ---");

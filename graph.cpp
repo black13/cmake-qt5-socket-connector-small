@@ -16,6 +16,8 @@
 #include <QGraphicsItem>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QVariantAnimation>
+#include <QEasingCurve>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
@@ -136,6 +138,56 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
     }
 
     return QString();
+}
+
+QString Graph::dropNode(const QString& type, qreal x, qreal y)
+{
+    return dropNode(type, x, y, 260);
+}
+
+QString Graph::dropNode(const QString& type, qreal x, qreal y, int durationMs)
+{
+    // Same creation path as createNode(), so template sockets/payload match.
+    const QString nodeId = createNode(type, x, y);
+    if (nodeId.isEmpty()) {
+        return nodeId; // createNode() already emitted errorOccurred
+    }
+
+    Node* node = findNode(nodeId);
+    if (!node || durationMs <= 0) {
+        return nodeId;
+    }
+
+    // Animate a 0..1 progress value rather than the graphics item itself: the
+    // node is looked up by UUID on every step, so deleting it mid-flight (a
+    // script can call graph.deleteNode right after dropping) simply stops the
+    // animation instead of touching freed memory, as QGraphicsItemAnimation's
+    // raw item pointer would.
+    const QPointF target(x, y);
+    const QPointF start = target + QPointF(-90.0, -70.0); // "thrown" from up-left
+    node->setPos(start);
+    node->setOpacity(0.35);
+
+    auto* animation = new QVariantAnimation(this);
+    animation->setStartValue(0.0);
+    animation->setEndValue(1.0);
+    animation->setDuration(durationMs);
+    animation->setEasingCurve(QEasingCurve::OutCubic);
+    connect(animation, &QVariantAnimation::valueChanged, this,
+            [this, uuid = parseUuid(nodeId), start, target](const QVariant& value) {
+                Node* animated = m_scene ? m_scene->getNode(uuid) : nullptr;
+                if (!animated) {
+                    return;
+                }
+                const qreal t = value.toReal();
+                animated->setPos(start + (target - start) * t);
+                animated->setOpacity(0.35 + 0.65 * t);
+            });
+    animation->start(QAbstractAnimation::DeleteWhenStopped);
+
+    qCDebug(ngVerbose) << "Graph::dropNode:" << nodeId << "animated in"
+                       << durationMs << "ms to" << target;
+    return nodeId;
 }
 
 bool Graph::deleteNode(const QString& nodeId)
