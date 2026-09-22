@@ -162,6 +162,30 @@ test("center.selection_empty", view.centerOnSelection() === false);
 graph.clearGraph();
 test("center.empty_graph", view.centerOnGraph() === false);
 
+// ── Topology alignment ─────────────────────────────────────────────────────
+console.log("--- align graph ---");
+graph.clearGraph();
+var agSrc = graph.createNode("SOURCE", 300, 300);
+var agMid = graph.createNode("TRANSFORM", 10, 10);
+var agSnk = graph.createNode("SINK", 700, 100);
+graph.connectNodes(agSrc, 0, agMid, 0);
+graph.connectNodes(agMid, 1, agSnk, 0);
+var agMoved = graph.alignGraph();
+test("align.moved", agMoved === 3, "moved=" + agMoved);
+var ag1 = graph.getNodeData(agSrc);
+var ag2 = graph.getNodeData(agMid);
+var ag3 = graph.getNodeData(agSnk);
+test("align.layers", ag1.x < ag2.x && ag2.x < ag3.x,
+     "x=" + ag1.x + "," + ag2.x + "," + ag3.x);
+test("align.on_grid",
+     ag1.x % 40 === 0 && ag1.y % 40 === 0 &&
+     ag2.x % 40 === 0 && ag2.y % 40 === 0 &&
+     ag3.x % 40 === 0 && ag3.y % 40 === 0);
+graph.undo();
+test("align.undo_restores", graph.getNodeData(agSrc).x === 300 && graph.getNodeData(agSrc).y === 300);
+graph.redo();
+test("align.noop_when_aligned", graph.alignGraph() === 0);
+
 // ── Undo / redo (facade mutations are undoable) ────────────────────────────
 console.log("--- undo/redo ---");
 graph.clearGraph();

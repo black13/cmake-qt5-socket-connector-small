@@ -180,6 +180,16 @@ test("depth.node_api_refused", nodeDeepResult !== "ok", "result=" + nodeDeepResu
 test("depth.node_api_reported", graph.getNodeScriptError(depthNode).length > 0);
 test("depth.app_survived", alive(depthNode));
 
+console.log("--- align abuse ---");
+graph.clearGraph();
+test("align.empty", graph.alignGraph() === 0);
+var alignA = graph.createNode("TRANSFORM", 0, 0);
+var alignB = graph.createNode("TRANSFORM", 10, 10);
+graph.connectNodes(alignA, 1, alignB, 0);
+graph.connectNodes(alignB, 1, alignA, 0); // cycle: must terminate
+var alignCycle = attempt(function() { return graph.alignGraph(); });
+test("align.cycle_terminates", alignCycle !== "__threw__", "result=" + alignCycle);
+
 console.log("--- stress: create/delete churn ---");
 graph.clearGraph();
 var churnOk = true;

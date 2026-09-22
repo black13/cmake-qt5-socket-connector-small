@@ -374,6 +374,39 @@ private slots:
         m_world->graph->setUndoStack(nullptr);
     }
 
+    void alignGraphLayersByTopology()
+    {
+        const QString src = m_world->graph->createNode("SOURCE", 300, 300);
+        const QString tr = m_world->graph->createNode("TRANSFORM", 10, 10);
+        const QString snk = m_world->graph->createNode("SINK", 700, 100);
+        QVERIFY(!src.isEmpty() && !tr.isEmpty() && !snk.isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(src, 0, tr, 0).isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(tr, 1, snk, 0).isEmpty());
+
+        QUndoStack stack;
+        m_world->graph->setUndoStack(&stack);
+        QCOMPARE(m_world->graph->alignGraph(), 3);
+
+        Node* s = m_world->scene->getNode(QUuid(src));
+        Node* t = m_world->scene->getNode(QUuid(tr));
+        Node* k = m_world->scene->getNode(QUuid(snk));
+        QVERIFY(s->pos().x() < t->pos().x());
+        QVERIFY(t->pos().x() < k->pos().x());
+        for (Node* n : {s, t, k}) {
+            QVERIFY(qFuzzyIsNull(std::fmod(n->pos().x(), 40.0)));
+            QVERIFY(qFuzzyIsNull(std::fmod(n->pos().y(), 40.0)));
+        }
+
+        // One undo step restores every original position
+        QVERIFY(m_world->graph->undo());
+        QCOMPARE(s->pos(), QPointF(300, 300));
+        QCOMPARE(t->pos(), QPointF(10, 10));
+        QCOMPARE(k->pos(), QPointF(700, 100));
+        QVERIFY(m_world->graph->redo());
+        QCOMPARE(m_world->graph->alignGraph(), 0); // already aligned
+        m_world->graph->setUndoStack(nullptr);
+    }
+
     void facadeLoadReplaces() // C6
     {
         m_world->graph->createNode("SINK", 900, 900); // stray, never saved
