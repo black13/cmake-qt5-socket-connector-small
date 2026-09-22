@@ -23,6 +23,7 @@
 #include "graph_observer.h"
 #include "scripted_node.h"
 #include "synthetic_work.h"
+#include "view.h"
 #include "window.h"
 #include "xml_autosave_observer.h"
 #include "node.h"
@@ -31,6 +32,7 @@
 
 #include <QAction>
 #include <QUndoStack>
+#include <cmath>
 #include <limits>
 #include <libxml/tree.h>
 
@@ -327,6 +329,49 @@ private slots:
         QCOMPARE(stack.count(), beforeCount);
 
         m_world->graph->setUndoStack(nullptr); // stack is about to go out of scope
+    }
+
+    void snapToGridFacade()
+    {
+        QVERIFY(!m_world->graph->isSnapToGrid());
+        m_world->graph->setSnapToGrid(true);
+        QVERIFY(m_world->graph->isSnapToGrid());
+        QCOMPARE(m_world->graph->gridSize(), 40);
+
+        const QVariantMap sp = m_world->graph->snapPoint(43.0, -57.0);
+        QCOMPARE(sp.value("x").toDouble(), 40.0);
+        QCOMPARE(sp.value("y").toDouble(), -40.0);
+        const qreal nan = std::numeric_limits<qreal>::quiet_NaN();
+        QVERIFY(m_world->graph->snapPoint(nan, 0.0).isEmpty()); // NaN refused
+
+        // Programmatic creation keeps exact coordinates; snapping is explicit
+        const QString id = m_world->graph->createNode("SOURCE", 43, -57);
+        QVERIFY(!id.isEmpty());
+        Node* node = m_world->scene->getNode(QUuid(id));
+        QCOMPARE(node->pos(), QPointF(43, -57));
+        QVERIFY(m_world->graph->snapNode(id));
+        QCOMPARE(node->pos(), QPointF(40, -40));
+        QVERIFY(m_world->graph->snapNode(id)); // already on grid: no-op success
+        QVERIFY(!m_world->graph->snapNode("bad"));
+
+        // snapNodes() moves every off-grid node in one undoable command
+        m_world->graph->createNode("SINK", 201, 37);
+        m_world->graph->createNode("SINK", 99, 81);
+        QCOMPARE(m_world->graph->snapNodes(), 2);
+        for (Node* n : m_world->scene->getNodes().values()) {
+            QVERIFY(qFuzzyIsNull(std::fmod(n->pos().x(), 40.0)));
+            QVERIFY(qFuzzyIsNull(std::fmod(n->pos().y(), 40.0)));
+        }
+
+        // Snapping is undoable when a stack is attached
+        QUndoStack stack;
+        m_world->graph->setUndoStack(&stack);
+        QVERIFY(m_world->graph->setNodePosition(id, 43, -57));
+        QVERIFY(m_world->graph->snapNode(id));
+        QCOMPARE(m_world->scene->getNode(QUuid(id))->pos(), QPointF(40, -40));
+        QVERIFY(m_world->graph->undo());
+        QCOMPARE(m_world->scene->getNode(QUuid(id))->pos(), QPointF(43, -57));
+        m_world->graph->setUndoStack(nullptr);
     }
 
     void facadeLoadReplaces() // C6
@@ -635,6 +680,20 @@ private slots:
         Window window;
         window.updateStatusBar();
         QVERIFY(true);
+    }
+
+    void viewCenterFollowsContent()
+    {
+        Window window;
+        QVERIFY2(!window.getView()->centerOnGraph(), "empty scene has nothing to center on");
+        QVERIFY(!window.getView()->centerOnSelection());
+
+        GraphFactory factory(window.getScene(), nullptr);
+        window.adoptFactory(&factory);
+        const QString node = window.getGraph()->createNode("SOURCE", 500, 500);
+        QVERIFY(!node.isEmpty());
+        QVERIFY2(window.getView()->centerOnGraph(), "non-empty scene must center");
+        QVERIFY2(!window.getView()->centerOnSelection(), "nothing is selected");
     }
 
     void qtActionShortcutsAreNotAmbiguous()

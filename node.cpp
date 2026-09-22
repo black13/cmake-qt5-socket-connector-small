@@ -115,7 +115,19 @@ void Node::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWid
 
 QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
 {
-    if (change == ItemSelectedHasChanged) {
+    if (change == ItemPositionChange) {
+        // Live grid snap for the item the mouse is dragging. Programmatic
+        // setPos (scripts, load, undo) keeps exact coordinates because the
+        // mouse grabber is only set during an interactive drag.
+        QGraphicsScene* owningScene = scene();
+        if (owningScene && owningScene->mouseGrabberItem() == this) {
+            if (Scene* typedScene = qobject_cast<Scene*>(owningScene)) {
+                if (typedScene->isSnapToGrid()) {
+                    return typedScene->snapPoint(value.toPointF());
+                }
+            }
+        }
+    } else if (change == ItemSelectedHasChanged) {
         // Selection tracking logging - what has been selected
         bool isNowSelected = value.toBool();
         qCDebug(ngVerbose) << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 

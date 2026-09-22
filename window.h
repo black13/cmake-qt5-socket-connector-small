@@ -63,6 +63,9 @@ public:
     /// @return Graph facade powering UI + scripting.
     [[nodiscard]] Graph* getGraph() const { return m_graph; }
 
+    /// @return Underlying View (tests / centering helpers).
+    [[nodiscard]] View* getView() const { return m_view; }
+
     /**
      * @brief Register a startup script path (CLI --script).
      *
@@ -184,6 +187,7 @@ private:
     QString m_currentFile;
     QString m_startupScript;
     bool m_startupScriptExecuted = false;
+    bool m_initialCenterDone = false; // center once after the first show/load
 
     // Setup methods
     void setupUI();

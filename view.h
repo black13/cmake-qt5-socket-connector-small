@@ -46,12 +46,24 @@ public:
     /**
      * @brief Enable/disable the background grid.
      */
-    void setGridVisible(bool enabled);
+    Q_INVOKABLE void setGridVisible(bool enabled);
 
     /**
      * @brief Enable/disable the snap preview crosshair.
      */
-    void setSnapIndicatorVisible(bool enabled);
+    Q_INVOKABLE void setSnapIndicatorVisible(bool enabled);
+
+    /**
+     * @brief Center the viewport on all scene content (keeps the zoom).
+     * @return true when there was content to center on
+     */
+    Q_INVOKABLE bool centerOnGraph();
+
+    /**
+     * @brief Center the viewport on the current selection.
+     * @return true when something was selected
+     */
+    Q_INVOKABLE bool centerOnSelection();
 
     /**
      * @brief Snap a scene position to the current grid spacing.

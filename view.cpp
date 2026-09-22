@@ -30,6 +30,14 @@ View::View(Scene* scene, QWidget* parent)
     setDragMode(QGraphicsView::RubberBandDrag);
     setRubberBandSelectionMode(Qt::IntersectsItemShape);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+
+    // Scene owns the grid size (Scene::gridSize()); the view just draws it and
+    // the snap crosshair uses the same spacing so visuals match snapping.
+    if (m_scene) {
+        m_minorGridSpacing = static_cast<qreal>(m_scene->gridSize());
+    }
+    m_majorLineInterval = 4; // major line every 160 units on a 40-unit grid
+
     
     // Disable any debug drawing of item bounding rectangles
     setRenderHint(QPainter::Qt4CompatiblePainting, false);
@@ -325,8 +333,46 @@ void View::setSnapIndicatorVisible(bool enabled)
     viewport()->update();
 }
 
+bool View::centerOnGraph()
+{
+    if (!m_scene) {
+        return false;
+    }
+    const QRectF content = m_scene->itemsBoundingRect();
+    if (content.isEmpty()) {
+        return false;
+    }
+    centerOn(content.center());
+    return true;
+}
+
+bool View::centerOnSelection()
+{
+    if (!m_scene) {
+        return false;
+    }
+    const QList<QGraphicsItem*> selected = m_scene->selectedItems();
+    if (selected.isEmpty()) {
+        return false;
+    }
+    QRectF bounds;
+    for (QGraphicsItem* item : selected) {
+        bounds = bounds.united(item->sceneBoundingRect());
+    }
+    if (bounds.isEmpty()) {
+        return false;
+    }
+    centerOn(bounds.center());
+    return true;
+}
+
 QPointF View::snapToGrid(const QPointF& scenePos) const
 {
+    // Scene is the single source of truth for the grid; fall back to the
+    // local spacing only if the view was built without a scene.
+    if (m_scene) {
+        return m_scene->snapPoint(scenePos);
+    }
     if (m_minorGridSpacing <= 0.0) {
         return scenePos;
     }

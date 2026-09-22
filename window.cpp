@@ -84,6 +84,9 @@ void Window::adoptFactory(GraphFactory* factory)
     // Script- and UI-side mutations share one history: facade calls now push
     // commands onto this stack (batches collapse to a single undo step).
     m_graph->setUndoStack(m_undoStack);
+
+    // Expose the view to scripts as the global "view" (centerOnGraph, etc.).
+    m_graph->scriptEngine().registerObject(QStringLiteral("view"), m_view);
     qDebug() << "Graph facade created with JavaScript engine enabled";
 
     // Structural script-side ops invalidate the undo history (commands hold
@@ -346,6 +349,10 @@ bool Window::loadGraph(const QString& filename)
     const bool ok = m_graph->loadFromFile(filename);
     if (ok) {
         setCurrentFile(filename);
+        m_initialCenterDone = true;
+        if (m_view) {
+            m_view->centerOnGraph();
+        }
         updateStatusBar();
     }
     return ok;
@@ -407,8 +414,10 @@ void Window::createNodeFromPalette(const QPointF& scenePos, const QString& nodeT
         return;
     }
 
-    // Create node via undoable command (same factory pathway as before)
-    m_undoStack->push(new CreateNodeCommand(m_scene, m_factory, nodeType, scenePos));
+    // Create node via undoable command (same factory pathway as before).
+    // Palette drops honor the grid snap setting like interactive drags do.
+    const QPointF dropPos = m_scene->isSnapToGrid() ? m_scene->snapPoint(scenePos) : scenePos;
+    m_undoStack->push(new CreateNodeCommand(m_scene, m_factory, nodeType, dropPos));
 
     updateStatusBar();
     statusBar()->showMessage(QString("Created %1 node").arg(name), 2000);
@@ -577,6 +586,29 @@ void Window::createViewMenu()
     zoomResetAction->setStatusTip("Reset zoom to 100%");
     connect(zoomResetAction, &QAction::triggered, this, &Window::zoomReset);
     m_viewMenu->addAction(zoomResetAction);
+
+    QAction* centerGraphAction = new QAction("Center on &Graph", this);
+    centerGraphAction->setShortcut(QKeySequence("Ctrl+Shift+C"));
+    centerGraphAction->setStatusTip("Center the view on the whole graph");
+    connect(centerGraphAction, &QAction::triggered, this, [this]() {
+        if (m_view && m_view->centerOnGraph() && statusBar()) {
+            statusBar()->showMessage("Centered on graph", 2000);
+        }
+    });
+    m_viewMenu->addAction(centerGraphAction);
+
+    QAction* centerSelectionAction = new QAction("Center on &Selection", this);
+    centerSelectionAction->setShortcut(QKeySequence("Ctrl+Shift+E"));
+    centerSelectionAction->setStatusTip("Center the view on the selection");
+    connect(centerSelectionAction, &QAction::triggered, this, [this]() {
+        if (m_view) {
+            const bool centered = m_view->centerOnSelection();
+            if (statusBar()) {
+                statusBar()->showMessage(centered ? "Centered on selection" : "Nothing selected", 2000);
+            }
+        }
+    });
+    m_viewMenu->addAction(centerSelectionAction);
     
     m_viewMenu->addSeparator();
     
@@ -590,8 +622,15 @@ void Window::createViewMenu()
             m_scene->setSnapToGrid(checked);
             qDebug() << "Snap to grid:" << (checked ? "enabled" : "disabled");
         }
+        if (m_view) {
+            // The crosshair only makes sense while snapping is active.
+            m_view->setSnapIndicatorVisible(checked);
+        }
     });
     m_viewMenu->addAction(snapToGridAction);
+    if (m_view) {
+        m_view->setSnapIndicatorVisible(false);
+    }
     
     m_viewMenu->addSeparator();
     
@@ -1204,6 +1243,17 @@ void Window::createNodeAtPosition(const QString& nodeType, const QPointF& sceneP
 void Window::showEvent(QShowEvent* event)
 {
     QMainWindow::showEvent(event);
+
+    // First show after a CLI-loaded graph: center once on the content, after
+    // the window has its real size (deferred so scrollbars are valid).
+    if (!m_initialCenterDone) {
+        m_initialCenterDone = true;
+        QTimer::singleShot(0, this, [this]() {
+            if (m_view && m_scene && !m_scene->items().isEmpty()) {
+                m_view->centerOnGraph();
+            }
+        });
+    }
 
     if (!m_startupScript.isEmpty() && !m_startupScriptExecuted) {
         m_startupScriptExecuted = true;
