@@ -337,6 +337,14 @@ public:
     /// fail the process (and therefore CTest) when checks fail.
     Q_INVOKABLE void quit(int exitCode);
 
+    /**
+     * Let the event loop run for the given duration, so long-running scripts
+     * (soak/burn-in runs) stay responsive and timers like autosave, animations
+     * and the watchdog can fire. Call between batches of work:
+     *   while (...) { ...work...; graph.yield(100); }
+     */
+    Q_INVOKABLE void yield(int milliseconds);
+
 signals:
     // Change notifications (for JavaScript listeners and UI)
     void nodeCreated(const QString& nodeId);

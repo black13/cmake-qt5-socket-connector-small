@@ -352,12 +352,16 @@ if(BUILD_TESTING)
     # JavaScript suites: the app executes the script and exits with 0 only
     # when every check passed (graph.quit(code)), so CTest reports failures.
     # Working directory is the source root so logs/ paths resolve.
+    option(ENABLE_SOAK_TEST "Register the >1 minute soak run as a CTest test" OFF)
     set(JS_SUITES
         tests/js_regression_suite.js
         tests/coverage_suite.js
         tests/chaos_suite.js
         tests/complex_graph_ctest.js
     )
+    if(ENABLE_SOAK_TEST)
+        list(APPEND JS_SUITES tests/soak_suite.js)
+    endif()
     foreach(js_suite ${JS_SUITES})
         get_filename_component(js_name ${js_suite} NAME_WE)
         if(WIN32)
@@ -373,6 +377,9 @@ if(BUILD_TESTING)
         set_tests_properties(${js_name} PROPERTIES TIMEOUT 120
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endforeach()
+    if(ENABLE_SOAK_TEST)
+        set_tests_properties(soak_suite PROPERTIES TIMEOUT 300)
+    endif()
 endif()
 
 # ─────────────────────────────────────

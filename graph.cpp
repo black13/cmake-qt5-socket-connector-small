@@ -20,6 +20,8 @@
 #include <QUndoStack>
 #include <QVariantAnimation>
 #include <QEasingCurve>
+#include <QElapsedTimer>
+#include <QThread>
 #include <algorithm>
 #include <cmath>
 #include <QMap>
@@ -100,6 +102,21 @@ void Graph::quit()
 void Graph::quit(int exitCode)
 {
     QCoreApplication::exit(exitCode);
+}
+
+void Graph::yield(int milliseconds)
+{
+    // Pump the event loop in slices so timers (autosave), animations and the
+    // watchdog keep running while a script is mid-flight. Sleeps shorten the
+    // slice; a pure processEvents loop would spin a core.
+    QElapsedTimer timer;
+    timer.start();
+    do {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+        if (milliseconds > 0) {
+            QThread::msleep(5);
+        }
+    } while (milliseconds > 0 && timer.elapsed() < milliseconds);
 }
 
 void Graph::initializeScripting()
