@@ -53,6 +53,23 @@ public:
     Q_INVOKABLE QString createNode(const QString& type, qreal x, qreal y);
 
     /**
+     * Create a node and animate it into place, so scripted creation looks
+     * like a palette drop. Uses the same factory/template path as
+     * createNode(); the node starts slightly offset and faded, then eases to
+     * (x, y) with full opacity over durationMs (0 skips the animation).
+     *
+     * Not undoable (the facade has no undo stack) - UI drops still go through
+     * Window::createNodeFromPalette and CreateNodeCommand.
+     *
+     * Two overloads (no default argument) so QJSEngine can invoke either
+     * arity predictably; scripts may call dropNode(type, x, y).
+     *
+     * @return UUID string of created node, or empty string on failure
+     */
+    Q_INVOKABLE QString dropNode(const QString& type, qreal x, qreal y);
+    Q_INVOKABLE QString dropNode(const QString& type, qreal x, qreal y, int durationMs);
+
+    /**
      * Delete node and its connected edges
      * @param nodeId UUID string of node to delete
      * @return true if node was deleted, false if not found

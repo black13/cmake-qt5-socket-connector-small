@@ -195,6 +195,38 @@ private slots:
         QCOMPARE(m_world->scene->getEdges().size(), 5);
     }
 
+    void dropNodeAnimatesIntoPlace()
+    {
+        const QString id = m_world->graph->dropNode("SINK", 320, 240, 120);
+        QVERIFY(!id.isEmpty());
+        Node* node = m_world->scene->getNode(QUuid(id));
+        QVERIFY(node);
+
+        // Starts offset and faded, like something just thrown onto the canvas.
+        QVERIFY(node->opacity() < 0.5);
+        QVERIFY((node->pos() - QPointF(320, 240)).manhattanLength() > 20.0);
+
+        QTRY_VERIFY_WITH_TIMEOUT(
+            (node->pos() - QPointF(320, 240)).manhattanLength() < 0.5, 2000);
+        QVERIFY2(node->opacity() > 0.99, "drop must end fully opaque");
+    }
+
+    void dropNodeRejectsInvalidType()
+    {
+        QSignalSpy errors(m_world->graph, &Graph::errorOccurred);
+        QVERIFY(m_world->graph->dropNode("NOPE", 0, 0, 100).isEmpty());
+        QVERIFY(errors.count() >= 1);
+    }
+
+    void dropNodeDeletedMidAnimationIsSafe()
+    {
+        const QString id = m_world->graph->dropNode("SINK", 100, 100, 400);
+        QVERIFY(!id.isEmpty());
+        QVERIFY(m_world->graph->deleteNode(id));
+        QTest::qWait(700); // animation ticks must not touch the freed node
+        QVERIFY(true);
+    }
+
     void facadeLoadReplaces() // C6
     {
         m_world->graph->createNode("SINK", 900, 900); // stray, never saved
