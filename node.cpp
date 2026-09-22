@@ -6,6 +6,7 @@
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QTimer>
 #include <libxml/tree.h>
 
@@ -28,7 +29,7 @@ Node::Node(const QUuid& id, const QPointF& position)
     setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
     
     ++s_instanceCount;
-    qDebug() << "Node created. Total instances:" << s_instanceCount
+    qCDebug(ngVerbose) << "Node created. Total instances:" << s_instanceCount
              << "Destroyed:" << s_destroyedCount;
 }
 
@@ -46,7 +47,7 @@ Node::~Node()
     }
     
     ++s_destroyedCount;
-    qDebug() << "Node destroyed:" << m_id.toString()
+    qCDebug(ngVerbose) << "Node destroyed:" << m_id.toString()
              << "Remaining:" << (s_instanceCount - s_destroyedCount);
 }
 
@@ -117,13 +118,13 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged) {
         // Selection tracking logging - what has been selected
         bool isNowSelected = value.toBool();
-        qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
+        qCDebug(ngVerbose) << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
                  << (isNowSelected ? "SELECT" : "DESELECT") << m_nodeType;
         
         // CRITICAL: When selected, take keyboard focus for delete key events
         if (isNowSelected) {
             setFocus(Qt::MouseFocusReason);
-            qDebug() << "Node: Taking keyboard focus for delete key handling";
+            qCDebug(ngVerbose) << "Node: Taking keyboard focus for delete key handling";
         }
         
         // Trigger visual update when selection changes
@@ -167,7 +168,7 @@ void Node::setNodeType(const QString& type)
     // Socket creation handled by XML-first pipeline - no need to recreate sockets here
     update();
     
-    qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "type:" << type;
+    qCDebug(ngVerbose) << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "type:" << type;
 }
 
 // createStaticSockets() ELIMINATED - dual pathways removed
@@ -190,7 +191,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
         for (const QUuid& edgeId : edgesToDelete) {
             typedScene->deleteEdge(edgeId);
         }
-        qDebug() << "Node::createSocketsFromXml - removed" << edgesToDelete.size() 
+        qCDebug(ngVerbose) << "Node::createSocketsFromXml - removed" << edgesToDelete.size() 
                  << "edges before socket recreation for node" << m_id.toString(QUuid::WithoutBraces).left(8);
     }
     
@@ -222,7 +223,7 @@ void Node::createSocketsFromXml(int inputCount, int outputCount)
     // Phase 2: Position all sockets with complete information
     positionAllSockets(inputCount, outputCount);
     
-    qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << inputCount << "IN" << outputCount << "OUT";
+    qCDebug(ngVerbose) << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << inputCount << "IN" << outputCount << "OUT";
 }
 
 void Node::positionAllSockets(int totalInputs, int totalOutputs)
@@ -272,7 +273,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
             socket->setDirectPosition(x, y);
             inputIndex++;
             
-            qDebug() << "VIRTUAL BOX INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
+            qCDebug(ngVerbose) << "VIRTUAL BOX INPUT socket" << inputIndex-1 << "positioned at" << QPointF(x, y);
         } else {
             // Place socket within the centered virtual output bounding box  
             qreal x = nodeRect.width() + socketOffset;  // Right side of node
@@ -281,7 +282,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
             socket->setDirectPosition(x, y);
             outputIndex++;
             
-            qDebug() << "VIRTUAL BOX OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
+            qCDebug(ngVerbose) << "VIRTUAL BOX OUTPUT socket" << outputIndex-1 << "positioned at" << QPointF(x, y);
         }
     }
     
@@ -290,7 +291,7 @@ void Node::positionAllSockets(int totalInputs, int totalOutputs)
     qreal requiredOutputHeight = (totalOutputs > 0) ? (2 * totalOutputs + 1) * socketSize : 0;
     qreal requiredHeight = qMax(requiredInputHeight, requiredOutputHeight);
     
-    qDebug() << "VIRTUAL BOX POSITIONING: K=" << totalInputs << "inputs (box start:" << inputBoxStartY 
+    qCDebug(ngVerbose) << "VIRTUAL BOX POSITIONING: K=" << totalInputs << "inputs (box start:" << inputBoxStartY 
              << "), O=" << totalOutputs << "outputs (box start:" << outputBoxStartY << ")"
              << "| Node height:" << nodeHeight << "| Required:" << requiredHeight
              << "for node" << m_id.toString(QUuid::WithoutBraces).left(8);
@@ -357,7 +358,7 @@ void Node::registerSocket(Socket* socket, int index)
         break;
     }
     
-    qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "socket" << index 
+    qCDebug(ngVerbose) << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) << "socket" << index 
              << (socket->getRole() == Socket::Input ? "IN" : "OUT");
 }
 
@@ -540,7 +541,7 @@ void Node::calculateNodeSize(int inputCount, int outputCount)
     // it BEFORE mutation; this second notify is redundant but harmless)
     prepareGeometryChange();
     
-    qDebug() << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
+    qCDebug(ngVerbose) << "Node" << m_id.toString(QUuid::WithoutBraces).left(8) 
              << "resized to" << m_width << "x" << m_height 
              << "for" << inputCount << "inputs," << outputCount << "outputs";
 }

@@ -10,6 +10,7 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QFile>
 #include <QSignalBlocker>
 #include <cmath>
@@ -21,7 +22,7 @@ GraphFactory::GraphFactory(Scene* scene, xmlDocPtr xmlDoc)
     : m_scene(scene)
     , m_xmlDocument(xmlDoc)
 {
-    qDebug() << "GraphFactory initialized with scene and XML document";
+    qCDebug(ngVerbose) << "GraphFactory initialized with scene and XML document";
 }
 
 Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode, bool addToScene)
@@ -66,7 +67,7 @@ Node* GraphFactory::createNodeFromXml(xmlNodePtr xmlNode, bool addToScene)
         m_scene->addNode(node);
     }
     
-    qDebug() << "GraphFactory: Created node from XML, type:" << nodeType 
+    qCDebug(ngVerbose) << "GraphFactory: Created node from XML, type:" << nodeType 
              << "id:" << node->getId().toString(QUuid::WithoutBraces).left(8);
     
     return node;
@@ -104,7 +105,7 @@ Edge* GraphFactory::createEdgeFromXml(xmlNodePtr xmlEdge, bool addToScene)
         m_scene->addEdge(edge);
     }
     
-    qDebug() << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
+    qCDebug(ngVerbose) << "GraphFactory: Created edge from XML, id:" << edgeId.left(8)
              << "from node:" << fromNode.left(8) << "socket" << fromIndex
              << "to node:" << toNode.left(8) << "socket" << toIndex;
     
@@ -118,7 +119,7 @@ Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position,
     timer.start();
     #endif
     
-    qDebug() << "GraphFactory::createNode - UNIFIED XML-FIRST CREATION for type:" << nodeType;
+    qCDebug(ngVerbose) << "GraphFactory::createNode - UNIFIED XML-FIRST CREATION for type:" << nodeType;
     
     // Generate XML specification from template system (ignores inputs/outputs params - template has correct config)
     QString xmlSpecification = NodeTypeTemplates::generateNodeXml(nodeType, position);
@@ -152,7 +153,7 @@ Node* GraphFactory::createNode(const QString& nodeType, const QPointF& position,
         #ifdef QT_DEBUG
         qint64 elapsed = timer.elapsed();
         int sockets = node->getSocketCount();
-        qDebug() << "createNode(type=" << nodeType << "):" << elapsed << "ms"
+        qCDebug(ngVerbose) << "createNode(type=" << nodeType << "):" << elapsed << "ms"
                  << "(uuid=" << node->getId().toString(QUuid::WithoutBraces).left(8) 
                  << "sockets=" << sockets << ")";
         #endif
@@ -191,7 +192,7 @@ Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode
         return nullptr;
     }
     
-    qDebug() << "GraphFactory: Created XML edge from node" << fromNode->getId().toString(QUuid::WithoutBraces).left(8) 
+    qCDebug(ngVerbose) << "GraphFactory: Created XML edge from node" << fromNode->getId().toString(QUuid::WithoutBraces).left(8) 
              << "socket" << fromSocketIndex << "to node" << toNode->getId().toString(QUuid::WithoutBraces).left(8)
              << "socket" << toSocketIndex;
     
@@ -200,7 +201,7 @@ Edge* GraphFactory::createEdge(Node* fromNode, int fromSocketIndex, Node* toNode
     if (edge) {
         // Immediately resolve connections for JavaScript-created edges
         if (m_scene && edge->resolveConnections(m_scene)) {
-            qDebug() << "GraphFactory: Edge connections resolved successfully";
+            qCDebug(ngVerbose) << "GraphFactory: Edge connections resolved successfully";
         } else {
             qWarning() << "GraphFactory: Failed to resolve edge connections";
         }
@@ -283,7 +284,7 @@ Edge* GraphFactory::connectSockets(Socket* fromSocket, Socket* toSocket)
     fromSocket->setConnectedEdge(edge);
     toSocket->setConnectedEdge(edge);
     
-    qDebug() << "GraphFactory: Atomically connected sockets" 
+    qCDebug(ngVerbose) << "GraphFactory: Atomically connected sockets" 
              << "index" << fromSocket->getIndex()
              << "to index" << toSocket->getIndex();
     
@@ -479,7 +480,7 @@ xmlNodePtr GraphFactory::createXmlNode(const QString& nodeType, const QPointF& p
     xmlSetProp(nodeElement, BAD_CAST "inputs", BAD_CAST QString::number(inputs).toUtf8().constData());
     xmlSetProp(nodeElement, BAD_CAST "outputs", BAD_CAST QString::number(outputs).toUtf8().constData());
     
-    qDebug() << "GraphFactory: Created XML node, type:" << nodeType << "id:" << nodeId.toString(QUuid::WithoutBraces).left(8)
+    qCDebug(ngVerbose) << "GraphFactory: Created XML node, type:" << nodeType << "id:" << nodeId.toString(QUuid::WithoutBraces).left(8)
              << "inputs:" << inputs << "outputs:" << outputs;
     
     return nodeElement;
@@ -504,7 +505,7 @@ xmlNodePtr GraphFactory::createXmlEdgeNodeIndex(const QUuid& fromNodeId, int fro
     xmlSetProp(edgeElement, BAD_CAST "fromSocketIndex", BAD_CAST QString::number(fromSocketIndex).toUtf8().constData());
     xmlSetProp(edgeElement, BAD_CAST "toSocketIndex", BAD_CAST QString::number(toSocketIndex).toUtf8().constData());
     
-    qDebug() << "GraphFactory: Created XML edge, id:" << edgeId.toString(QUuid::WithoutBraces).left(8)
+    qCDebug(ngVerbose) << "GraphFactory: Created XML edge, id:" << edgeId.toString(QUuid::WithoutBraces).left(8)
              << "from node:" << fromNodeId.toString(QUuid::WithoutBraces).left(8) << "socket" << fromSocketIndex
              << "to node:" << toNodeId.toString(QUuid::WithoutBraces).left(8) << "socket" << toSocketIndex;
     
@@ -620,7 +621,7 @@ bool GraphFactory::validateGraphIntegrity() const
     }
     
     if (valid) {
-        // qDebug() << "Graph integrity validation passed";
+        // qCDebug(ngVerbose) << "Graph integrity validation passed";
     }
     
     return valid;
@@ -640,7 +641,7 @@ Socket* GraphFactory::createSocket(Socket::Role role, Node* parentNode, int inde
         return nullptr;
     }
     
-    qDebug() << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
+    qCDebug(ngVerbose) << "GraphFactory: Created socket" << (role == Socket::Input ? "Input" : "Output") 
              << "index" << index << "for node" << parentNode->getId().toString(QUuid::WithoutBraces).left(8);
     
     return socket;

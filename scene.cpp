@@ -14,6 +14,7 @@
 // Static flag for clearing state
 bool Scene::s_clearingGraph = false;
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QTimer>
 #include <QGraphicsPathItem>
 #include <QApplication>
@@ -46,7 +47,7 @@ void Scene::addNode(Node* node)
     addItem(node);
     
     // Scene stats logging as suggested by ChatGPT analysis
-    qDebug() << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size() 
+    qCDebug(ngVerbose) << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size() 
              << "(added node" << node->getNodeType() << ")";
     
     // Notify observers of node addition
@@ -67,7 +68,7 @@ void Scene::addEdge(Edge* edge)
     addItem(edge);
     
     // Scene stats logging as suggested by ChatGPT analysis  
-    qDebug() << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size()
+    qCDebug(ngVerbose) << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size()
              << "(added edge" << edgeId.toString(QUuid::WithoutBraces).left(8) << ")";
     
     // Notify observers of edge addition
@@ -190,11 +191,11 @@ Socket* Scene::socketAt(const QPointF& scenePos) const
 
 void Scene::logSceneState(const QString& context) const
 {
-    qDebug() << "\n=== Scene State:" << context << "===";
+    qCDebug(ngVerbose) << "\n=== Scene State:" << context << "===";
     const QList<QGraphicsItem*> currentItems = items();
-    qDebug() << "QGraphicsScene items:" << currentItems.size();
-    qDebug() << "m_nodes hash size:" << m_nodes.size();
-    qDebug() << "m_edges hash size:" << m_edges.size();
+    qCDebug(ngVerbose) << "QGraphicsScene items:" << currentItems.size();
+    qCDebug(ngVerbose) << "m_nodes hash size:" << m_nodes.size();
+    qCDebug(ngVerbose) << "m_edges hash size:" << m_edges.size();
 
     int validNodes = 0;
     int invalidNodes = 0;
@@ -212,9 +213,9 @@ void Scene::logSceneState(const QString& context) const
             ++invalidNodes;
         }
     }
-    qDebug() << "Valid node pointers:" << validNodes;
-    qDebug() << "INVALID node pointers:" << invalidNodes;
-    qDebug() << "========================\n";
+    qCDebug(ngVerbose) << "Valid node pointers:" << validNodes;
+    qCDebug(ngVerbose) << "INVALID node pointers:" << invalidNodes;
+    qCDebug(ngVerbose) << "========================\n";
 }
 
 void Scene::notifyNodeDestroyed(Node* node)
@@ -225,11 +226,11 @@ void Scene::notifyNodeDestroyed(Node* node)
 
     const QUuid nodeId = node->getId();
     if (m_nodes.remove(nodeId) > 0) {
-        qDebug() << "Scene::notifyNodeDestroyed removed node"
+        qCDebug(ngVerbose) << "Scene::notifyNodeDestroyed removed node"
                  << nodeId.toString(QUuid::WithoutBraces).left(8)
                  << "- remaining nodes:" << m_nodes.size();
     } else {
-        qDebug() << "Scene::notifyNodeDestroyed - node"
+        qCDebug(ngVerbose) << "Scene::notifyNodeDestroyed - node"
                  << nodeId.toString(QUuid::WithoutBraces).left(8)
                  << "already absent from registry";
     }
@@ -243,11 +244,11 @@ void Scene::notifyEdgeDestroyed(Edge* edge)
 
     const QUuid edgeId = edge->getId();
     if (m_edges.remove(edgeId) > 0) {
-        qDebug() << "Scene::notifyEdgeDestroyed removed edge"
+        qCDebug(ngVerbose) << "Scene::notifyEdgeDestroyed removed edge"
                  << edgeId.toString(QUuid::WithoutBraces).left(8)
                  << "- remaining edges:" << m_edges.size();
     } else {
-        qDebug() << "Scene::notifyEdgeDestroyed - edge"
+        qCDebug(ngVerbose) << "Scene::notifyEdgeDestroyed - edge"
                  << edgeId.toString(QUuid::WithoutBraces).left(8)
                  << "already absent from registry";
     }
@@ -261,7 +262,7 @@ void Scene::deleteNode(const QUuid& nodeId)
         return;
     }
     
-    qDebug() << "Deleting node:" << nodeId.toString(QUuid::WithoutBraces).left(8);
+    qCDebug(ngVerbose) << "Deleting node:" << nodeId.toString(QUuid::WithoutBraces).left(8);
     
     // First, find and delete all edges connected to this node
     QList<QUuid> edgesToDelete;
@@ -289,7 +290,7 @@ void Scene::deleteNode(const QUuid& nodeId)
     // Emit signal for UI updates
     emit sceneChanged();
     
-    qDebug() << "Node deleted with" << edgesToDelete.size() << "connected edges - Observer notified";
+    qCDebug(ngVerbose) << "Node deleted with" << edgesToDelete.size() << "connected edges - Observer notified";
 }
 
 void Scene::deleteEdge(const QUuid& edgeId)
@@ -300,7 +301,7 @@ void Scene::deleteEdge(const QUuid& edgeId)
         return;
     }
     
-    qDebug() << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
+    qCDebug(ngVerbose) << "Deleting edge:" << edgeId.toString(QUuid::WithoutBraces).left(8);
 
     edge->detachSockets();
     
@@ -316,7 +317,7 @@ void Scene::deleteEdge(const QUuid& edgeId)
     // Emit signal for UI updates
     emit sceneChanged();
     
-    qDebug() << "Edge deleted - Observer notified";
+    qCDebug(ngVerbose) << "Edge deleted - Observer notified";
 }
 
 // DELETED: Scene::deleteSelected() method removed
@@ -332,10 +333,14 @@ void Scene::clear()
 
     ScopedClearing guard(s_clearingGraph);
 
-    qDebug() << "Scene::clear override - items:" << items().size()
+    qCDebug(ngVerbose) << "Scene::clear override - items:" << items().size()
              << "nodes:" << m_nodes.size()
              << "edges:" << m_edges.size();
-    logSceneState("Scene::clear (before QGraphicsScene::clear)");
+    // logSceneState() does an O(items x nodes) validity scan; skip the work
+    // entirely (not just the output) unless verbose diagnostics are on.
+    if (ngVerbose().isDebugEnabled()) {
+        logSceneState("Scene::clear (before QGraphicsScene::clear)");
+    }
 
     QGraphicsScene::clear();
 
@@ -350,13 +355,15 @@ void Scene::clear()
     notifyGraphCleared();
     emit sceneChanged();
 
-    logSceneState("Scene::clear (after QGraphicsScene::clear)");
-    qDebug() << "Scene::clear complete - registries synced";
+    if (ngVerbose().isDebugEnabled()) {
+        logSceneState("Scene::clear (after QGraphicsScene::clear)");
+    }
+    qCDebug(ngVerbose) << "Scene::clear complete - registries synced";
 }
 
 void Scene::clearGraph()
 {
-    qDebug() << "Scene::clearGraph requested";
+    qCDebug(ngVerbose) << "Scene::clearGraph requested";
     clear();
 }
 
@@ -367,11 +374,11 @@ void Scene::clearGraph()
 void Scene::prepareForShutdown()
 {
     if (m_shutdownInProgress) {
-        qDebug() << "SHUTDOWN: Already in progress, skipping";
+        qCDebug(ngVerbose) << "SHUTDOWN: Already in progress, skipping";
         return;
     }
     
-    qDebug() << "PHASE1: Shutdown preparation -" << m_edges.size() << "edges," << m_nodes.size() << "nodes";
+    qCDebug(ngVerbose) << "PHASE1: Shutdown preparation -" << m_edges.size() << "edges," << m_nodes.size() << "nodes";
     m_shutdownInProgress = true;
     clearGraph();
 }
@@ -404,7 +411,7 @@ void Scene::startGhostEdge(Socket* fromSocket, const QPointF& startPos)
     
     updateGhostEdge(startPos);
     
-    qDebug() << "GHOST: Started from socket" << fromSocket->getIndex() 
+    qCDebug(ngVerbose) << "GHOST: Started from socket" << fromSocket->getIndex() 
              << "(" << (fromSocket->getRole() == Socket::Input ? "Input" : "Output") << ")";
 }
 
@@ -497,7 +504,7 @@ void Scene::finishGhostEdge(Socket* toSocket)
         }
 
         if (bestSocket) {
-            qDebug() << "GHOST: Magnet snapped to input socket"
+            qCDebug(ngVerbose) << "GHOST: Magnet snapped to input socket"
                      << bestSocket->getParentNode()->getId().toString(QUuid::WithoutBraces).left(8)
                      << "index" << bestSocket->getIndex();
             resolvedTarget = bestSocket;
@@ -505,7 +512,7 @@ void Scene::finishGhostEdge(Socket* toSocket)
     }
 
     if (m_ghostFromSocket && resolvedTarget) {
-        qDebug() << "GHOST: Attempting connection from role"
+        qCDebug(ngVerbose) << "GHOST: Attempting connection from role"
                  << (m_ghostFromSocket->getRole() == Socket::Output ? "Output" : "Input")
                  << "to role"
                  << (resolvedTarget->getRole() == Socket::Output ? "Output" : "Input");
@@ -525,7 +532,7 @@ void Scene::finishGhostEdge(Socket* toSocket)
             Node* fromNode = m_ghostFromSocket->getParentNode();
             Node* toNode = resolvedTarget->getParentNode();
             if (fromNode && toNode) {
-                qDebug() << "GHOST: Requesting connection"
+                qCDebug(ngVerbose) << "GHOST: Requesting connection"
                          << fromNode->getId().toString(QUuid::WithoutBraces).left(8)
                          << ":" << m_ghostFromSocket->getIndex()
                          << "->"
@@ -535,7 +542,7 @@ void Scene::finishGhostEdge(Socket* toSocket)
                                          toNode->getId(), resolvedTarget->getIndex());
             }
         } else {
-            qDebug() << "GHOST: Invalid connection - wrong socket roles";
+            qCDebug(ngVerbose) << "GHOST: Invalid connection - wrong socket roles";
         }
     }
     
@@ -563,7 +570,7 @@ void Scene::cancelGhostEdge()
     m_ghostFromSocket = nullptr;
     m_ghostEdgeActive = false;
     
-    qDebug() << "GHOST: Cancelled";
+    qCDebug(ngVerbose) << "GHOST: Cancelled";
 }
 
 QPen Scene::ghostPen() const

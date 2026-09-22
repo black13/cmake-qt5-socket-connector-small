@@ -11,6 +11,7 @@
 #include "qjs_script_backend.h"
 #include "duktape_script_backend.h"
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QFile>
 #include <QGraphicsItem>
 #include <QTextStream>
@@ -79,6 +80,8 @@ Graph::~Graph()
 
 void Graph::jsLog(const QString& message)
 {
+    // Script output (console.log) is user-facing; keep it on the default
+    // category instead of the opt-in verbose one.
     qDebug() << "[JS]" << message;
 }
 
@@ -115,7 +118,7 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
         return QString();
     }
 
-    qDebug() << "Graph::createNode:" << type << "at" << x << "," << y;
+    qCDebug(ngVerbose) << "Graph::createNode:" << type << "at" << x << "," << y;
 
     try {
         // Use factory to create node
@@ -123,7 +126,7 @@ QString Graph::createNode(const QString& type, qreal x, qreal y)
         if (node) {
             QString uuid = node->getId().toString();
             emit nodeCreated(uuid);
-            qDebug() << "Graph::createNode: Created node" << uuid;
+            qCDebug(ngVerbose) << "Graph::createNode: Created node" << uuid;
             return uuid;
         }
     } catch (const std::exception& e) {
@@ -152,7 +155,7 @@ bool Graph::deleteNode(const QString& nodeId)
         return false;
     }
 
-    qDebug() << "Graph::deleteNode:" << nodeId;
+    qCDebug(ngVerbose) << "Graph::deleteNode:" << nodeId;
 
     try {
         QUuid uuid = parseUuid(nodeId);
@@ -303,7 +306,7 @@ QString Graph::connectNodes(const QString& fromNodeId, int fromSocketIndex,
         return QString();
     }
 
-    qDebug() << "Graph::connectNodes:" << fromNodeId << "[" << fromSocketIndex << "] ->"
+    qCDebug(ngVerbose) << "Graph::connectNodes:" << fromNodeId << "[" << fromSocketIndex << "] ->"
              << toNodeId << "[" << toSocketIndex << "]";
 
     try {
@@ -332,7 +335,7 @@ QString Graph::connectNodes(const QString& fromNodeId, int fromSocketIndex,
         if (edge) {
             QString edgeId = edge->getId().toString();
             emit edgeCreated(edgeId);
-            qDebug() << "Graph::connectNodes: Created edge" << edgeId;
+            qCDebug(ngVerbose) << "Graph::connectNodes: Created edge" << edgeId;
             return edgeId;
         }
     } catch (const std::exception& e) {
@@ -352,7 +355,7 @@ bool Graph::deleteEdge(const QString& edgeId)
         return false;
     }
 
-    qDebug() << "Graph::deleteEdge:" << edgeId;
+    qCDebug(ngVerbose) << "Graph::deleteEdge:" << edgeId;
 
     try {
         QUuid uuid = parseUuid(edgeId);

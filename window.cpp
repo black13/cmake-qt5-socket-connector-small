@@ -13,6 +13,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QAction>
@@ -726,7 +727,7 @@ void Window::updateStatusBar()
     QVariantMap stats = m_graph->getGraphStats();
     int nodeCount = stats["nodeCount"].toInt();
     int edgeCount = stats["edgeCount"].toInt();
-    qDebug() << "[FACADE-TEST] updateStatusBar: getGraphStats() returned nodes=" << nodeCount << ", edges=" << edgeCount;
+    qCDebug(ngVerbose) << "[FACADE-TEST] updateStatusBar: getGraphStats() returned nodes=" << nodeCount << ", edges=" << edgeCount;
     m_graphStatsLabel->setText(QString("Nodes: %1 | Edges: %2").arg(nodeCount).arg(edgeCount));
     
     // Update file info

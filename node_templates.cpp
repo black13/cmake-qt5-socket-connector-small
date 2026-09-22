@@ -1,5 +1,6 @@
 #include "node_templates.h"
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QXmlStreamWriter>
 #include <QXmlStreamReader>
 
@@ -9,12 +10,12 @@ bool NodeTypeTemplates::s_initialized = false;
 
 QString NodeTypeTemplates::getTemplate(const QString& nodeType)
 {
-    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Getting template for node type:" << nodeType;
+    qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: Getting template for node type:" << nodeType;
     ensureInitialized();
     
     // Check registered templates first (allows overriding built-ins)
     if (s_registeredTemplates.contains(nodeType)) {
-        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Using registered template for" << nodeType;
+        qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: Using registered template for" << nodeType;
         return s_registeredTemplates.value(nodeType);
     }
     
@@ -22,9 +23,9 @@ QString NodeTypeTemplates::getTemplate(const QString& nodeType)
     QHash<QString, QString> builtins = getBuiltinTemplates();
     QString result = builtins.value(nodeType);
     if (!result.isEmpty()) {
-        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Using built-in template for" << nodeType;
+        qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: Using built-in template for" << nodeType;
     } else {
-        qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: No template found for" << nodeType;
+        qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: No template found for" << nodeType;
     }
     return result;
 }
@@ -34,7 +35,7 @@ QString NodeTypeTemplates::generateNodeXml(const QString& nodeType,
                                           const QVariantMap& parameters,
                                           const QUuid& nodeId)
 {
-    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Generating XML for" << nodeType << "at position" << position;
+    qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: Generating XML for" << nodeType << "at position" << position;
     
     QString xmlTemplate = getTemplate(nodeType);
     if (xmlTemplate.isEmpty()) {
@@ -44,11 +45,11 @@ QString NodeTypeTemplates::generateNodeXml(const QString& nodeType,
     
     // Generate UUID if not provided
     QUuid actualId = nodeId.isNull() ? QUuid::createUuid() : nodeId;
-    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Using UUID" << actualId.toString(QUuid::WithoutBraces);
+    qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: Using UUID" << actualId.toString(QUuid::WithoutBraces);
     
     // Inject dynamic values into template
     QString result = injectDynamicValues(xmlTemplate, position, actualId, parameters);
-    qDebug() << __FUNCTION__ << "- TEMPLATE SYSTEM: Generated XML node successfully";
+    qCDebug(ngVerbose) << __FUNCTION__ << "- TEMPLATE SYSTEM: Generated XML node successfully";
     return result;
 }
 
@@ -62,7 +63,7 @@ void NodeTypeTemplates::registerTemplate(const QString& nodeType, const QString&
     }
     
     s_registeredTemplates[nodeType] = xmlTemplate;
-    qDebug() << "NodeTypeTemplates: Registered template for type:" << nodeType;
+    qCDebug(ngVerbose) << "NodeTypeTemplates: Registered template for type:" << nodeType;
 }
 
 QStringList NodeTypeTemplates::getAvailableTypes()
@@ -102,7 +103,7 @@ void NodeTypeTemplates::unregisterTemplate(const QString& nodeType)
     ensureInitialized();
     
     if (s_registeredTemplates.remove(nodeType) > 0) {
-        qDebug() << "NodeTypeTemplates: Unregistered template for type:" << nodeType;
+        qCDebug(ngVerbose) << "NodeTypeTemplates: Unregistered template for type:" << nodeType;
     } else {
         qWarning() << "NodeTypeTemplates::unregisterTemplate - Type not found:" << nodeType;
     }
@@ -114,14 +115,14 @@ void NodeTypeTemplates::clearRegisteredTemplates()
     
     int count = s_registeredTemplates.size();
     s_registeredTemplates.clear();
-    qDebug() << "NodeTypeTemplates: Cleared" << count << "registered templates";
+    qCDebug(ngVerbose) << "NodeTypeTemplates: Cleared" << count << "registered templates";
 }
 
 QString NodeTypeTemplates::registerFromJavaScript(const QString& jsDefinition)
 {
     // Future implementation - placeholder for scriptable system
     Q_UNUSED(jsDefinition);
-    qDebug() << "NodeTypeTemplates::registerFromJavaScript - Future feature placeholder";
+    qCDebug(ngVerbose) << "NodeTypeTemplates::registerFromJavaScript - Future feature placeholder";
     return QString();
 }
 
@@ -129,7 +130,7 @@ int NodeTypeTemplates::loadFromFile(const QString& templateFilePath)
 {
     // Future implementation - placeholder for plugin system
     Q_UNUSED(templateFilePath);
-    qDebug() << "NodeTypeTemplates::loadFromFile - Future feature placeholder";
+    qCDebug(ngVerbose) << "NodeTypeTemplates::loadFromFile - Future feature placeholder";
     return 0;
 }
 
@@ -226,7 +227,7 @@ QString NodeTypeTemplates::injectDynamicValues(const QString& xmlTemplate,
         result.replace(placeholder, it.value().toString());
     }
     
-    qDebug() << "NodeTypeTemplates: Generated XML:" << result;
+    qCDebug(ngVerbose) << "NodeTypeTemplates: Generated XML:" << result;
     return result;
 }
 
@@ -234,7 +235,7 @@ void NodeTypeTemplates::ensureInitialized()
 {
     if (!s_initialized) {
         // Future: Load templates from config files, plugins, etc.
-        qDebug() << "NodeTypeTemplates: System initialized with" 
+        qCDebug(ngVerbose) << "NodeTypeTemplates: System initialized with" 
                  << getBuiltinTemplates().size() << "built-in templates";
         s_initialized = true;
     }

@@ -2,6 +2,7 @@
 #include <QFont>
 #include <QIcon>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <QScrollArea>
 #include <QGridLayout>
 #include <QPainter>
@@ -142,7 +143,7 @@ void NodePaletteWidget::setupUI()
 
 void NodePaletteWidget::populateNodeTemplates()
 {
-    qDebug() << "NodePalette: Starting population of 5 node templates";
+    qCDebug(ngVerbose) << "NodePalette: Starting population of 5 node templates";
     
     // 1. One Source (0 inputs, 1 output)
     NodeTemplate sourceNode;
@@ -152,7 +153,7 @@ void NodePaletteWidget::populateNodeTemplates()
     sourceNode.iconPath = "";
     sourceNode.inputSockets = 0;
     sourceNode.outputSockets = 1;
-    qDebug() << "NodePalette: Adding SOURCE node template - inputs:" << sourceNode.inputSockets << "outputs:" << sourceNode.outputSockets;
+    qCDebug(ngVerbose) << "NodePalette: Adding SOURCE node template - inputs:" << sourceNode.inputSockets << "outputs:" << sourceNode.outputSockets;
     addNodeTemplate(sourceNode);
     
     // 2. One Sink (1 input, 0 outputs)
@@ -163,7 +164,7 @@ void NodePaletteWidget::populateNodeTemplates()
     sinkNode.iconPath = "";
     sinkNode.inputSockets = 1;
     sinkNode.outputSockets = 0;
-    qDebug() << "NodePalette: Adding SINK node template - inputs:" << sinkNode.inputSockets << "outputs:" << sinkNode.outputSockets;
+    qCDebug(ngVerbose) << "NodePalette: Adding SINK node template - inputs:" << sinkNode.inputSockets << "outputs:" << sinkNode.outputSockets;
     addNodeTemplate(sinkNode);
     
     // 3. One Sink + One Source (1 input, 1 output)
@@ -174,7 +175,7 @@ void NodePaletteWidget::populateNodeTemplates()
     transformNode.iconPath = "";
     transformNode.inputSockets = 1;
     transformNode.outputSockets = 1;
-    qDebug() << "NodePalette: Adding TRANSFORM node template - inputs:" << transformNode.inputSockets << "outputs:" << transformNode.outputSockets;
+    qCDebug(ngVerbose) << "NodePalette: Adding TRANSFORM node template - inputs:" << transformNode.inputSockets << "outputs:" << transformNode.outputSockets;
     addNodeTemplate(transformNode);
     
     // 4. Two Sinks + One Source (2 inputs, 1 output)
@@ -185,7 +186,7 @@ void NodePaletteWidget::populateNodeTemplates()
     mergeNode.iconPath = "";
     mergeNode.inputSockets = 2;
     mergeNode.outputSockets = 1;
-    qDebug() << "NodePalette: Adding MERGE node template - inputs:" << mergeNode.inputSockets << "outputs:" << mergeNode.outputSockets;
+    qCDebug(ngVerbose) << "NodePalette: Adding MERGE node template - inputs:" << mergeNode.inputSockets << "outputs:" << mergeNode.outputSockets;
     addNodeTemplate(mergeNode);
     
     // 5. One Sink + Two Sources (1 input, 2 outputs)
@@ -196,33 +197,33 @@ void NodePaletteWidget::populateNodeTemplates()
     splitNode.iconPath = "";
     splitNode.inputSockets = 1;
     splitNode.outputSockets = 2;
-    qDebug() << "NodePalette: Adding SPLIT node template - inputs:" << splitNode.inputSockets << "outputs:" << splitNode.outputSockets;
+    qCDebug(ngVerbose) << "NodePalette: Adding SPLIT node template - inputs:" << splitNode.inputSockets << "outputs:" << splitNode.outputSockets;
     addNodeTemplate(splitNode);
     
-    // qDebug() << "NodePalette: Populated with" << m_nodeTemplates.size() << "templates";
+    // qCDebug(ngVerbose) << "NodePalette: Populated with" << m_nodeTemplates.size() << "templates";
 }
 
 void NodePaletteWidget::addNodeTemplate(const NodeTemplate& nodeTemplate)
 {
-    qDebug() << "NodePalette: Adding template to internal list -" << nodeTemplate.name << "(" << nodeTemplate.type << ")";
+    qCDebug(ngVerbose) << "NodePalette: Adding template to internal list -" << nodeTemplate.name << "(" << nodeTemplate.type << ")";
     m_nodeTemplates.append(nodeTemplate);
     
     // Create icon button for this node type
-    qDebug() << "NodePalette: Creating NodeButton for" << nodeTemplate.name;
+    qCDebug(ngVerbose) << "NodePalette: Creating NodeButton for" << nodeTemplate.name;
     NodeButton* button = new NodeButton(nodeTemplate, m_scrollContent);
     m_nodeButtons.append(button);
     
     // Connect button to our slot
-    qDebug() << "NodePalette: Connecting button signals for" << nodeTemplate.name;
+    qCDebug(ngVerbose) << "NodePalette: Connecting button signals for" << nodeTemplate.name;
     connect(button, &QToolButton::clicked, this, &NodePaletteWidget::onNodeButtonClicked);
     
     // Add to grid layout (2 columns) - proper grid arrangement
     int buttonIndex = m_nodeButtons.size() - 1; // Current button index (0-based)
     int row = buttonIndex / 2; // Integer division for row
     int col = buttonIndex % 2; // Remainder for column (0 or 1)
-    qDebug() << "NodePalette: Adding button" << (buttonIndex + 1) << "to grid layout at row" << row << "col" << col;
+    qCDebug(ngVerbose) << "NodePalette: Adding button" << (buttonIndex + 1) << "to grid layout at row" << row << "col" << col;
     m_gridLayout->addWidget(button, row, col);
-    // qDebug() << "NodePalette: Added" << nodeTemplate.name << "button";
+    // qCDebug(ngVerbose) << "NodePalette: Added" << nodeTemplate.name << "button";
 }
 
 void NodePaletteWidget::filterChanged(const QString& text)
@@ -237,7 +238,7 @@ void NodePaletteWidget::onNodeButtonClicked()
     if (!button) return;
     
     NodeTemplate nodeTemplate = button->getNodeTemplate();
-    qDebug() << "Node palette: Creating node" << nodeTemplate.name << "via button click";
+    qCDebug(ngVerbose) << "Node palette: Creating node" << nodeTemplate.name << "via button click";
     emit nodeCreationRequested(nodeTemplate);
 }
 
@@ -257,8 +258,8 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     : QToolButton(parent)
     , m_nodeTemplate(nodeTemplate)
 {
-    qDebug() << "NodeButton: Creating button for" << nodeTemplate.name << "type:" << nodeTemplate.type;
-    qDebug() << "NodeButton: Socket configuration - inputs:" << nodeTemplate.inputSockets << "outputs:" << nodeTemplate.outputSockets;
+    qCDebug(ngVerbose) << "NodeButton: Creating button for" << nodeTemplate.name << "type:" << nodeTemplate.type;
+    qCDebug(ngVerbose) << "NodeButton: Socket configuration - inputs:" << nodeTemplate.inputSockets << "outputs:" << nodeTemplate.outputSockets;
     
     setFixedSize(80, 80);
     setToolTip(QString("%1\n%2\nInputs: %3, Outputs: %4\n\nDrag to create or double-click")
@@ -268,7 +269,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
                .arg(nodeTemplate.outputSockets));
     
     // Create custom icon based on node type
-    qDebug() << "NodeButton: Creating custom icon for" << nodeTemplate.name;
+    qCDebug(ngVerbose) << "NodeButton: Creating custom icon for" << nodeTemplate.name;
     QIcon icon = NodeButton::createNodeIcon(nodeTemplate);
     setIcon(icon);
     setIconSize(QSize(48, 48));
@@ -282,7 +283,7 @@ NodePaletteWidget::NodeButton::NodeButton(const NodeTemplate& nodeTemplate, QWid
     
     // Enable drag support
     setAcceptDrops(false); // This is a drag source, not a drop target
-    // qDebug() << "NodeButton: Created for" << nodeTemplate.name;
+    // qCDebug(ngVerbose) << "NodeButton: Created for" << nodeTemplate.name;
 }
 
 bool NodePaletteWidget::NodeButton::matchesFilter(const QString& filter) const
@@ -403,7 +404,7 @@ QIcon NodePaletteWidget::NodeButton::createNodeIcon(const NodeTemplate& nodeTemp
 void NodePaletteWidget::NodeButton::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {
-        qDebug() << "NodeButton: Mouse press detected on" << m_nodeTemplate.name << "at position:" << event->pos();
+        qCDebug(ngVerbose) << "NodeButton: Mouse press detected on" << m_nodeTemplate.name << "at position:" << event->pos();
         m_dragStartPosition = event->pos();
     }
     QToolButton::mousePressEvent(event);
@@ -418,13 +419,13 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     
     qreal distance = (event->pos() - m_dragStartPosition).manhattanLength();
     if (distance < QApplication::startDragDistance()) {
-        qDebug() << "NodeButton: Mouse moved but distance" << distance << "< drag threshold" << QApplication::startDragDistance();
+        qCDebug(ngVerbose) << "NodeButton: Mouse moved but distance" << distance << "< drag threshold" << QApplication::startDragDistance();
         QToolButton::mouseMoveEvent(event);
         return;
     }
     
-    qDebug() << "NodeButton: Starting drag operation for" << m_nodeTemplate.name;
-    qDebug() << "NodeButton: Template data - type:" << m_nodeTemplate.type << "inputs:" << m_nodeTemplate.inputSockets << "outputs:" << m_nodeTemplate.outputSockets;
+    qCDebug(ngVerbose) << "NodeButton: Starting drag operation for" << m_nodeTemplate.name;
+    qCDebug(ngVerbose) << "NodeButton: Template data - type:" << m_nodeTemplate.type << "inputs:" << m_nodeTemplate.inputSockets << "outputs:" << m_nodeTemplate.outputSockets;
     
     // Start drag operation
     QDrag* drag = new QDrag(this);
@@ -438,13 +439,13 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
                         .arg(m_nodeTemplate.inputSockets)
                         .arg(m_nodeTemplate.outputSockets);
     
-    qDebug() << "NodeButton: Encoding mime data:" << mimeString;
+    qCDebug(ngVerbose) << "NodeButton: Encoding mime data:" << mimeString;
     mimeData->setData("application/x-node-template", mimeString.toUtf8());
     
     // Create drag pixmap from the button's icon
     QPixmap dragPixmap = icon().pixmap(48, 48);
     if (dragPixmap.isNull()) {
-        qDebug() << "NodeButton: Warning - icon pixmap is null, creating fallback";
+        qCDebug(ngVerbose) << "NodeButton: Warning - icon pixmap is null, creating fallback";
         dragPixmap = QPixmap(48, 48);
         dragPixmap.fill(Qt::gray);
     }
@@ -461,7 +462,7 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     drag->setPixmap(transparentPixmap);
     drag->setHotSpot(QPoint(24, 24)); // Center of the icon
     
-    qDebug() << "NodeButton: Executing drag operation for" << m_nodeTemplate.name;
+    qCDebug(ngVerbose) << "NodeButton: Executing drag operation for" << m_nodeTemplate.name;
     
     // Execute the drag
     Qt::DropAction dropAction = drag->exec(Qt::CopyAction);
@@ -471,9 +472,9 @@ void NodePaletteWidget::NodeButton::mouseMoveEvent(QMouseEvent* event)
     setDown(false);
 
     if (dropAction == Qt::CopyAction) {
-        qDebug() << "NodeButton: Drag completed for" << m_nodeTemplate.name;
+        qCDebug(ngVerbose) << "NodeButton: Drag completed for" << m_nodeTemplate.name;
     } else {
-        // qDebug() << "NodeButton: Drag cancelled for" << m_nodeTemplate.name;
+        // qCDebug(ngVerbose) << "NodeButton: Drag cancelled for" << m_nodeTemplate.name;
     }
 }
 

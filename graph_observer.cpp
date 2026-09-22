@@ -2,6 +2,7 @@
 #include "node.h"
 #include "edge.h"
 #include <QDebug>
+#include "nodegraph_logging.h"
 
 // ============================================================================
 // GraphObserver Implementation
@@ -53,7 +54,7 @@ GraphSubject::~GraphSubject()
     // Unregister ourselves from every observer's subject list, so their
     // self-detach (GraphObserver::~GraphObserver) never calls back into this
     // destroyed subject. (The old code only nulled a local pointer - fixed.)
-    qDebug() << "GraphSubject: Destroying subject with" << m_observers.size() << "observers";
+    qCDebug(ngVerbose) << "GraphSubject: Destroying subject with" << m_observers.size() << "observers";
     
     for (GraphObserver* observer : m_observers) {
         if (observer) {
@@ -62,7 +63,7 @@ GraphSubject::~GraphSubject()
     }
     m_observers.clear();
     
-    qDebug() << "GraphSubject: Observer container cleared safely";
+    qCDebug(ngVerbose) << "GraphSubject: Observer container cleared safely";
 }
 
 void GraphSubject::attach(GraphObserver* observer)
@@ -70,7 +71,7 @@ void GraphSubject::attach(GraphObserver* observer)
     if (observer) {
         m_observers.insert(observer);
         observer->addSubject(this);
-        qDebug() << "GraphSubject: Observer attached, total observers:" << m_observers.size();
+        qCDebug(ngVerbose) << "GraphSubject: Observer attached, total observers:" << m_observers.size();
     }
 }
 
@@ -78,7 +79,7 @@ void GraphSubject::detach(GraphObserver* observer)
 {
     if (observer && m_observers.remove(observer)) {
         observer->removeSubject(this);
-        qDebug() << "GraphSubject: Observer detached, remaining observers:" << m_observers.size();
+        qCDebug(ngVerbose) << "GraphSubject: Observer detached, remaining observers:" << m_observers.size();
     }
 }
 
@@ -87,7 +88,7 @@ void GraphSubject::notifyNodeAdded(const Node& node)
     // OPTIMIZATION: Skip notifications during batch operations
     if (isInBatch()) return;
     
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node added:" 
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of node added:" 
              << node.getId().toString(QUuid::WithoutBraces).left(8);
     
     // Iterate a copy: observers may detach or be destroyed inside callbacks
@@ -104,7 +105,7 @@ void GraphSubject::notifyNodeRemoved(const QUuid& nodeId)
     // OPTIMIZATION: Skip notifications during batch operations
     if (isInBatch()) return;
     
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node removed:" 
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of node removed:" 
              << nodeId.toString(QUuid::WithoutBraces).left(8);
     
     const auto observers = m_observers;
@@ -120,7 +121,7 @@ void GraphSubject::notifyNodeMoved(const QUuid& nodeId, QPointF oldPos, QPointF 
     // OPTIMIZATION: Skip notifications during batch operations
     if (isInBatch()) return;
     
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of node moved:" 
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of node moved:" 
              << nodeId.toString(QUuid::WithoutBraces).left(8) << "from" << oldPos << "to" << newPos;
     
     const auto observers = m_observers;
@@ -136,7 +137,7 @@ void GraphSubject::notifyEdgeAdded(const Edge& edge)
     // OPTIMIZATION: Skip notifications during batch operations
     if (isInBatch()) return;
     
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of edge added:" 
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of edge added:" 
              << edge.getId().toString(QUuid::WithoutBraces).left(8);
     
     const auto observers = m_observers;
@@ -152,7 +153,7 @@ void GraphSubject::notifyEdgeRemoved(const QUuid& edgeId)
     // OPTIMIZATION: Skip notifications during batch operations
     if (isInBatch()) return;
     
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of edge removed:" 
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of edge removed:" 
              << edgeId.toString(QUuid::WithoutBraces).left(8);
     
     const auto observers = m_observers;
@@ -165,7 +166,7 @@ void GraphSubject::notifyEdgeRemoved(const QUuid& edgeId)
 
 void GraphSubject::notifyGraphCleared()
 {
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of graph cleared";
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of graph cleared";
     
     const auto observers = m_observers;
     for (GraphObserver* observer : observers) {
@@ -177,7 +178,7 @@ void GraphSubject::notifyGraphCleared()
 
 void GraphSubject::notifyGraphLoaded(const QString& filename)
 {
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of graph loaded:" << filename;
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of graph loaded:" << filename;
     
     const auto observers = m_observers;
     for (GraphObserver* observer : observers) {
@@ -189,7 +190,7 @@ void GraphSubject::notifyGraphLoaded(const QString& filename)
 
 void GraphSubject::notifyGraphSaved(const QString& filename)
 {
-    qDebug() << "GraphSubject: Notifying" << m_observers.size() << "observers of graph saved:" << filename;
+    qCDebug(ngVerbose) << "GraphSubject: Notifying" << m_observers.size() << "observers of graph saved:" << filename;
     
     const auto observers = m_observers;
     for (GraphObserver* observer : observers) {
@@ -206,19 +207,19 @@ void GraphSubject::notifyGraphSaved(const QString& filename)
 void GraphSubject::beginBatch()
 {
     ++s_batchDepth;
-    qDebug() << "GraphSubject: Begin batch mode (depth:" << s_batchDepth << ")";
+    qCDebug(ngVerbose) << "GraphSubject: Begin batch mode (depth:" << s_batchDepth << ")";
 }
 
 void GraphSubject::endBatch()
 {
     if (s_batchDepth > 0) {
         --s_batchDepth;
-        qDebug() << "GraphSubject: End batch mode (depth:" << s_batchDepth << ")";
+        qCDebug(ngVerbose) << "GraphSubject: End batch mode (depth:" << s_batchDepth << ")";
         
         if (s_batchDepth == 0) {
             // End-of-batch flush: mutations inside the batch were muted, so
             // give every subject's observers a single catch-up notification.
-            qDebug() << "GraphSubject: Batch complete - flushing observers";
+            qCDebug(ngVerbose) << "GraphSubject: Batch complete - flushing observers";
             const auto subjects = s_subjects; // copy: callbacks may reenter
             for (GraphSubject* subject : subjects) {
                 if (subject) {

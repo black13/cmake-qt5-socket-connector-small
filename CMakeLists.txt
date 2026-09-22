@@ -251,6 +251,10 @@ set(CORE_SOURCES
     ghost_edge.cpp
     synthetic_work.h
     synthetic_work.cpp
+
+    # Opt-in verbose logging category (default off; see nodegraph_logging.h)
+    nodegraph_logging.h
+    nodegraph_logging.cpp
     
     
     # XML-first factory

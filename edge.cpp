@@ -6,6 +6,7 @@
 #include <QStyleOptionGraphicsItem>
 #include <QWidget>
 #include <QDebug>
+#include "nodegraph_logging.h"
 #include <libxml/tree.h>
 #include <cmath>
 
@@ -41,7 +42,7 @@ Edge::Edge(const QUuid& id, const QUuid& fromSocketId, const QUuid& toSocketId)
     setZValue(2);
     
     ++s_instanceCount;
-    qDebug() << "Edge created. Total instances:" << s_instanceCount
+    qCDebug(ngVerbose) << "Edge created. Total instances:" << s_instanceCount
              << "Destroyed:" << s_destroyedCount;
     // Don't call updatePath() here - sockets not resolved yet
 }
@@ -53,9 +54,9 @@ Edge::~Edge()
     }
 
     ++s_destroyedCount;
-    qDebug() << "Edge destroyed:" << m_id.toString()
+    qCDebug(ngVerbose) << "Edge destroyed:" << m_id.toString()
              << "Remaining:" << (s_instanceCount - s_destroyedCount);
-    qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+    qCDebug(ngVerbose) << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
              << "start cleanup";
 
     // Socket destruction already invalidates these pointers. Detach even
@@ -70,7 +71,7 @@ Edge::~Edge()
         m_toNode->unregisterEdge(this);
     }
     
-    qDebug() << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
+    qCDebug(ngVerbose) << "~Edge" << m_id.toString(QUuid::WithoutBraces).left(8);
 }
 
 void Edge::invalidateNode(const Node* node)
@@ -220,7 +221,7 @@ QPainterPath Edge::shape() const
     // Per-edge counter avoids thread safety issues with global static
     ++m_shapeCallCount;
     if (m_shapeCallCount % 100 == 0) {  // Throttled logging to avoid spam
-        qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
+        qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) 
                  << "shape() called" << m_shapeCallCount << "times";
     }
     #endif
@@ -233,14 +234,14 @@ QPainterPath Edge::shape() const
 void Edge::detachSockets()
 {
     if (m_fromSocket) {
-        qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+        qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
                  << "detachSockets: clearing fromSocket index" << m_fromSocket->getIndex();
         m_fromSocket->setConnectedEdge(nullptr);
         m_fromSocket = nullptr;
     }
 
     if (m_toSocket) {
-        qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
+        qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
                  << "detachSockets: clearing toSocket index" << m_toSocket->getIndex();
         m_toSocket->setConnectedEdge(nullptr);
         m_toSocket = nullptr;
@@ -252,7 +253,7 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged) {
         // Take keyboard focus when selected for delete key handling
         if (value.toBool()) {
-            qDebug() << "Edge selected"
+            qCDebug(ngVerbose) << "Edge selected"
                      << m_id.toString(QUuid::WithoutBraces).left(8);
             setFocus(Qt::MouseFocusReason);
 
@@ -260,7 +261,7 @@ QVariant Edge::itemChange(GraphicsItemChange change, const QVariant &value)
             // Makes it easy to see which edge is selected in dense node graphs
             setZValue(10);  // Above all normal edges
         } else {
-            qDebug() << "Edge deselected"
+            qCDebug(ngVerbose) << "Edge deselected"
                      << m_id.toString(QUuid::WithoutBraces).left(8);
 
             // Restore normal edge z-order when deselected
@@ -283,35 +284,35 @@ void Edge::keyPressEvent(QKeyEvent* event)
 void Edge::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     #ifdef QT_DEBUG
-    qDebug() << "=== EDGE MOUSE PRESS START ===";
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mousePressEvent at" << event->pos();
-    qDebug() << "Edge was selected BEFORE mouse press:" << isSelected();
-    qDebug() << "Mouse button:" << (event->button() == Qt::LeftButton ? "LEFT" : "OTHER");
-    qDebug() << "Modifiers:" << event->modifiers();
+    qCDebug(ngVerbose) << "=== EDGE MOUSE PRESS START ===";
+    qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mousePressEvent at" << event->pos();
+    qCDebug(ngVerbose) << "Edge was selected BEFORE mouse press:" << isSelected();
+    qCDebug(ngVerbose) << "Mouse button:" << (event->button() == Qt::LeftButton ? "LEFT" : "OTHER");
+    qCDebug(ngVerbose) << "Modifiers:" << event->modifiers();
     #endif
     
     QGraphicsItem::mousePressEvent(event);
     
     #ifdef QT_DEBUG
-    qDebug() << "Edge is selected AFTER mouse press:" << isSelected();
-    qDebug() << "=== EDGE MOUSE PRESS END ===";
+    qCDebug(ngVerbose) << "Edge is selected AFTER mouse press:" << isSelected();
+    qCDebug(ngVerbose) << "=== EDGE MOUSE PRESS END ===";
     #endif
 }
 
 void Edge::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     #ifdef QT_DEBUG
-    qDebug() << "=== EDGE MOUSE RELEASE START ===";
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mouseReleaseEvent at" << event->pos();
-    qDebug() << "Edge is selected BEFORE mouse release:" << isSelected();
+    qCDebug(ngVerbose) << "=== EDGE MOUSE RELEASE START ===";
+    qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "mouseReleaseEvent at" << event->pos();
+    qCDebug(ngVerbose) << "Edge is selected BEFORE mouse release:" << isSelected();
     #endif
     
     QGraphicsItem::mouseReleaseEvent(event);
     
     #ifdef QT_DEBUG
-    qDebug() << "Edge is selected AFTER mouse release:" << isSelected();
-    qDebug() << "Edge turns orange (selected):" << (isSelected() ? "YES" : "NO");
-    qDebug() << "=== EDGE MOUSE RELEASE END ===";
+    qCDebug(ngVerbose) << "Edge is selected AFTER mouse release:" << isSelected();
+    qCDebug(ngVerbose) << "Edge turns orange (selected):" << (isSelected() ? "YES" : "NO");
+    qCDebug(ngVerbose) << "=== EDGE MOUSE RELEASE END ===";
     #endif
 }
 
@@ -319,7 +320,7 @@ void Edge::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
     Q_UNUSED(event)
     m_hovered = true;
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "HOVER ENTER";
+    qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "HOVER ENTER";
     update();  // Redraw to show hover effect
     QGraphicsItem::hoverEnterEvent(event);
 }
@@ -328,7 +329,7 @@ void Edge::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 {
     Q_UNUSED(event)
     m_hovered = false;
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "HOVER LEAVE";
+    qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "HOVER LEAVE";
     update();  // Redraw to remove hover effect
     QGraphicsItem::hoverLeaveEvent(event);
 }
@@ -503,7 +504,7 @@ void Edge::read(xmlNodePtr node)
     m_fromNodeUuid = QUuid(m_fromNodeId);
     m_toNodeUuid = QUuid(m_toNodeId);
     
-    qDebug() << "Edge: Stored connection data fromNode" << m_fromNodeId.left(8) 
+    qCDebug(ngVerbose) << "Edge: Stored connection data fromNode" << m_fromNodeId.left(8) 
              << "socket" << m_fromSocketIndex << "-> toNode" << m_toNodeId.left(8) 
              << "socket" << m_toSocketIndex;
     
@@ -556,9 +557,9 @@ bool Edge::resolveConnections(Scene* scene)
     Socket* fromSocket = fromNode->getSocketByIndex(m_fromSocketIndex);
     Socket* toSocket = toNode->getSocketByIndex(m_toSocketIndex);
     
-    qDebug() << "Edge resolve: fromNode" << m_fromNodeId.left(8) << "type:" << fromNode->getNodeType()
+    qCDebug(ngVerbose) << "Edge resolve: fromNode" << m_fromNodeId.left(8) << "type:" << fromNode->getNodeType()
              << "socket" << m_fromSocketIndex << "role:" << (fromSocket ? Socket::roleToString(fromSocket->getRole()) : "NULL");
-    qDebug() << "Edge resolve: toNode" << m_toNodeId.left(8) << "type:" << toNode->getNodeType()
+    qCDebug(ngVerbose) << "Edge resolve: toNode" << m_toNodeId.left(8) << "type:" << toNode->getNodeType()
              << "socket" << m_toSocketIndex << "role:" << (toSocket ? Socket::roleToString(toSocket->getRole()) : "NULL");
     
     if (!fromSocket) {
@@ -626,7 +627,7 @@ bool Edge::resolveConnections(Scene* scene)
     fromNode->registerEdge(this);
     toNode->registerEdge(this);
     
-    qDebug() << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved"
+    qCDebug(ngVerbose) << "Edge" << m_id.toString(QUuid::WithoutBraces).left(8) << "resolved"
              << m_fromSocketIndex << "->" << m_toSocketIndex;
 
     updatePath();
@@ -650,7 +651,7 @@ void Edge::setConnectionData(const QString& fromNodeId, const QString& toNodeId,
     m_fromNodeUuid = QUuid(fromNodeId);
     m_toNodeUuid = QUuid(toNodeId);
     
-    qDebug() << "Edge: Set connection data" << fromNodeId.left(8) 
+    qCDebug(ngVerbose) << "Edge: Set connection data" << fromNodeId.left(8) 
              << "socket" << fromSocketIndex << "-> " << toNodeId.left(8) 
              << "socket" << toSocketIndex;
 }
@@ -712,7 +713,7 @@ bool Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     if (fromNode) fromNode->registerEdge(this);
     if (toNode) toNode->registerEdge(this);
     
-    qDebug() << "Edge: Set resolved sockets directly (optimization)";
+    qCDebug(ngVerbose) << "Edge: Set resolved sockets directly (optimization)";
     updatePath();
     updateZOrderFromConnections();
     return true;
@@ -738,7 +739,7 @@ void Edge::updateZOrderFromConnections()
 
     setZValue(2.0 + zOffset);
 
-    qDebug() << "Edge z-order updated:" << m_id.toString(QUuid::WithoutBraces).left(8)
+    qCDebug(ngVerbose) << "Edge z-order updated:" << m_id.toString(QUuid::WithoutBraces).left(8)
              << "from node edges:" << fromNodeEdgeCount
              << "to node edges:" << toNodeEdgeCount
              << "final z:" << (2.0 + zOffset);
