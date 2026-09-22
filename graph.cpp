@@ -14,6 +14,7 @@
 #include <QFile>
 #include <QGraphicsItem>
 #include <QTextStream>
+#include <QCoreApplication>
 // XML save support
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
@@ -79,6 +80,11 @@ Graph::~Graph()
 void Graph::jsLog(const QString& message)
 {
     qDebug() << "[JS]" << message;
+}
+
+void Graph::quit()
+{
+    QCoreApplication::quit();
 }
 
 void Graph::initializeScripting()
@@ -606,14 +612,9 @@ bool Graph::loadFromFile(const QString& filePath)
         return false;
     }
 
-    // Loading REPLACES the current graph (same semantics as File->Open);
-    // previously a script-side load silently MERGED the file into the scene.
-    m_scene->clearGraph();
-
-    // Use batch mode for efficient loading
-    beginBatch();
+    // The factory validates a complete replacement before committing it.
+    // Leave the document and its observers untouched if loading fails.
     bool ok = m_factory->loadFromXmlFile(filePath);
-    endBatch();
 
     if (ok) {
         qDebug() << "Graph::loadFromFile: Successfully loaded" << filePath;

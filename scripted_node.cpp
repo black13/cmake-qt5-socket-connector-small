@@ -284,7 +284,7 @@ xmlNodePtr ScriptedNode::write(xmlDocPtr doc, xmlNodePtr repr) const
         xmlNodePtr scriptNode = xmlNewChild(nodeElement, nullptr, BAD_CAST "script", nullptr);
         xmlSetProp(scriptNode, BAD_CAST "language", BAD_CAST "javascript");
         QByteArray utf8 = m_script.toUtf8();
-        xmlNodeSetContent(scriptNode, BAD_CAST utf8.constData());
+        xmlAddChild(scriptNode, xmlNewTextLen(BAD_CAST utf8.constData(), utf8.size()));
     }
 
     if (!m_payload.isEmpty()) {
@@ -292,7 +292,7 @@ xmlNodePtr ScriptedNode::write(xmlDocPtr doc, xmlNodePtr repr) const
         QByteArray payloadJson = payloadDoc.toJson(QJsonDocument::Compact);
         xmlNodePtr payloadNode = xmlNewChild(nodeElement, nullptr, BAD_CAST "payload", nullptr);
         xmlSetProp(payloadNode, BAD_CAST "format", BAD_CAST "json");
-        xmlNodeSetContent(payloadNode, BAD_CAST payloadJson.constData());
+        xmlAddChild(payloadNode, xmlNewTextLen(BAD_CAST payloadJson.constData(), payloadJson.size()));
     }
 
     return nodeElement;

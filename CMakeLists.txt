@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(NodeGraph VERSION 1.0.0 LANGUAGES CXX)
+include(CTest)
 
 # ─────────────────────────────────────
 # NOTE: Code Review Compendium Script
@@ -103,7 +104,10 @@ endif()
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
 # Qml is required for QJSEngine (JavaScript integration in Graph facade)
-set(QT5_COMPONENTS Core Widgets Gui Test Qml)
+set(QT5_COMPONENTS Core Widgets Gui Qml)
+if(BUILD_TESTING)
+    list(APPEND QT5_COMPONENTS Test)
+endif()
 
 find_package(Qt5 REQUIRED COMPONENTS ${QT5_COMPONENTS})
 
@@ -305,21 +309,12 @@ set(MAIN_SOURCES
     icons.qrc
 )
 
-# Test application sources DISABLED - GraphController testing via menu only
-# set(TEST_SOURCES
-#     tst_main.h
-#     tst_main.cpp
-# )
-
-# Facade test sources DISABLED
-# set(FACADE_TEST_SOURCES
-#     test_facade_core.cpp
-# )
 
 # ─────────────────────────────────────
 # 8.  Shared core library - compile once, use twice
 # ─────────────────────────────────────
 add_library(NodeGraphCore STATIC ${CORE_SOURCES})
+target_include_directories(NodeGraphCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # ─────────────────────────────────────
 # 9.  Main executable target
@@ -328,41 +323,27 @@ add_executable(NodeGraph WIN32 ${MAIN_SOURCES})
 target_link_libraries(NodeGraph PRIVATE NodeGraphCore)
 
 # ─────────────────────────────────────
-# 10. Test executable target DISABLED - GraphController testing via menu only
+# 10. Headless regression tests
 # ─────────────────────────────────────
-# add_executable(NodeGraphTests ${TEST_SOURCES})
-# target_link_libraries(NodeGraphTests NodeGraphCore)
-
-# ─────────────────────────────────────
-# 11. Phase 11 Facade Test executable DISABLED
-# ─────────────────────────────────────
-# option(BUILD_FACADE_TESTS "Build Phase 11 facade tests" OFF)
-# if(BUILD_FACADE_TESTS)
-#     add_executable(TestFacadeCore ${FACADE_TEST_SOURCES})
-#     target_link_libraries(TestFacadeCore NodeGraphCore)
-#     message(STATUS "Building Phase 11 facade tests")
-# endif()
-
-# ─────────────────────────────────────
-# 12. Automatic Testing Setup DISABLED - GraphController testing via menu only
-# ─────────────────────────────────────
-# option(ENABLE_AUTOMATIC_TESTS "Enable automatic test execution" ON)
-# if(ENABLE_AUTOMATIC_TESTS)
-#     enable_testing()
-#     
-#     # Add main test suite (now includes JavaScript engine tests)
-#     add_test(NAME MainTests COMMAND NodeGraphTests)
-#     
-#     # Add facade tests if enabled
-#     if(BUILD_FACADE_TESTS)
-#         add_test(NAME FacadeTests COMMAND TestFacadeCore)
-#     endif()
-#     
-#     message(STATUS "Automatic testing enabled - run 'ctest' to execute all tests")
-#     message(STATUS "JavaScript engine tests integrated into MainTests")
-# endif()
-
-message(STATUS "Testing DISABLED - GraphController validation via menu system only")
+if(BUILD_TESTING)
+    add_executable(NodeGraphTests tests/tst_main.cpp)
+    target_link_libraries(NodeGraphTests PRIVATE NodeGraphCore Qt5::Test)
+    add_executable(NodeGraphLoadingTests tests/tst_loading.cpp)
+    target_link_libraries(NodeGraphLoadingTests PRIVATE NodeGraphCore Qt5::Test)
+    foreach(test_target NodeGraphTests NodeGraphLoadingTests)
+        if(WIN32)
+            add_test(NAME ${test_target} COMMAND ${CMAKE_COMMAND} -E env
+                "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt5::Core>/../plugins/platforms"
+                "PATH=$<TARGET_FILE_DIR:Qt5::Core>;$ENV{PATH}"
+                $<TARGET_FILE:${test_target}>)
+        else()
+            add_test(NAME ${test_target} COMMAND ${test_target})
+            set_tests_properties(${test_target} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        endif()
+        set_tests_properties(${test_target} PROPERTIES TIMEOUT 60)
+    endforeach()
+endif()
 
 # ─────────────────────────────────────
 # Optional Duktape script engine backend
@@ -390,7 +371,6 @@ set(CORE_LIBRARIES
     Qt5::Core
     Qt5::Widgets
     Qt5::Gui
-    Qt5::Test
     Qt5::Qml  # Required for QJSEngine in Graph facade
     LibXml2::LibXml2
 )
@@ -438,10 +418,10 @@ if(ENABLE_LLVM_COVERAGE)
             if(NOT PROFILE_RT_LIB OR NOT EXISTS "${PROFILE_RT_LIB}")
                 message(WARNING "LLVM profiling runtime not found - coverage .profraw files will NOT be written at runtime")
             else()
-                target_link_libraries(NodeGraph PRIVATE "${PROFILE_RT_LIB}")
+                target_link_libraries(NodeGraphCore PUBLIC "${PROFILE_RT_LIB}")
             endif()
         else()
-            target_link_options(NodeGraph PRIVATE -fprofile-instr-generate)
+            target_link_options(NodeGraphCore INTERFACE -fprofile-instr-generate)
         endif()
 
         message(STATUS "LLVM source-based code coverage: ENABLED")

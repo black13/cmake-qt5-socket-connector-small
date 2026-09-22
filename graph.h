@@ -253,6 +253,8 @@ public:
      */
     Q_INVOKABLE void jsLog(const QString& message);
 
+    Q_INVOKABLE void quit();
+
 signals:
     // Change notifications (for JavaScript listeners and UI)
     void nodeCreated(const QString& nodeId);

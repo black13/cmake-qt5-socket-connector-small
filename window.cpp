@@ -356,28 +356,12 @@ bool Window::loadGraph(const QString& filename)
         return false;
     }
 
-    if (m_autosaveObserver) {
-        m_autosaveObserver->setEnabled(false);
-    }
-
-    // A new document invalidates all undo snapshots
-    m_undoStack->clear();
-
-    // Graph facade handles batch mode and clearing internally
-    m_graph->clearGraph();
-
+    // graphLoaded clears the undo stack only after a successful replacement.
     const bool ok = m_graph->loadFromFile(filename);
     if (ok) {
         setCurrentFile(filename);
         updateStatusBar();
     }
-    // Graph facade handles batch mode internally (removed endBatch)
-
-    if (m_autosaveObserver) {
-        m_autosaveObserver->saveNow();
-        m_autosaveObserver->setEnabled(true);
-    }
-
     return ok;
 }
 

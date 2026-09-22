@@ -492,13 +492,11 @@ void Node::read(xmlNodePtr node)
     // Read position
     xmlChar* xStr = xmlGetProp(node, BAD_CAST "x");
     xmlChar* yStr = xmlGetProp(node, BAD_CAST "y");
-    if (xStr && yStr) {
-        qreal x = QString::fromUtf8((char*)xStr).toDouble();
-        qreal y = QString::fromUtf8((char*)yStr).toDouble();
-        setPos(x, y);
-        xmlFree(xStr);
-        xmlFree(yStr);
-    }
+    const qreal x = xStr ? QString::fromUtf8((char*)xStr).toDouble() : 0;
+    const qreal y = yStr ? QString::fromUtf8((char*)yStr).toDouble() : 0;
+    setPos(x, y);
+    xmlFree(xStr);
+    xmlFree(yStr);
     
     update();
 }

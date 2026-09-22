@@ -58,12 +58,10 @@ Edge::~Edge()
     qDebug() << "Edge::~Edge" << m_id.toString(QUuid::WithoutBraces).left(8)
              << "start cleanup";
 
-    if (!Scene::isClearing()) {
-        detachSockets();
-    } else {
-        m_fromSocket = nullptr;
-        m_toSocket = nullptr;
-    }
+    // Socket destruction already invalidates these pointers. Detach even
+    // during scene clearing so a socket destroyed later cannot call back
+    // into this deleted edge.
+    detachSockets();
 
     if (m_fromNode) {
         m_fromNode->unregisterEdge(this);
@@ -716,6 +714,7 @@ bool Edge::setResolvedSockets(Socket* fromSocket, Socket* toSocket)
     
     qDebug() << "Edge: Set resolved sockets directly (optimization)";
     updatePath();
+    updateZOrderFromConnections();
     return true;
 }
 
