@@ -161,6 +161,7 @@ test("center.graph", view.centerOnGraph() === true);
 test("center.selection_empty", view.centerOnSelection() === false);
 graph.clearGraph();
 test("center.empty_graph", view.centerOnGraph() === false);
+test("yield.callable", (function() { graph.yield(0); return true; })());
 
 // ── Topology alignment ─────────────────────────────────────────────────────
 console.log("--- align graph ---");
