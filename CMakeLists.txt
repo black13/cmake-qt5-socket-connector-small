@@ -104,7 +104,7 @@ endif()
 # 5.  Find Qt5 modules
 # ─────────────────────────────────────
 # Qml is required for QJSEngine (JavaScript integration in Graph facade)
-set(QT5_COMPONENTS Core Widgets Gui Qml)
+set(QT5_COMPONENTS Core Widgets Gui Qml Network)
 if(BUILD_TESTING)
     list(APPEND QT5_COMPONENTS Test)
 endif()
@@ -476,12 +476,36 @@ endif()
 # ─────────────────────────────────────
 if(WIN32)
     install(TARGETS NodeGraph RUNTIME DESTINATION .)
+
+    # Qt runtime DLLs the app actually imports. Qt5Qml (QJSEngine) pulls in
+    # Qt5Network, so both must ship with the executable.
     install(FILES
         $<TARGET_FILE:Qt5::Core>
         $<TARGET_FILE:Qt5::Widgets>
         $<TARGET_FILE:Qt5::Gui>
+        $<TARGET_FILE:Qt5::Qml>
+        $<TARGET_FILE:Qt5::Network>
         DESTINATION .
     )
+
+    # A GUI app cannot start without the platform plugin. Derive the plugin
+    # directory from the imported Qt5::Core location; debug plugins use a
+    # 'd' suffix (qwindowsd.dll).
+    get_target_property(_qt_core_dll Qt5::Core IMPORTED_LOCATION)
+    if(NOT _qt_core_dll)
+        get_target_property(_qt_core_dll Qt5::Core IMPORTED_LOCATION_DEBUG)
+    endif()
+    if(NOT _qt_core_dll)
+        get_target_property(_qt_core_dll Qt5::Core IMPORTED_LOCATION_RELEASE)
+    endif()
+    if(_qt_core_dll)
+        get_filename_component(_qt_bin_dir "${_qt_core_dll}" DIRECTORY)
+        get_filename_component(_qt_plugins_dir "${_qt_bin_dir}/../plugins" ABSOLUTE)
+        install(FILES "${_qt_plugins_dir}/platforms/qwindows$<IF:$<CONFIG:Debug>,d,>.dll"
+                DESTINATION platforms)
+    else()
+        message(WARNING "Could not locate Qt5::Core DLL; install the platform plugin with windeployqt")
+    endif()
 endif()
 
 # ─────────────────────────────────────

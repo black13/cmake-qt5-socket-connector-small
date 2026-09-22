@@ -215,6 +215,31 @@ private slots:
         QVERIFY(xml != "<graph></graph>");
     }
 
+    void saveToUnicodePathRoundTrips()
+    {
+        // libxml's file API takes a narrow path; saveToFile must go through
+        // QFile so non-ASCII filenames work on Windows.
+        const QString src = m_world->graph->createNode("SOURCE", 0, 0);
+        const QString tr = m_world->graph->createNode("TRANSFORM", 250, 0);
+        QVERIFY(!src.isEmpty() && !tr.isEmpty());
+        QVERIFY(!m_world->graph->connectNodes(src, 0, tr, 0).isEmpty());
+
+        const QString path = m_dir->filePath(
+            QString::fromUtf8("sauvegarde-\xc3\xa9-\xe6\x97\xa5\xe6\x9c\xac.xml"));
+        QVERIFY2(m_world->graph->saveToFile(path), "save to a Unicode path must succeed");
+        QVERIFY(QFile::exists(path));
+
+        QFile saved(path);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        const QByteArray content = saved.readAll();
+        QVERIFY2(content.contains("encoding=\"UTF-8\""), "saved XML must declare UTF-8");
+
+        m_world->graph->clearGraph();
+        QVERIFY(m_world->graph->loadFromFile(path));
+        QCOMPARE(m_world->scene->getNodes().size(), 2);
+        QCOMPARE(m_world->scene->getEdges().size(), 1);
+    }
+
     void batchIsRealNow() // C5
     {
         QVERIFY(!m_world->graph->isBatchMode());

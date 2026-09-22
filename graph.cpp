@@ -572,38 +572,29 @@ bool Graph::saveToFile(const QString& filePath)
 {
     qDebug() << "Graph::saveToFile:" << filePath;
 
-    // Create XML document
-    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
-    if (!doc) {
-        qWarning() << "Graph::saveToFile: Failed to create XML document";
+    // Serialize through toXml() (the single serialization path), then write
+    // the bytes with QFile: QFile handles native Unicode paths on Windows,
+    // while libxml2's file API takes a narrow path and cannot open
+    // non-ASCII filenames there.
+    const QString xml = toXml();
+    if (xml.isEmpty()) {
+        qWarning() << "Graph::saveToFile: serialization failed for" << filePath;
         return false;
     }
 
-    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-    if (!root) {
-        qWarning() << "Graph::saveToFile: Failed to create root node";
-        xmlFreeDoc(doc);
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "Graph::saveToFile: cannot open" << filePath << file.errorString();
         return false;
     }
-    xmlDocSetRootElement(doc, root);
-    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
 
-    // Save all nodes
-    for (Node* node : m_scene->getNodes().values()) {
-        if (node) node->write(doc, root);
-    }
+    const QByteArray bytes = xml.toUtf8();
+    const qint64 written = file.write(bytes);
+    const bool ok = (written == bytes.size()) && file.flush();
+    file.close();
 
-    // Save all edges
-    for (Edge* edge : m_scene->getEdges().values()) {
-        if (edge) edge->write(doc, root);
-    }
-
-    // Write to file (pretty-printed, UTF-8)
-    int result = xmlSaveFormatFileEnc(filePath.toUtf8().constData(), doc, "UTF-8", 1);
-    xmlFreeDoc(doc);
-
-    if (result == -1) {
-        qWarning() << "Graph::saveToFile: xmlSaveFormatFileEnc failed for" << filePath;
+    if (!ok) {
+        qWarning() << "Graph::saveToFile: write failed for" << filePath << file.errorString();
         return false;
     }
 
@@ -647,9 +638,10 @@ bool Graph::loadFromFile(const QString& filePath)
 
 QString Graph::toXml() const
 {
-    // Real implementation: serialize the live scene the same way saveToFile /
-    // Window::saveGraph do (previously returned a constant "<graph></graph>"
-    // fake - the worst kind of API: silently wrong).
+    // Single serialization path: saveToFile() writes these bytes and
+    // Window::saveGraph() delegates to the facade. (Previously saveGraph
+    // duplicated this code and toXml returned a constant "<graph></graph>"
+    // fake - the worst kind of API: silently wrong.)
     if (!m_scene) {
         return QString();
     }
@@ -658,6 +650,8 @@ QString Graph::toXml() const
     if (!doc) {
         return QString();
     }
+    // Declare UTF-8 so dumps match the old xmlSaveFormatFileEnc output.
+    doc->encoding = xmlStrdup(BAD_CAST "UTF-8");
     xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
     xmlDocSetRootElement(doc, root);
     xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");

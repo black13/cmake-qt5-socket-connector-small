@@ -38,8 +38,6 @@
 #include <QDateTime>
 #include <QFileDialog>
 #include <QSet>
-#include <libxml/tree.h>
-#include <libxml/xmlsave.h>
 
 Window::Window(QWidget* parent)
     : QMainWindow(parent)
@@ -281,66 +279,52 @@ void Window::setStartupScript(const QString& scriptPath)
 }
 
 /**
- * @brief Serialize the graph to disk using Node/Edge::write().
+ * @brief Save the graph to disk via the Graph facade.
+ *
+ * The facade owns serialization (Node/Edge::write + UTF-8 encoding) and the
+ * Unicode-safe QFile write, so the window only adds timing, stats, and UI.
  */
 bool Window::saveGraph(const QString& filename)
 {
     qDebug() << "Saving graph to:" << filename;
-    
+
+    if (!m_graph) {
+        qWarning() << "Window::saveGraph: Graph facade not available";
+        QMessageBox::critical(this, "Save Error", "Graph facade not available.");
+        return false;
+    }
+
     QElapsedTimer timer;
     timer.start();
-    
-    // Create XML document
-    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
-    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
-    xmlDocSetRootElement(doc, root);
-    xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
-    
-    // Step 1: Save all nodes
-    for (Node* node : m_scene->getNodes().values()) {
-        xmlNodePtr nodeXml = node->write(doc, root);
-        Q_UNUSED(nodeXml)
-    }
-    
-    // Step 2: Save all edges
-    for (Edge* edge : m_scene->getEdges().values()) {
-        xmlNodePtr edgeXml = edge->write(doc, root);
-        Q_UNUSED(edgeXml)
-    }
-    
-    // Step 3: Save to file
-    int result = xmlSaveFormatFileEnc(filename.toUtf8().constData(), doc, "UTF-8", 1);
-    xmlFreeDoc(doc);
-    
-    qint64 elapsed = timer.elapsed();
-    
-    if (result != -1) {
-        QFileInfo fileInfo(filename);
-        qint64 fileSize = fileInfo.size();
-        QVariantMap stats = m_graph->getGraphStats();
-        int nodeCount = stats["nodeCount"].toInt();
-        int edgeCount = stats["edgeCount"].toInt();
-        
-        qDebug() << "Manual save complete:";
-        qDebug() << "   File:" << fileInfo.fileName();
-        qDebug() << "   Time:" << elapsed << "ms";
-        qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
-        qDebug() << "   Nodes:" << nodeCount;
-        qDebug() << "   Edges:" << edgeCount;
-        
-        QMessageBox::information(this, "Save Complete", 
-            QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
-            .arg(fileInfo.fileName())
-            .arg(nodeCount)
-            .arg(edgeCount)
-            .arg(elapsed)
-            .arg(fileSize / 1024.0, 0, 'f', 1));
-        return true;
-    } else {
-        qDebug() << "Failed to save graph";
+
+    if (!m_graph->saveToFile(filename)) {
+        qDebug() << "Failed to save graph to:" << filename;
         QMessageBox::critical(this, "Save Error", "Failed to save graph to file.");
         return false;
     }
+
+    const qint64 elapsed = timer.elapsed();
+    const QFileInfo fileInfo(filename);
+    const qint64 fileSize = fileInfo.size();
+    const QVariantMap stats = m_graph->getGraphStats();
+    const int nodeCount = stats["nodeCount"].toInt();
+    const int edgeCount = stats["edgeCount"].toInt();
+
+    qDebug() << "Manual save complete:";
+    qDebug() << "   File:" << fileInfo.fileName();
+    qDebug() << "   Time:" << elapsed << "ms";
+    qDebug() << "   Size:" << (fileSize / 1024.0) << "KB";
+    qDebug() << "   Nodes:" << nodeCount;
+    qDebug() << "   Edges:" << edgeCount;
+
+    QMessageBox::information(this, "Save Complete",
+        QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
+        .arg(fileInfo.fileName())
+        .arg(nodeCount)
+        .arg(edgeCount)
+        .arg(elapsed)
+        .arg(fileSize / 1024.0, 0, 'f', 1));
+    return true;
 }
 
 /**
