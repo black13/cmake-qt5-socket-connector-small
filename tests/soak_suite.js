@@ -17,6 +17,9 @@
 
 var DURATION_MS = 65000;   // run for more than a minute
 var REPORT_EVERY_MS = 10000;
+// Event-loop yield per iteration. Raise this (e.g. 500) to watch the soak in
+// slow motion; keep it small for a maximum-throughput stress run.
+var SETTLE_MS = 25;
 
 var passes = 0;
 var fails = 0;
@@ -143,7 +146,7 @@ while (now() - start < DURATION_MS) {
     }
 
     // 6. Let the event loop run: autosave, animations, status updates.
-    graph.yield(25);
+    graph.yield(SETTLE_MS);
 
     var elapsed = now() - start;
     if (elapsed - lastReport >= REPORT_EVERY_MS) {
