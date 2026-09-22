@@ -118,6 +118,21 @@ public:
     Q_INVOKABLE QVariantMap getNodePayload(const QString& nodeId) const;
     Q_INVOKABLE QVariantMap runSyntheticWork(const QVariantMap& request) const;
 
+    // ========== Grid & View Helpers ==========
+
+    /// Toggle grid snapping (drag + drop use it; programmatic positions are
+    /// left exact unless snapNode/snapNodes is called explicitly).
+    Q_INVOKABLE void setSnapToGrid(bool on);
+    Q_INVOKABLE bool isSnapToGrid() const;
+    Q_INVOKABLE int gridSize() const;
+
+    /// Snap a coordinate pair to the grid. Empty map + error on non-finite.
+    Q_INVOKABLE QVariantMap snapPoint(qreal x, qreal y);
+
+    /// Snap one node / every node to the grid (undoable; returns false / count).
+    Q_INVOKABLE bool snapNode(const QString& nodeId);
+    Q_INVOKABLE int snapNodes();
+
     // ========== Edge Operations ==========
 
     /**

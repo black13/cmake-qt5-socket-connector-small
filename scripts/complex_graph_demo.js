@@ -192,6 +192,25 @@ test("remove.file_roundtrip",
      removedLoadOk === true && counts()[0] === 32 && counts()[1] === 27,
      "counts=" + counts().join("/"));
 
+// ── 6. Grid snap + centering, driven from the script ───────────────────────
+graph.setSnapToGrid(true);
+var snapPt = graph.snapPoint(43, -57);
+var snappedCount = graph.snapNodes();
+console.log("DEMO snap: moved " + snappedCount + " nodes to the grid, snapPoint(43,-57)=(" +
+            snapPt.x + "," + snapPt.y + ")");
+test("snap.scriptable", graph.isSnapToGrid() === true &&
+     snapPt.x === 40 && snapPt.y === -40 && snappedCount > 0);
+test("snap.nodes_on_grid", (function() {
+    var ids = graph.getAllNodes();
+    for (var i = 0; i < ids.length; ++i) {
+        var d = graph.getNodeData(ids[i]);
+        if (d.x % 40 !== 0 || d.y % 40 !== 0) { return false; }
+    }
+    return true;
+})());
+test("center.scriptable", view.centerOnGraph() === true);
+graph.setSnapToGrid(false);
+
 console.log("");
 console.log("=== COMPLEX GRAPH DEMO COMPLETE ===");
 console.log("PASS: " + passes + "  FAIL: " + fails);

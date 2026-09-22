@@ -655,12 +655,17 @@ void Scene::keyPressEvent(QKeyEvent* event)
 
 QPointF Scene::snapPoint(const QPointF& scenePos) const
 {
-    // Simple grid snapping (when snap-to-grid system is implemented)
-    int grid = gridSize();
+    // Non-finite input is echoed unchanged: snapping must never manufacture a
+    // NaN/inf position that the facade/serializer would then reject.
+    if (!std::isfinite(scenePos.x()) || !std::isfinite(scenePos.y())) {
+        return scenePos;
+    }
+
+    const int grid = gridSize();
     if (grid <= 1) {
         return scenePos;
     }
-    
+
     qreal x = qRound(scenePos.x() / grid) * grid;
     qreal y = qRound(scenePos.y() / grid) * grid;
     return QPointF(x, y);
@@ -679,6 +684,19 @@ void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 
     // Detect completed node drags and report them as one undoable gesture
     if (event->button() == Qt::LeftButton && !m_moveSnapshot.isEmpty()) {
+        // Snap the released selection to the grid before capturing the undo
+        // snapshot. Snapping every moved node here (not just the mouse
+        // grabber) keeps multi-selection drags on-grid too.
+        if (m_snapToGrid) {
+            for (auto it = m_moveSnapshot.constBegin(); it != m_moveSnapshot.constEnd(); ++it) {
+                Node* node = getNode(it.key());
+                if (node && (node->pos() - it.value()).manhattanLength() > 0.5) {
+                    node->setPos(snapPoint(node->pos()));
+                    node->updateConnectedEdges();
+                }
+            }
+        }
+
         QVector<NodeMove> moves;
         for (auto it = m_moveSnapshot.constBegin(); it != m_moveSnapshot.constEnd(); ++it) {
             Node* node = getNode(it.key());

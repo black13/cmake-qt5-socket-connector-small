@@ -69,6 +69,13 @@ graph.clearGraph();
 test("coords.load", graph.loadFromFile("logs/chaos_coords.xml") === true && counts()[0] === 1,
      "nodes=" + counts()[0]);
 
+// Grid helpers must refuse non-finite input without crashing.
+var nanSnap = attempt(function() { return graph.snapPoint(0 / 0, 0); });
+test("snap.nan_refused",
+     nanSnap === "__threw__" || nanSnap === null || nanSnap === undefined ||
+     (typeof nanSnap === "object" && Object.keys(nanSnap).length === 0),
+     "result=" + JSON.stringify(nanSnap));
+
 console.log("--- connectNodes argument abuse ---");
 graph.clearGraph();
 var src = graph.createNode("SOURCE", 0, 0);
@@ -97,7 +104,8 @@ for (var i = 0; i < BAD_IDS.length; i++) {
         && refused(attempt(function() { return graph.getNodeScriptError(id); }))
         && refused(attempt(function() { return graph.setNodePayload(id, {}); }))
         && nothing(attempt(function() { return graph.executeNodeScript(id, {}); }))
-        && refused(attempt(function() { return graph.getNodeEdges(id); }));
+        && refused(attempt(function() { return graph.getNodeEdges(id); }))
+        && refused(attempt(function() { return graph.snapNode(id); }));
     if (!ok) { survived = false; break; }
 }
 test("badids.every_call_refused", survived);

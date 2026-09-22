@@ -132,6 +132,36 @@ graph.endBatch();
 test("batch.ended", graph.isBatchMode() === false && counts()[0] === 2,
      "nodes=" + counts()[0]);
 
+// ── Snap to grid / view centering ──────────────────────────────────────────
+console.log("--- snap to grid / centering ---");
+graph.clearGraph();
+graph.setSnapToGrid(true);
+test("snap.enabled", graph.isSnapToGrid() === true);
+test("snap.grid_size", graph.gridSize() === 40);
+var snapPt = graph.snapPoint(43, -57);
+test("snap.point", snapPt.x === 40 && snapPt.y === -40,
+     "got " + snapPt.x + "," + snapPt.y);
+var nanSnapPt = graph.snapPoint(0 / 0, 0);
+test("snap.point_nan_refused",
+     nanSnapPt === null || nanSnapPt === undefined || Object.keys(nanSnapPt).length === 0);
+
+var snapSrc = graph.createNode("SOURCE", 43, -57);
+graph.createNode("SINK", 201, 37);
+test("snap.node", graph.snapNode(snapSrc) === true &&
+     graph.getNodeData(snapSrc).x === 40 && graph.getNodeData(snapSrc).y === -40);
+test("snap.nodes", graph.snapNodes() === 1);
+test("snap.bad_id", graph.snapNode("bad") === false);
+graph.setSnapToGrid(false);
+test("snap.disabled", graph.isSnapToGrid() === false);
+
+// The view is exposed to scripts as the global "view"
+test("center.view_registered", typeof view === "object" &&
+     typeof view.centerOnGraph === "function");
+test("center.graph", view.centerOnGraph() === true);
+test("center.selection_empty", view.centerOnSelection() === false);
+graph.clearGraph();
+test("center.empty_graph", view.centerOnGraph() === false);
+
 // ── Undo / redo (facade mutations are undoable) ────────────────────────────
 console.log("--- undo/redo ---");
 graph.clearGraph();

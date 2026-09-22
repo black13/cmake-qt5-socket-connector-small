@@ -405,6 +405,84 @@ QVariantMap Graph::runSyntheticWork(const QVariantMap& request) const
     return SyntheticWork::run(request);
 }
 
+// ========== Grid & View Helpers ==========
+
+void Graph::setSnapToGrid(bool on)
+{
+    m_scene->setSnapToGrid(on);
+}
+
+bool Graph::isSnapToGrid() const
+{
+    return m_scene->isSnapToGrid();
+}
+
+int Graph::gridSize() const
+{
+    return m_scene->gridSize();
+}
+
+QVariantMap Graph::snapPoint(qreal x, qreal y)
+{
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        const QString error = QString("Graph::snapPoint: non-finite input (%1, %2)").arg(x).arg(y);
+        qWarning() << error;
+        emit errorOccurred(error);
+        return QVariantMap();
+    }
+
+    const QPointF snapped = m_scene->snapPoint(QPointF(x, y));
+    QVariantMap result;
+    result["x"] = snapped.x();
+    result["y"] = snapped.y();
+    return result;
+}
+
+bool Graph::snapNode(const QString& nodeId)
+{
+    Node* node = findNode(nodeId);
+    if (!node) {
+        qWarning() << "Graph::snapNode: Node not found:" << nodeId;
+        return false;
+    }
+
+    const QPointF currentPos = node->pos();
+    const QPointF snapped = m_scene->snapPoint(currentPos);
+    if (snapped == currentPos) {
+        return true; // already on the grid
+    }
+
+    node->setPos(snapped);
+    pushCommand(new MoveNodesCommand(m_scene,
+        QVector<NodeMove>{NodeMove{parseUuid(nodeId), currentPos, snapped}}));
+    emit nodeMoved(nodeId);
+    return true;
+}
+
+int Graph::snapNodes()
+{
+    QVector<NodeMove> moves;
+    for (auto it = m_scene->getNodes().constBegin(); it != m_scene->getNodes().constEnd(); ++it) {
+        Node* node = it.value();
+        if (!node) {
+            continue;
+        }
+        const QPointF currentPos = node->pos();
+        const QPointF snapped = m_scene->snapPoint(currentPos);
+        if (snapped == currentPos) {
+            continue;
+        }
+        node->setPos(snapped);
+        moves.append(NodeMove{it.key(), currentPos, snapped});
+        emit nodeMoved(it.key().toString());
+    }
+
+    if (!moves.isEmpty()) {
+        pushCommand(new MoveNodesCommand(m_scene, moves));
+    }
+    return moves.size();
+}
+
 // ========== Edge Operations ==========
 
 QString Graph::connectNodes(const QString& fromNodeId, int fromSocketIndex,
