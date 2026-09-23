@@ -335,6 +335,18 @@ if(BUILD_TESTING)
     target_link_libraries(NodeGraphTests PRIVATE NodeGraphCore Qt5::Test)
     add_executable(NodeGraphLoadingTests tests/tst_loading.cpp)
     target_link_libraries(NodeGraphLoadingTests PRIVATE NodeGraphCore Qt5::Test)
+
+    # The app's windeployqt step does not cover the test binaries' extra
+    # dependency (Qt5Test); copy it next to them so the test executables run
+    # from the build tree without Qt on PATH.
+    foreach(test_target NodeGraphTests NodeGraphLoadingTests)
+        add_custom_command(TARGET ${test_target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_FILE:Qt5::Test>
+                    "$<TARGET_FILE_DIR:${test_target}>"
+            COMMENT "Deploying Qt5Test next to ${test_target}"
+            VERBATIM)
+    endforeach()
     foreach(test_target NodeGraphTests NodeGraphLoadingTests)
         if(WIN32)
             add_test(NAME ${test_target} COMMAND ${CMAKE_COMMAND} -E env
@@ -534,6 +546,12 @@ if(WIN32)
                 --no-quick
                 --no-quick-import
                 "$<TARGET_FILE:NodeGraph>"
+        # windeployqt ships only the platform plugin it detects; keep the
+        # offscreen one too so headless script/CTest runs work with just
+        # QT_QPA_PLATFORM=offscreen (no plugin-path env needed).
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE_DIR:Qt5::Core>/../plugins/platforms/qoffscreen$<IF:$<CONFIG:Debug>,d,>.dll"
+                "$<TARGET_FILE_DIR:NodeGraph>/platforms"
         COMMENT "Deploying Qt runtime next to NodeGraph.exe"
         VERBATIM)
 endif()
@@ -570,6 +588,8 @@ if(WIN32)
         get_filename_component(_qt_bin_dir "${_qt_core_dll}" DIRECTORY)
         get_filename_component(_qt_plugins_dir "${_qt_bin_dir}/../plugins" ABSOLUTE)
         install(FILES "${_qt_plugins_dir}/platforms/qwindows$<IF:$<CONFIG:Debug>,d,>.dll"
+                DESTINATION platforms)
+        install(FILES "${_qt_plugins_dir}/platforms/qoffscreen$<IF:$<CONFIG:Debug>,d,>.dll"
                 DESTINATION platforms)
         install(FILES "${_qt_plugins_dir}/imageformats/qsvg$<IF:$<CONFIG:Debug>,d,>.dll"
                 DESTINATION imageformats)

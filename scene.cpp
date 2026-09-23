@@ -45,6 +45,7 @@ void Scene::addNode(Node* node)
     QUuid nodeId = node->getId();
     m_nodes.insert(nodeId, node);
     addItem(node);
+    updateSceneRect();
     
     // Scene stats logging as suggested by ChatGPT analysis
     qCDebug(ngVerbose) << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size() 
@@ -66,6 +67,7 @@ void Scene::addEdge(Edge* edge)
     QUuid edgeId = edge->getId();
     m_edges.insert(edgeId, edge);
     addItem(edge);
+    updateSceneRect();
     
     // Scene stats logging as suggested by ChatGPT analysis  
     qCDebug(ngVerbose) << "Scene: nodes=" << m_nodes.size() << "edges=" << m_edges.size()
@@ -189,6 +191,34 @@ Socket* Scene::socketAt(const QPointF& scenePos) const
     return best;
 }
 
+void Scene::updateSceneRect()
+{
+    // Base canvas keeps an empty view scrollable; content beyond it expands
+    // the rect so every node/edge is reachable via the scrollbars.
+    static const QRectF kBaseRect(-1000.0, -1000.0, 2000.0, 2000.0);
+    constexpr qreal kMargin = 400.0;
+
+    QRectF content;
+    for (Node* node : m_nodes) {
+        if (node) {
+            content = content.united(node->sceneBoundingRect());
+        }
+    }
+    for (Edge* edge : m_edges) {
+        if (edge) {
+            content = content.united(edge->sceneBoundingRect());
+        }
+    }
+    if (!content.isEmpty()) {
+        content.adjust(-kMargin, -kMargin, kMargin, kMargin);
+    }
+
+    const QRectF wanted = kBaseRect.united(content);
+    if (wanted != sceneRect()) {
+        setSceneRect(wanted);
+    }
+}
+
 void Scene::logSceneState(const QString& context) const
 {
     qCDebug(ngVerbose) << "\n=== Scene State:" << context << "===";
@@ -289,6 +319,7 @@ void Scene::deleteNode(const QUuid& nodeId)
     notifyNodeRemoved(nodeId);
     
     delete node;
+    updateSceneRect();
     
     // Emit signal for UI updates
     emitSceneChanged();
@@ -316,6 +347,7 @@ void Scene::deleteEdge(const QUuid& edgeId)
     notifyEdgeRemoved(edgeId);
     
     delete edge;
+    updateSceneRect();
     
     // Emit signal for UI updates
     emitSceneChanged();
@@ -357,6 +389,7 @@ void Scene::clear()
 
     notifyGraphCleared();
     emitSceneChanged();
+    updateSceneRect(); // empty content falls back to the base canvas
 
     if (ngVerbose().isDebugEnabled()) {
         logSceneState("Scene::clear (after QGraphicsScene::clear)");
@@ -708,6 +741,7 @@ void Scene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
         if (!moves.isEmpty()) {
             emit nodesMoved(moves);
         }
+        updateSceneRect(); // dragged nodes may sit outside the previous rect
     }
 }
 

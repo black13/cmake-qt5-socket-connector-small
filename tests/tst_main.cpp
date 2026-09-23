@@ -31,6 +31,8 @@
 #include "socket.h"
 
 #include <QAction>
+#include <QGraphicsSceneMouseEvent>
+#include <QScrollBar>
 #include <QUndoStack>
 #include <cmath>
 #include <limits>
@@ -407,6 +409,45 @@ private slots:
         m_world->graph->setUndoStack(nullptr);
     }
 
+    void sceneRectTracksContent()
+    {
+        QCOMPARE(m_world->scene->sceneRect(), QRectF(-1000, -1000, 2000, 2000));
+
+        const QString far = m_world->graph->createNode("SOURCE", 5000, 5000);
+        QVERIFY(!far.isEmpty());
+        QVERIFY2(m_world->scene->sceneRect().contains(QPointF(5000, 5000)),
+                 "content far outside the base canvas must expand the scene rect");
+
+        QVERIFY(m_world->graph->setNodePosition(far, -6000, 6000));
+        QVERIFY(m_world->scene->sceneRect().contains(QPointF(-6000, 6000)));
+
+        m_world->graph->clearGraph();
+        QCOMPARE(m_world->scene->sceneRect(), QRectF(-1000, -1000, 2000, 2000));
+    }
+
+    void socketRightPressStaysAccepted()
+    {
+        // The ghost-edge drag starts with a right press on an output socket.
+        // The event must stay accepted so QGraphicsView does not start a
+        // rubber band around the ghost edge (the stray rectangle).
+        const QString id = m_world->graph->createNode("SOURCE", 0, 0);
+        QVERIFY(!id.isEmpty());
+        Node* node = m_world->scene->getNode(QUuid(id));
+        QVERIFY(node && !node->getOutputSockets().isEmpty());
+        Socket* output = node->getOutputSockets().first();
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setButton(Qt::RightButton);
+        press.setButtons(Qt::RightButton);
+        press.setScenePos(output->scenePos());
+        output->mousePressEvent(&press);
+
+        QVERIFY2(press.isAccepted(), "right press must stay accepted");
+        QVERIFY2(m_world->scene->ghostEdgeActive(), "ghost edge must start");
+        m_world->scene->cancelGhostEdge();
+        QVERIFY(!m_world->scene->ghostEdgeActive());
+    }
+
     void facadeLoadReplaces() // C6
     {
         m_world->graph->createNode("SINK", 900, 900); // stray, never saved
@@ -729,6 +770,25 @@ private slots:
         QVERIFY2(!window.getView()->centerOnSelection(), "nothing is selected");
     }
 
+    void viewPanByScrolls()
+    {
+        Window window;
+        GraphFactory factory(window.getScene(), nullptr);
+        window.adoptFactory(&factory);
+        QVERIFY(!window.getGraph()->createNode("SOURCE", 3000, 3000).isEmpty());
+
+        View* view = window.getView();
+        view->resize(300, 200);
+        QScrollBar* hbar = view->horizontalScrollBar();
+        QVERIFY2(hbar->maximum() > 100, "distant content must give the scrollbar range");
+        const int before = hbar->value();
+
+        view->panBy(QPoint(-50, 0)); // dragging left scrolls right
+        QCOMPARE(hbar->value(), before + 50);
+        view->panBy(QPoint(30, 0));
+        QCOMPARE(hbar->value(), before + 20);
+    }
+
     void qtActionShortcutsAreNotAmbiguous()
     {
         // Two enabled QActions sharing a key sequence make Qt fire neither and
@@ -769,7 +829,14 @@ int main(int argc, char** argv)
 
     int failedClasses = 0;
     const auto run = [&](QObject* tc) {
-        failedClasses += QTest::qExec(tc, argc, argv);
+        const char* name = tc->metaObject()->className();
+        qInfo().noquote() << "=== class start:" << name;
+        const int failed = QTest::qExec(tc, argc, argv);
+        qInfo().noquote() << "=== class done :" << name << "failures:" << failed;
+        if (failed != 0) {
+            qCritical() << "CLASS FAILED:" << name << "failures:" << failed;
+        }
+        failedClasses += failed;
         delete tc;
     };
 

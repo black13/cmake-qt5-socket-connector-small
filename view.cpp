@@ -7,6 +7,7 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QScrollBar>
 #include <QPainter>
 #include <QDebug>
 #include "nodegraph_logging.h"
@@ -67,6 +68,15 @@ void View::mousePressEvent(QMouseEvent* event)
         return;
     }
 
+    if (event->button() == Qt::MiddleButton) {
+        // Middle-button drag pans by driving the scrollbars directly.
+        m_panning = true;
+        m_panLastViewportPos = event->pos();
+        setCursor(Qt::ClosedHandCursor);
+        event->accept();
+        return;
+    }
+
     if (event->button() == Qt::LeftButton && dragMode() == QGraphicsView::RubberBandDrag) {
         m_rubberBandSelecting = true;
         m_rubberBandActive = false;
@@ -74,7 +84,20 @@ void View::mousePressEvent(QMouseEvent* event)
         m_rubberBandStartViewport = event->pos();
         m_rubberBandStartScene = mapToScene(event->pos());
     }
+
+    // Qt starts a rubber band on any button when the scene does not consume
+    // the press. A right-button drag (ghost edge) must never draw one, so that
+    // path only ever sees NoDrag.
+    const bool restoreRubberBand =
+        event->button() == Qt::RightButton &&
+        dragMode() == QGraphicsView::RubberBandDrag;
+    if (restoreRubberBand) {
+        setDragMode(QGraphicsView::NoDrag);
+    }
     QGraphicsView::mousePressEvent(event);
+    if (restoreRubberBand) {
+        setDragMode(QGraphicsView::RubberBandDrag);
+    }
 }
 
 /**
@@ -82,6 +105,14 @@ void View::mousePressEvent(QMouseEvent* event)
  */
 void View::mouseMoveEvent(QMouseEvent* event)
 {
+    if (m_panning) {
+        const QPoint delta = event->pos() - m_panLastViewportPos;
+        m_panLastViewportPos = event->pos();
+        panBy(delta);
+        event->accept();
+        return;
+    }
+
     if (m_rubberBandSelecting && !m_rubberBandActive) {
         if ((event->pos() - m_rubberBandStartViewport).manhattanLength() >= QApplication::startDragDistance()) {
             m_rubberBandActive = true;
@@ -105,6 +136,13 @@ void View::mouseMoveEvent(QMouseEvent* event)
  */
 void View::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (m_panning && event->button() == Qt::MiddleButton) {
+        m_panning = false;
+        unsetCursor();
+        event->accept();
+        return;
+    }
+
     QGraphicsView::mouseReleaseEvent(event);
     if (m_rubberBandSelecting) {
         m_rubberBandActive = false;
@@ -344,6 +382,12 @@ bool View::centerOnGraph()
     }
     centerOn(content.center());
     return true;
+}
+
+void View::panBy(const QPoint& viewportDelta)
+{
+    horizontalScrollBar()->setValue(horizontalScrollBar()->value() - viewportDelta.x());
+    verticalScrollBar()->setValue(verticalScrollBar()->value() - viewportDelta.y());
 }
 
 bool View::centerOnSelection()

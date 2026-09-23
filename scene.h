@@ -103,6 +103,11 @@ public:
     // Diagnostic helpers for memory safety investigation
     void logSceneState(const QString& context) const;
 
+    /// Recompute the scene rect from the typed collections: a base canvas plus
+    /// everything that lives beyond it, so the view's scrollbars can reach all
+    /// content. Call after adds/removes/moves.
+    void updateSceneRect();
+
     // Notification hooks so Scene can keep registries in sync with Qt ownership
     void notifyNodeDestroyed(Node* node);
     void notifyEdgeDestroyed(Edge* edge);

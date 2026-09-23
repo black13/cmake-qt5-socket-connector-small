@@ -154,6 +154,7 @@ QVariant Node::itemChange(GraphicsItemChange change, const QVariant &value)
             // Notify observers of node movement via scene
             if (Scene* typedScene = qobject_cast<Scene*>(scene())) {
                 typedScene->notifyNodeMoved(m_id, oldPos, currentPos);
+                typedScene->updateSceneRect(); // keep scrollbars covering content
             }
         }
         
