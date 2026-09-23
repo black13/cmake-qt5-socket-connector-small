@@ -325,13 +325,17 @@ bool Window::saveGraph(const QString& filename)
     qDebug() << "   Nodes:" << nodeCount;
     qDebug() << "   Edges:" << edgeCount;
 
-    QMessageBox::information(this, "Save Complete",
-        QString("Graph saved successfully!\n\nFile: %1\nNodes: %2\nEdges: %3\nTime: %4ms\nSize: %5 KB")
-        .arg(fileInfo.fileName())
-        .arg(nodeCount)
-        .arg(edgeCount)
-        .arg(elapsed)
-        .arg(fileSize / 1024.0, 0, 'f', 1));
+    // Non-modal feedback: a success dialog blocked every Ctrl+S and made
+    // scripted/automated saves impossible.
+    if (statusBar()) {
+        statusBar()->showMessage(
+            QString("Saved %1 (%2 nodes, %3 edges, %4 ms)")
+                .arg(fileInfo.fileName())
+                .arg(nodeCount)
+                .arg(edgeCount)
+                .arg(elapsed),
+            3000);
+    }
     return true;
 }
 

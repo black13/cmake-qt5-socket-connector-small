@@ -31,6 +31,7 @@
 #include "socket.h"
 
 #include <QAction>
+#include <QFileInfo>
 #include <QGraphicsSceneMouseEvent>
 #include <QScrollBar>
 #include <QUndoStack>
@@ -720,6 +721,40 @@ private slots:
                  "autosave file must survive the shutdown clear (ADVISORY A2)");
     }
 
+    void autosavePreservesUnicode() // advisory 4.12
+    {
+        const QString path = writeTempFile(*m_dir, "autosave_utf8.xml", "");
+        QVERIFY(!path.isEmpty());
+        auto* observer = new XmlAutosaveObserver(m_world->scene, path);
+        observer->setDelay(50);
+        m_world->scene->attach(observer);
+
+        const QString id = m_world->graph->createNode("TRANSFORM", 0, 0);
+        QVERIFY(!id.isEmpty());
+        const QString script = QStringLiteral("return '\u00e9\u65e5';"); // é日
+        const QVariantMap payload{{"text", QStringLiteral("A < B & \u00e9\u65e5")}};
+        QVERIFY(m_world->graph->setNodeScript(id, script));
+        QVERIFY(m_world->graph->setNodePayload(id, payload));
+        observer->saveNow();
+
+        // The raw bytes must be UTF-8 (QTextStream's locale codec wrote 0xE9)
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray bytes = file.readAll();
+        file.close();
+        QVERIFY2(bytes.contains(QStringLiteral("\u00e9\u65e5").toUtf8()),
+                 "autosave must be UTF-8 encoded");
+        QVERIFY2(bytes.contains("encoding=\"UTF-8\""), "declaration must say UTF-8");
+
+        // And the unicode must survive a load through the normal pipeline
+        m_world->graph->clearGraph();
+        QVERIFY(m_world->graph->loadFromFile(path));
+        QCOMPARE(m_world->graph->getNodeScript(id), script);
+        QCOMPARE(m_world->graph->getNodePayload(id), payload);
+
+        delete observer; // destructor self-detaches from the scene
+    }
+
     void sceneTeardownWithLiveGraphIsSafe() // B1/B4 shape
     {
         const QString source = m_world->graph->createNode("SOURCE", 0, 0);
@@ -787,6 +822,22 @@ private slots:
         QCOMPARE(hbar->value(), before + 50);
         view->panBy(QPoint(30, 0));
         QCOMPARE(hbar->value(), before + 20);
+    }
+
+    void saveGraphIsNonModal()
+    {
+        // Used to pop a modal "Save Complete" box on every save, which blocked
+        // Ctrl+S automation; now success is status-bar only.
+        Window window;
+        GraphFactory factory(window.getScene(), nullptr);
+        window.adoptFactory(&factory);
+        QVERIFY(!window.getGraph()->createNode("SOURCE", 10, 10).isEmpty());
+
+        QTemporaryDir dir;
+        const QString path = dir.filePath("window_save.xml");
+        QVERIFY(window.saveGraph(path));
+        QVERIFY(QFile::exists(path));
+        QVERIFY(QFileInfo(path).size() > 0);
     }
 
     void qtActionShortcutsAreNotAmbiguous()
