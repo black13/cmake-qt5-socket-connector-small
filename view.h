@@ -66,6 +66,12 @@ public:
     Q_INVOKABLE bool centerOnSelection();
 
     /**
+     * @brief Scroll the viewport by a viewport-pixel delta (used by
+     * middle-button panning; positive delta scrolls content left/up).
+     */
+    void panBy(const QPoint& viewportDelta);
+
+    /**
      * @brief Snap a scene position to the current grid spacing.
      */
     QPointF snapToGrid(const QPointF& scenePos) const;
@@ -83,6 +89,8 @@ private:
     int m_rubberBandMoveCounter = 0;
     QPoint m_rubberBandStartViewport;
     QPointF m_rubberBandStartScene;
+    bool m_panning = false;             // middle-button drag panning
+    QPoint m_panLastViewportPos;        // last cursor position while panning
     bool m_showGrid = true;
     qreal m_minorGridSpacing = 20.0;
     int m_majorLineInterval = 5;

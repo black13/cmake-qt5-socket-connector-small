@@ -200,7 +200,12 @@ void Socket::mousePressEvent(QGraphicsSceneMouseEvent *event)
         if (scene) {
             scene->startGhostEdge(this, event->scenePos());
         }
+        // Keep the press accepted and do NOT fall through to
+        // QGraphicsItem::mousePressEvent: its default handler ignores right
+        // presses, which would let QGraphicsView start a rubber band around
+        // the ghost-edge drag (the stray rectangle).
         event->accept();
+        return;
     }
     QGraphicsItem::mousePressEvent(event);
 }
