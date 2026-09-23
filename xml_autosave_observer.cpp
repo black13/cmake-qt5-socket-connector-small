@@ -167,14 +167,21 @@ void XmlAutosaveObserver::performAutosave()
     // Create full XML serialization of the current graph
     QString xmlContent = generateFullXml();
     
-    // Write to file (simplified)
+    // Write to file as UTF-8 bytes. QTextStream would use the locale codec on
+    // Windows and corrupt any non-ASCII script/payload text (advisory 4.12).
     qDebug().noquote() << "[AUTOSAVE] writeAutosave() attempting to write to:" << m_filename;
     QFile file(m_filename);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << xmlContent;
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        const QByteArray bytes = xmlContent.toUtf8();
+        const qint64 written = file.write(bytes);
         file.close();
         
+        if (written != bytes.size()) {
+            qDebug().noquote() << "[AUTOSAVE] writeAutosave() SHORT WRITE!";
+            qWarning() << "XmlAutosaveObserver: Short write for" << m_filename;
+            return;
+        }
+
         qint64 elapsed = timer.elapsed();
         QFileInfo fileInfo(m_filename);
         qint64 fileSize = fileInfo.size();
@@ -204,6 +211,8 @@ QString XmlAutosaveObserver::generateFullXml() const
     
     // Create XML document
     xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+    // Declare UTF-8 so the dump matches the bytes performAutosave() writes.
+    doc->encoding = xmlStrdup(BAD_CAST "UTF-8");
     xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "graph");
     xmlDocSetRootElement(doc, root);
     xmlSetProp(root, BAD_CAST "version", BAD_CAST "1.0");
@@ -275,7 +284,7 @@ QString XmlAutosaveObserver::generateFullXml() const
     int bufferSize;
     xmlDocDumpFormatMemory(doc, &xmlBuffer, &bufferSize, 1);
     
-    QString result = QString::fromUtf8(reinterpret_cast<const char*>(xmlBuffer));
+    QString result = QString::fromUtf8(reinterpret_cast<const char*>(xmlBuffer), bufferSize);
     
     // Clean up
     xmlFree(xmlBuffer);
